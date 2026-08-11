@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 from .models import *
-from .services import audit, decide_approval, recurrent_warning, transition_complaint, visible_complaints
+from .services import audit, decide_approval, recurrent_warning, request_complaint_approval, transition_complaint, visible_complaints
 class Base(TestCase):
     def setUp(self):
         self.staff=User.objects.create_user("staff",password="test-password-123"); Profile.objects.create(user=self.staff,role="STAFF")
@@ -21,6 +21,14 @@ class DomainTests(Base):
         r=RiskAssessment.objects.create(complaint=self.complaint(),severity=5,probability=4,assessed_by=self.raqa); self.assertEqual((r.score,r.level,r.capa_review_required),(20,"CRITICAL",True))
     def test_invalid_transition_blocked(self):
         c=self.complaint(); self.assertRaises(ValidationError,transition_complaint,c,"RISK",self.raqa)
+    def test_risk_stage_requires_assessment(self):
+        c=self.complaint(); c.status="RISK"; c.save(); self.assertRaisesMessage(ValidationError,"위험평가를 먼저 완료",transition_complaint,c,"CAPA_DECISION",self.raqa)
+    def test_high_risk_requires_capa(self):
+        c=self.complaint(); c.status="CAPA_DECISION"; c.save(); RiskAssessment.objects.create(complaint=c,severity=4,probability=4,assessed_by=self.raqa); self.assertRaisesMessage(ValidationError,"CAPA를 등록",transition_complaint,c,"REPORT_REVIEW",self.raqa)
+    def test_report_required_before_recall_review(self):
+        c=self.complaint(); c.status="REPORT_REVIEW"; c.save(); self.assertRaisesMessage(ValidationError,"체크리스트",transition_complaint,c,"RECALL_REVIEW",self.raqa)
+    def test_approval_snapshot_and_gate(self):
+        c=self.complaint(); c.status="APPROVAL"; c.save(); a=request_complaint_approval(c,self.raqa); self.assertEqual(a.snapshot["version"],c.version); self.assertEqual(a.snapshot["device"],str(self.d)); self.assertRaisesMessage(ValidationError,"관리자 승인",transition_complaint,c,"ACTION_COMPLETE",self.admin); decide_approval(a,self.admin,"APPROVED"); transition_complaint(c,"ACTION_COMPLETE",self.admin); self.assertEqual(c.status,"ACTION_COMPLETE")
     def test_role_and_ownership(self):
         mine=self.complaint(); foreign=self.complaint(self.other); self.assertEqual(list(visible_complaints(self.staff)),[foreign,mine][::-1] if False else [foreign,mine]) if False else self.assertNotIn(foreign,visible_complaints(self.staff)); self.assertEqual(visible_complaints(self.raqa).count(),2); self.assertRaises(PermissionDenied,transition_complaint,mine,"REVIEW",self.staff)
     @override_settings(PMS_RULES={"LOT_WINDOW_DAYS":30,"LOT_THRESHOLD":3,"DEVICE_WINDOW_DAYS":90,"DEVICE_THRESHOLD":5})
@@ -44,3 +52,7 @@ class WebApiTests(Base):
     def test_api_auth_failure(self): self.assertIn(APIClient().get("/api/complaints/").status_code,(401,403))
     def test_staff_api_create_and_scoping(self):
         foreign=self.complaint(self.other); api=APIClient(); api.login(username="staff",password="test-password-123"); response=api.get("/api/complaints/"); self.assertNotContains(response,str(foreign.pk))
+    def test_integrated_detail_and_risk_form(self):
+        c=self.complaint(); self.client.login(username="raqa",password="test-password-123"); self.assertContains(self.client.get(reverse("complaint-workspace",args=[c.pk])),"위험평가"); response=self.client.post(reverse("risk-save",args=[c.pk]),{"complaint":c.pk,"severity":5,"probability":4,"rationale":"검토"}); self.assertRedirects(response,reverse("complaint-workspace",args=[c.pk])); self.assertEqual(c.risk_assessment.level,"CRITICAL")
+    def test_staff_cannot_submit_workflow_forms(self):
+        c=self.complaint(); self.client.login(username="staff",password="test-password-123"); self.assertEqual(self.client.post(reverse("risk-save",args=[c.pk]),{}).status_code,302); self.assertFalse(RiskAssessment.objects.filter(complaint=c).exists())

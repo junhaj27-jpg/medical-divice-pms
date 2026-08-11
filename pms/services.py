@@ -20,6 +20,10 @@ def visible_complaints(user):
 def transition_complaint(complaint,new_status,user,ip=None):
     if role(user) not in (Profile.Role.RA_QA,Profile.Role.ADMIN): raise PermissionDenied("RA/QA 또는 관리자만 상태를 변경할 수 있습니다.")
     if TRANSITIONS.get(complaint.status)!=new_status: raise ValidationError(f"허용되지 않은 상태 전이입니다: {complaint.status} → {new_status}")
+    if complaint.status=="RISK" and not hasattr(complaint,"risk_assessment"): raise ValidationError("위험평가를 먼저 완료해야 합니다.")
+    if complaint.status=="CAPA_DECISION" and getattr(getattr(complaint,"risk_assessment",None),"capa_review_required",False) and not complaint.capas.exists(): raise ValidationError("HIGH 이상 사건은 CAPA를 등록해야 합니다.")
+    if complaint.status=="REPORT_REVIEW" and not complaint.reports.exists(): raise ValidationError("규제보고 판단과 체크리스트를 먼저 작성해야 합니다.")
+    if complaint.status=="APPROVAL" and not Approval.objects.filter(content_type="CustomerComplaint",object_id=complaint.pk,decision=Approval.Decision.APPROVED).exists(): raise ValidationError("관리자 승인이 완료되어야 조치를 완료할 수 있습니다.")
     if new_status in ("ACTION_COMPLETE","CLOSED") and role(user)!=Profile.Role.ADMIN: raise PermissionDenied("최종 승인·종료는 관리자만 수행할 수 있습니다.")
     old=complaint.status; complaint.status=new_status; complaint.version+=1; complaint.save(update_fields=["status","version","updated_at"]); audit(user,"STATUS_CHANGE",complaint,{"status":old},{"status":new_status},ip); return complaint
 def recurrent_warning(complaint):
@@ -38,6 +42,14 @@ def decide_approval(approval,user,decision,reason="",ip=None):
     if approval.decision!=Approval.Decision.PENDING: raise ValidationError("이미 처리된 승인 요청입니다.")
     if decision==Approval.Decision.REJECTED and not reason.strip(): raise ValidationError("반려 사유는 필수입니다.")
     approval.decision=decision; approval.reason=reason; approval.decided_by=user; approval.decided_at=timezone.now(); approval.save(); audit(user,decision,approval,after={"reason":reason}); return approval
+@transaction.atomic
+def request_complaint_approval(complaint,user,ip=None):
+    if role(user) not in (Profile.Role.RA_QA,Profile.Role.ADMIN): raise PermissionDenied("RA/QA 또는 관리자만 승인을 요청할 수 있습니다.")
+    if complaint.status!="APPROVAL": raise ValidationError("관리자 승인 단계에서만 요청할 수 있습니다.")
+    if Approval.objects.filter(content_type="CustomerComplaint",object_id=complaint.pk,decision=Approval.Decision.PENDING).exists(): raise ValidationError("이미 대기 중인 승인 요청이 있습니다.")
+    risk=getattr(complaint,"risk_assessment",None)
+    snapshot={"complaint_id":complaint.pk,"version":complaint.version,"title":complaint.title,"status":complaint.status,"device":str(complaint.device),"udi":str(complaint.udi),"lot":str(complaint.lot or ""),"risk":{"score":getattr(risk,"score",None),"level":getattr(risk,"level",None)},"capa_ids":list(complaint.capas.values_list("id",flat=True)),"report_ids":list(complaint.reports.values_list("id",flat=True)),"recall_ids":list(complaint.recalls.values_list("id",flat=True))}
+    approval=Approval.objects.create(content_type="CustomerComplaint",object_id=complaint.pk,requested_by=user,snapshot=snapshot); audit(user,"APPROVAL_REQUEST",approval,after=snapshot,ip=ip); return approval
 def create_deadline_notifications():
     today=timezone.localdate(); count=0
     for c in CustomerComplaint.objects.filter(due_date__lte=today).exclude(status="CLOSED").select_related("assignee","reporter"):

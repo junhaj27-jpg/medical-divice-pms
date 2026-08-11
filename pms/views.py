@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count
@@ -7,9 +8,9 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from .forms import AttachmentForm, ComplaintForm, RecallForm, RiskForm
+from .forms import AttachmentForm, CAPAForm, ComplaintForm, RecallForm, ReportForm, RiskForm
 from .models import *
-from .services import audit, recurrent_warning, role, transition_complaint, visible_complaints
+from .services import audit, decide_approval, recurrent_warning, request_complaint_approval, role, transition_complaint, visible_complaints
 def raqa_required(view): return user_passes_test(lambda u: u.is_authenticated and role(u) in (Profile.Role.RA_QA,Profile.Role.ADMIN))(view)
 @login_required
 def dashboard(request):
@@ -26,15 +27,70 @@ def complaint_list(request):
 @login_required
 def complaint_create(request):
     form=ComplaintForm(request.POST or None)
-    if form.is_valid(): obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"title":obj.title}); return redirect("complaint-detail",obj.pk)
+    if form.is_valid(): obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"title":obj.title}); return redirect("complaint-workspace",obj.pk)
     return render(request,"pms/form.html",{"form":form,"title":"고객 불만 접수"})
 @login_required
 def complaint_detail(request,pk):
-    obj=get_object_or_404(visible_complaints(request.user),pk=pk); return render(request,"pms/complaint_detail.html",{"item":obj,"warnings":recurrent_warning(obj),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status)})
+    obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
+    approval=Approval.objects.filter(content_type="CustomerComplaint",object_id=obj.pk).order_by("-created_at").first()
+    context={"item":obj,"warnings":recurrent_warning(obj),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
+    return render(request,"pms/complaint_detail.html",context)
 @login_required
 @require_POST
 def complaint_transition(request,pk):
-    obj=get_object_or_404(visible_complaints(request.user),pk=pk); transition_complaint(obj,request.POST.get("status"),request.user,request.META.get("REMOTE_ADDR")); return redirect("complaint-detail",pk)
+    obj=get_object_or_404(visible_complaints(request.user),pk=pk)
+    try: transition_complaint(obj,request.POST.get("status"),request.user,request.META.get("REMOTE_ADDR")); messages.success(request,"다음 업무 단계로 이동했습니다.")
+    except ValidationError as exc: messages.error(request," ".join(exc.messages))
+    return redirect("complaint-workspace",pk)
+@login_required
+@raqa_required
+@require_POST
+def risk_save(request,pk):
+    complaint=get_object_or_404(CustomerComplaint,pk=pk); current=getattr(complaint,"risk_assessment",None); form=RiskForm(request.POST,instance=current)
+    if form.is_valid(): obj=form.save(commit=False); obj.complaint=complaint; obj.assessed_by=request.user; obj.save(); audit(request.user,"UPDATE" if current else "CREATE",obj,after={"score":obj.score,"level":obj.level}); messages.success(request,f"위험평가 {obj.score}점({obj.level})을 저장했습니다.")
+    else: messages.error(request,form.errors.as_text())
+    return redirect("complaint-workspace",pk)
+@login_required
+@raqa_required
+@require_POST
+def capa_create(request,pk):
+    complaint=get_object_or_404(CustomerComplaint,pk=pk); form=CAPAForm(request.POST)
+    if form.is_valid(): obj=form.save(commit=False); obj.complaint=complaint; obj.save(); audit(request.user,"CREATE",obj,after={"title":obj.title}); messages.success(request,"CAPA를 생성했습니다.")
+    else: messages.error(request,form.errors.as_text())
+    return redirect("complaint-workspace",pk)
+@login_required
+@raqa_required
+@require_POST
+def report_create(request,pk):
+    complaint=get_object_or_404(CustomerComplaint,pk=pk); existing=complaint.reports.order_by("-created_at").first(); form=ReportForm(request.POST,instance=existing)
+    if form.is_valid():
+        obj=form.save(commit=False); obj.complaint=complaint; obj.author=request.user; obj.document_number=obj.document_number or f"DEMO-RR-{timezone.now():%Y%m%d}-{complaint.pk:05d}"; obj.checklist={k:form.cleaned_data[k] for k in ("serious_event","health_deterioration","recurrence_possible","deadline_reviewed")}; obj.save(); audit(request.user,"REPORT_CREATE",obj,after=obj.checklist); messages.success(request,"규제보고 판단과 체크리스트를 저장했습니다.")
+    else: messages.error(request,form.errors.as_text())
+    return redirect("complaint-workspace",pk)
+@login_required
+@raqa_required
+@require_POST
+def recall_create(request,pk):
+    complaint=get_object_or_404(CustomerComplaint,pk=pk); form=RecallForm(request.POST)
+    if form.is_valid(): obj=form.save(commit=False); obj.complaint=complaint; obj.device=complaint.device; obj.owner=request.user; obj.full_clean(); obj.save(); audit(request.user,"CREATE",obj,after={"target_quantity":obj.target_quantity}); messages.success(request,"리콜 검토안을 생성했습니다.")
+    else: messages.error(request,form.errors.as_text())
+    return redirect("complaint-workspace",pk)
+@login_required
+@raqa_required
+@require_POST
+def approval_request(request,pk):
+    complaint=get_object_or_404(CustomerComplaint,pk=pk)
+    try: request_complaint_approval(complaint,request.user,request.META.get("REMOTE_ADDR")); messages.success(request,"관리자 승인을 요청했습니다.")
+    except ValidationError as exc: messages.error(request," ".join(exc.messages))
+    return redirect("complaint-workspace",pk)
+@login_required
+@require_POST
+def approval_decide(request,pk,approval_pk):
+    if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
+    approval=get_object_or_404(Approval,pk=approval_pk,content_type="CustomerComplaint",object_id=pk)
+    try: decide_approval(approval,request.user,request.POST.get("decision"),request.POST.get("reason",""),request.META.get("REMOTE_ADDR")); messages.success(request,"승인 결정을 저장했습니다.")
+    except ValidationError as exc: messages.error(request," ".join(exc.messages))
+    return redirect("complaint-workspace",pk)
 @login_required
 def device_list(request): return render(request,"pms/object_list.html",{"title":"의료기기","items":MedicalDevice.objects.select_related("manufacturer"),"headers":["제품명","모델","제조사"]})
 @login_required
@@ -77,4 +133,4 @@ def attachment_download(request,pk):
 def attachment_upload(request,pk):
     complaint=get_object_or_404(visible_complaints(request.user),pk=pk); form=AttachmentForm(request.POST,request.FILES)
     if not form.is_valid(): raise ValidationError(form.errors.as_json())
-    obj=form.save(commit=False); obj.complaint=complaint; obj.uploaded_by=request.user; obj.original_name=Path(obj.file.name).name; obj.full_clean(); obj.save(); audit(request.user,"CREATE",obj,after={"original_name":obj.original_name}); return redirect("complaint-detail",pk)
+    obj=form.save(commit=False); obj.complaint=complaint; obj.uploaded_by=request.user; obj.original_name=Path(obj.file.name).name; obj.full_clean(); obj.save(); audit(request.user,"CREATE",obj,after={"original_name":obj.original_name}); return redirect("complaint-workspace",pk)

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Attachment, CustomerComplaint, Recall, RiskAssessment
+from .models import Attachment, CAPA, CustomerComplaint, Recall, RegulatoryReport, RiskAssessment
 class StyledForm(forms.ModelForm):
     def __init__(self,*a,**kw):
         super().__init__(*a,**kw)
@@ -9,6 +9,14 @@ class ComplaintForm(StyledForm):
 class RiskForm(StyledForm):
     class Meta: model=RiskAssessment; exclude=("score","level","capa_review_required","assessed_by")
 class RecallForm(StyledForm):
-    class Meta: model=Recall; fields=("title","reason","risk_level","device","distributed_quantity","target_quantity","recovered_quantity","start_date","expected_end_date","owner")
+    class Meta: model=Recall; fields=("title","reason","risk_level","distributed_quantity","target_quantity","recovered_quantity","start_date","expected_end_date")
+class CAPAForm(StyledForm):
+    class Meta: model=CAPA; fields=("title","root_cause","corrective_action","preventive_action","owner","due_date")
+class ReportForm(StyledForm):
+    serious_event=forms.BooleanField(required=False,label="중대 이상사례")
+    health_deterioration=forms.BooleanField(required=False,label="중대한 건강 악화")
+    recurrence_possible=forms.BooleanField(required=False,label="재발 가능성")
+    deadline_reviewed=forms.BooleanField(required=True,label="보고 기한 검토 완료")
+    class Meta: model=RegulatoryReport; fields=("required","investigation_result")
 class AttachmentForm(StyledForm):
     class Meta: model=Attachment; fields=("file",)
