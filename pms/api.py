@@ -1,4 +1,7 @@
+from pathlib import Path
 from rest_framework import status, viewsets
+from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -28,7 +31,15 @@ class ComplaintViewSet(AuditedViewSet):
     @action(detail=True,methods=["post"],permission_classes=[IsRAQAOrAdmin])
     def transition(self,request,pk=None):
         obj=transition_complaint(self.get_object(),request.data.get("status"),request.user,request.META.get("REMOTE_ADDR")); return Response(self.get_serializer(obj).data)
-class AdverseEventViewSet(AuditedViewSet): queryset=AdverseEvent.objects.select_related("complaint"); serializer_class=AdverseEventSerializer; permission_classes=[RoleWritePermission]; filterset_fields=["serious","event_type"]
+class AdverseEventViewSet(AuditedViewSet):
+    queryset=AdverseEvent.objects.none(); serializer_class=AdverseEventSerializer; permission_classes=[IsAuthenticated]; filterset_fields=["serious","event_type"]
+    def get_queryset(self):
+        if getattr(self,"swagger_fake_view",False): return AdverseEvent.objects.none()
+        return AdverseEvent.objects.filter(complaint__in=visible_complaints(self.request.user)).select_related("complaint").order_by("-created_at")
+    def perform_create(self,s):
+        complaint=s.validated_data["complaint"]
+        if not visible_complaints(self.request.user).filter(pk=complaint.pk).exists(): raise DRFPermissionDenied("접근할 수 없는 사건입니다.")
+        obj=s.save(); audit(self.request.user,"CREATE",obj,after=s.data)
 class RiskViewSet(AuditedViewSet):
     queryset=RiskAssessment.objects.select_related("complaint"); serializer_class=RiskSerializer; permission_classes=[IsRAQAOrAdmin]
     def perform_create(self,s): obj=s.save(assessed_by=self.request.user); audit(self.request.user,"CREATE",obj,after=s.data)
@@ -49,3 +60,13 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         if getattr(self,"swagger_fake_view",False): return Notification.objects.none()
         return Notification.objects.filter(user=self.request.user)
 class AuditViewSet(viewsets.ReadOnlyModelViewSet): queryset=AuditLog.objects.all(); serializer_class=AuditSerializer; permission_classes=[IsAdminRole]; filterset_fields=["action","object_type","actor"]
+class AttachmentViewSet(AuditedViewSet):
+    queryset=Attachment.objects.none(); serializer_class=AttachmentSerializer; permission_classes=[IsAuthenticated]
+    def get_queryset(self):
+        if getattr(self,"swagger_fake_view",False): return Attachment.objects.none()
+        return Attachment.objects.filter(complaint__in=visible_complaints(self.request.user))
+    def perform_create(self,s):
+        complaint=s.validated_data["complaint"]
+        if not visible_complaints(self.request.user).filter(pk=complaint.pk).exists(): raise DRFPermissionDenied("접근할 수 없는 사건입니다.")
+        obj=s.save(uploaded_by=self.request.user,original_name=Path(s.validated_data["file"].name).name); obj.full_clean(); audit(self.request.user,"CREATE",obj,after={"original_name":obj.original_name})
+class RecallTargetViewSet(AuditedViewSet): queryset=RecallTarget.objects.select_related("recall","lot"); serializer_class=RecallTargetSerializer; permission_classes=[IsRAQAOrAdmin]; filterset_fields=["recall","lot"]

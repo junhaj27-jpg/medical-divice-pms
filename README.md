@@ -23,6 +23,8 @@
 - 로그인/CRUD/상태/승인/보고서/다운로드 감사 로그
 - 사건 상세 통합 워크스페이스에서 위험평가 → CAPA → 규제보고 → 리콜 → 관리자 승인 처리
 - 승인 요청 시 사건 버전, 제품·UDI·LOT, 위험등급, 연결 CAPA·보고서·리콜을 JSON 스냅샷으로 보존
+- 제품·UDI·LOT·이상사례·CAPA·리콜 상세 화면과 리콜 종료 결과 인쇄
+- ADMIN 사용자 역할·활성 상태 변경, 리콜 승인·반려 사유·종료 보고서 관리
 - cron 또는 Celery 없이도 실행 가능한 `notify_deadlines` 관리 명령
 
 ## 업무 흐름
@@ -163,6 +165,7 @@ docker compose exec web python manage.py seed_demo
 - `/api/devices/`, `/api/udis/`, `/api/lots/`
 - `/api/complaints/`, `/api/adverse-events/`, `/api/risks/`
 - `/api/capas/`, `/api/recalls/`, `/api/reports/`
+- `/api/recall-targets/`, `/api/attachments/`
 - `/api/approvals/`, `/api/notifications/`, `/api/audits/`
 - 상태 전이: `POST /api/complaints/{id}/transition/` 본문 `{"status":"REVIEW"}`
 - 승인 결정: `POST /api/approvals/{id}/decide/` 본문 `{"decision":"REJECTED","reason":"자료 보완"}`

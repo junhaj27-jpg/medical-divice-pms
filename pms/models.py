@@ -29,6 +29,8 @@ class UDI(TimeStamped):
 class ProductLot(TimeStamped):
     device=models.ForeignKey(MedicalDevice,on_delete=models.CASCADE,related_name="lots"); udi=models.ForeignKey(UDI,on_delete=models.PROTECT,related_name="lots"); lot_number=models.CharField(max_length=100); serial_number=models.CharField(max_length=100,blank=True); manufactured_on=models.DateField(null=True,blank=True); expires_on=models.DateField(null=True,blank=True); distributed_quantity=models.PositiveIntegerField(default=0)
     class Meta: unique_together=("udi","lot_number","serial_number")
+    def clean(self):
+        if self.udi_id and self.device_id and self.udi.device_id!=self.device_id: raise ValidationError("UDI는 선택한 의료기기에 속해야 합니다.")
     def __str__(self): return f"{self.lot_number} / {self.serial_number or '-'}"
 
 class CustomerComplaint(TimeStamped):
@@ -55,7 +57,7 @@ class CAPA(TimeStamped):
 class Recall(TimeStamped):
     class Approval(models.TextChoices): DRAFT="DRAFT","작성"; PENDING="PENDING","승인대기"; APPROVED="APPROVED","승인"; REJECTED="REJECTED","반려"
     class Progress(models.TextChoices): PLANNED="PLANNED","계획"; ACTIVE="ACTIVE","진행"; COMPLETED="COMPLETED","완료"; CLOSED="CLOSED","종료"
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.SET_NULL,null=True,blank=True,related_name="recalls"); title=models.CharField(max_length=200); reason=models.TextField(); risk_level=models.CharField(max_length=10); device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="recalls"); distributed_quantity=models.PositiveIntegerField(); target_quantity=models.PositiveIntegerField(); recovered_quantity=models.PositiveIntegerField(default=0); start_date=models.DateField(); expected_end_date=models.DateField(); owner=models.ForeignKey(User,on_delete=models.PROTECT); approval_status=models.CharField(max_length=10,choices=Approval.choices,default=Approval.DRAFT); progress_status=models.CharField(max_length=10,choices=Progress.choices,default=Progress.PLANNED); closure_report=models.TextField(blank=True)
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.SET_NULL,null=True,blank=True,related_name="recalls"); title=models.CharField(max_length=200); reason=models.TextField(); risk_level=models.CharField(max_length=10); device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="recalls"); distributed_quantity=models.PositiveIntegerField(); target_quantity=models.PositiveIntegerField(); recovered_quantity=models.PositiveIntegerField(default=0); start_date=models.DateField(); expected_end_date=models.DateField(); owner=models.ForeignKey(User,on_delete=models.PROTECT); approval_status=models.CharField(max_length=10,choices=Approval.choices,default=Approval.DRAFT); decision_reason=models.TextField(blank=True); progress_status=models.CharField(max_length=10,choices=Progress.choices,default=Progress.PLANNED); closure_report=models.TextField(blank=True)
     def clean(self):
         if self.target_quantity>self.distributed_quantity: raise ValidationError("회수 목표 수량은 유통 수량을 초과할 수 없습니다.")
         if self.recovered_quantity>self.target_quantity: raise ValidationError("실제 회수 수량은 목표 수량을 초과할 수 없습니다.")

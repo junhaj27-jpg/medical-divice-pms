@@ -36,6 +36,8 @@ class DomainTests(Base):
         self.complaint(); self.complaint(); c=self.complaint(); self.assertTrue(any("LOT" in x for x in recurrent_warning(c)))
     def test_recall_validation_and_rate(self):
         r=Recall(title="R",reason="x",risk_level="HIGH",device=self.d,distributed_quantity=10,target_quantity=8,recovered_quantity=4,start_date=timezone.localdate(),expected_end_date=timezone.localdate(),owner=self.raqa); r.full_clean(); self.assertEqual(r.recovery_rate,50); r.recovered_quantity=9; self.assertRaises(ValidationError,r.full_clean)
+    def test_lot_udi_must_match_device(self):
+        other=MedicalDevice.objects.create(manufacturer=self.m,name="Other",model_number="2"); lot=ProductLot(device=other,udi=self.udi,lot_number="BAD"); self.assertRaises(ValidationError,lot.full_clean)
     def test_approval_and_rejection(self):
         a=Approval.objects.create(content_type="Complaint",object_id=1,requested_by=self.raqa); decide_approval(a,self.admin,"REJECTED","자료 보완"); self.assertEqual(a.decision,"REJECTED")
     def test_audit_redacts_sensitive(self):
@@ -56,3 +58,9 @@ class WebApiTests(Base):
         c=self.complaint(); self.client.login(username="raqa",password="test-password-123"); self.assertContains(self.client.get(reverse("complaint-workspace",args=[c.pk])),"위험평가"); response=self.client.post(reverse("risk-save",args=[c.pk]),{"complaint":c.pk,"severity":5,"probability":4,"rationale":"검토"}); self.assertRedirects(response,reverse("complaint-workspace",args=[c.pk])); self.assertEqual(c.risk_assessment.level,"CRITICAL")
     def test_staff_cannot_submit_workflow_forms(self):
         c=self.complaint(); self.client.login(username="staff",password="test-password-123"); self.assertEqual(self.client.post(reverse("risk-save",args=[c.pk]),{}).status_code,302); self.assertFalse(RiskAssessment.objects.filter(complaint=c).exists())
+    def test_staff_adverse_events_are_scoped(self):
+        mine=self.complaint(); foreign=self.complaint(self.other); AdverseEvent.objects.create(complaint=mine,event_type="MINE",outcome="ok",narrative="x"); AdverseEvent.objects.create(complaint=foreign,event_type="FOREIGN",outcome="ok",narrative="x"); self.client.login(username="staff",password="test-password-123"); response=self.client.get(reverse("adverse-list")); self.assertContains(response,"MINE"); self.assertNotContains(response,"FOREIGN")
+    def test_recall_reject_reason_and_close_report(self):
+        recall=Recall.objects.create(title="R",reason="x",risk_level="HIGH",device=self.d,distributed_quantity=10,target_quantity=8,recovered_quantity=4,start_date=timezone.localdate(),expected_end_date=timezone.localdate(),owner=self.raqa); self.client.login(username="admin",password="test-password-123"); self.client.post(reverse("recall-admin-action",args=[recall.pk]),{"action":"reject"}); recall.refresh_from_db(); self.assertEqual(recall.approval_status,"DRAFT"); self.client.post(reverse("recall-admin-action",args=[recall.pk]),{"action":"approve"}); self.client.post(reverse("recall-admin-action",args=[recall.pk]),{"action":"close","closure_report":"회수 종료 확인"}); recall.refresh_from_db(); self.assertEqual(recall.progress_status,"CLOSED")
+    def test_admin_cannot_demote_self(self):
+        self.client.login(username="admin",password="test-password-123"); self.client.post(reverse("user-update",args=[self.admin.profile.pk]),{"role":"STAFF","is_active":"on"}); self.admin.profile.refresh_from_db(); self.assertEqual(self.admin.profile.role,"ADMIN")

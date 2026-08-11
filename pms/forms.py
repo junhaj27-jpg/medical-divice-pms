@@ -1,5 +1,5 @@
 from django import forms
-from .models import Attachment, CAPA, CustomerComplaint, Recall, RegulatoryReport, RiskAssessment
+from .models import AdverseEvent, Attachment, CAPA, CustomerComplaint, MedicalDevice, ProductLot, Recall, RegulatoryReport, RiskAssessment
 class StyledForm(forms.ModelForm):
     def __init__(self,*a,**kw):
         super().__init__(*a,**kw)
@@ -20,3 +20,9 @@ class ReportForm(StyledForm):
     class Meta: model=RegulatoryReport; fields=("required","investigation_result")
 class AttachmentForm(StyledForm):
     class Meta: model=Attachment; fields=("file",)
+class DeviceForm(StyledForm):
+    class Meta: model=MedicalDevice; fields=("manufacturer","name","model_number","risk_class","active")
+class LotForm(StyledForm):
+    class Meta: model=ProductLot; fields=("device","udi","lot_number","serial_number","manufactured_on","expires_on","distributed_quantity")
+class AdverseEventForm(StyledForm):
+    class Meta: model=AdverseEvent; fields=("complaint","patient","event_type","outcome","serious","narrative")
