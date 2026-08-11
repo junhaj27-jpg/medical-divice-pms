@@ -1,0 +1,20 @@
+services:
+  web:
+    build: .
+    ports: ["8000:8000"]
+    env_file: .env
+    environment:
+      DB_ENGINE: postgresql
+      DB_HOST: db
+    volumes: ["media:/app/media"]
+    depends_on:
+      db: {condition: service_healthy}
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pms}
+      POSTGRES_USER: ${DB_USER:-pms}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pms}
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pms}"], interval: 5s, timeout: 5s, retries: 10}
+volumes: {postgres: {}, media: {}}

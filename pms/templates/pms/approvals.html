@@ -1,0 +1,1 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>승인 대기</h1><div class="panel table-wrap"><table><tr><th>유형</th><th>대상</th><th>요청자</th><th>요청일</th><th>상태</th></tr>{% for x in items %}<tr><td>{{x.content_type}}</td><td>#{{x.object_id}}</td><td>{{x.requested_by}}</td><td>{{x.created_at}}</td><td>{{x.get_decision_display}}</td></tr>{% endfor %}</table></div>{% endblock %}

@@ -1,0 +1,1 @@
+{% extends 'pms/base.html' %}{% block content %}<div class="page-head"><h1>{{title}}</h1></div><form method="post" enctype="multipart/form-data" class="panel form-grid">{% csrf_token %}{{form.as_p}}<div><button class="btn primary">저장</button> <a class="btn" href="javascript:history.back()">취소</a></div></form>{% endblock %}

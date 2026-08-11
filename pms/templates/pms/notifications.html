@@ -1,0 +1,1 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>알림</h1>{% for x in items %}<article class="panel"><span class="badge">{{x.level}}</span><h3>{{x.title}}</h3><p>{{x.message}}</p><small>{{x.created_at}}</small></article>{% empty %}<p>알림이 없습니다.</p>{% endfor %}{% endblock %}
