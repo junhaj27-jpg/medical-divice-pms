@@ -12,6 +12,8 @@
   color: white;
   box-shadow: 0 10px 28px #082f4940;
   font-weight: 800;
+  border: 0;
+  cursor: pointer;
 }
 
 .assistant-launcher:hover { color: white; transform: translateY(-2px); }
@@ -19,3 +21,18 @@
 .login-assistant-note { display: flex; flex-direction: column; gap: 3px; margin: 18px 0; padding: 13px 15px; border-radius: 9px; background: var(--ice); color: var(--blue); }
 .login-assistant-note strong { color: var(--teal); }
 .login-assistant-note span { font-size: 13px; }
+
+.assistant-drawer { position: fixed; right: 24px; bottom: 88px; z-index: 19; width: min(390px, calc(100vw - 28px)); padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: white; box-shadow: 0 18px 55px #082f4950; opacity: 0; visibility: hidden; transform: translateY(14px) scale(.98); transition: .18s ease; }
+.assistant-drawer.open { opacity: 1; visibility: visible; transform: none; }
+.drawer-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 15px; }
+.drawer-head div { display: grid; grid-template-columns: 27px 1fr; align-items: center; }
+.drawer-head span { grid-row: 1 / 3; color: var(--teal); font-size: 21px; }
+.drawer-head small { color: var(--muted); font-size: 11px; }
+.drawer-head button { border: 0; background: transparent; color: var(--muted); font-size: 25px; cursor: pointer; }
+.drawer-chat { display: flex; flex-direction: column; padding: 14px 16px; border-radius: 11px; color: white; background: linear-gradient(135deg, var(--teal), var(--blue)); }
+.drawer-chat small { color: #d9f1f3; }
+.drawer-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+.drawer-links a { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #f8fbfc; color: var(--ink); font-size: 13px; font-weight: 700; }
+.drawer-links a:hover { border-color: var(--teal); color: var(--teal); }
+.assistant-drawer > p { margin: 13px 2px 0; color: var(--muted); font-size: 10px; }
+@media (max-width: 600px) { .assistant-launcher { right: 14px; bottom: 14px; } .assistant-drawer { right: 14px; bottom: 76px; } }
