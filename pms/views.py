@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from .forms import AdverseEventForm, AttachmentForm, CAPAForm, ComplaintForm, DeviceForm, LotForm, RecallForm, ReportForm, RiskForm
 from .models import *
+from .assistant_service import answer_question, validate_question
 from .services import audit, decide_approval, recurrent_warning, request_complaint_approval, role, transition_complaint, visible_complaints
 def raqa_required(view): return user_passes_test(lambda u: u.is_authenticated and role(u) in (Profile.Role.RA_QA,Profile.Role.ADMIN))(view)
 @login_required
@@ -184,6 +185,23 @@ def user_update(request,pk):
     if requested not in Profile.Role.values: messages.error(request,"올바르지 않은 역할입니다."); return redirect("user-list")
     if profile.user_id==request.user.id and (requested!=Profile.Role.ADMIN or request.POST.get("is_active")!="on"): messages.error(request,"현재 관리자 자신의 ADMIN 권한이나 활성 상태는 해제할 수 없습니다."); return redirect("user-list")
     profile.role=requested; profile.save(update_fields=["role"]); profile.user.is_active=request.POST.get("is_active")=="on"; profile.user.save(update_fields=["is_active"]); audit(request.user,"UPDATE",profile,before,{"role":profile.role,"active":profile.user.is_active}); messages.success(request,"사용자 권한을 변경했습니다."); return redirect("user-list")
+@login_required
+def assistant_chat(request):
+    conversation=AssistantConversation.objects.filter(user=request.user,is_active=True).first()
+    if not conversation: conversation=AssistantConversation.objects.create(user=request.user)
+    if request.method=="POST":
+        try:
+            question=validate_question(request.POST.get("message")); intent,response=answer_question(request.user,question)
+            AssistantMessage.objects.create(conversation=conversation,role=AssistantMessage.Role.USER,content=question,intent=intent)
+            AssistantMessage.objects.create(conversation=conversation,role=AssistantMessage.Role.ASSISTANT,content=response,intent=intent)
+            conversation.save(update_fields=["updated_at"]); audit(request.user,"ASSISTANT_QUERY",conversation,after={"intent":intent,"length":len(question)},ip=request.META.get("REMOTE_ADDR"))
+        except ValueError as exc: messages.error(request,str(exc))
+        return redirect("assistant-chat")
+    return render(request,"pms/assistant_chat.html",{"conversation":conversation,"chat_messages":conversation.messages.all()[:100]})
+@login_required
+@require_POST
+def assistant_new(request):
+    AssistantConversation.objects.filter(user=request.user,is_active=True).update(is_active=False); AssistantConversation.objects.create(user=request.user); return redirect("assistant-chat")
 @login_required
 def attachment_download(request,pk):
     obj=get_object_or_404(Attachment,pk=pk,complaint__in=visible_complaints(request.user)); audit(request.user,"ATTACHMENT_DOWNLOAD",obj); return FileResponse(obj.file.open("rb"),as_attachment=True,filename=obj.original_name or "attachment")

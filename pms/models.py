@@ -81,3 +81,10 @@ class AuditLog(models.Model):
     class Meta: ordering=["-created_at"]
 class Notification(TimeStamped):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name="notifications"); title=models.CharField(max_length=200); message=models.TextField(); level=models.CharField(max_length=10,default="INFO"); due_at=models.DateTimeField(null=True,blank=True); read_at=models.DateTimeField(null=True,blank=True)
+class AssistantConversation(TimeStamped):
+    user=models.ForeignKey(User,on_delete=models.CASCADE,related_name="assistant_conversations"); title=models.CharField(max_length=120,default="RA 업무 상담"); is_active=models.BooleanField(default=True)
+    class Meta: ordering=["-updated_at"]
+class AssistantMessage(models.Model):
+    class Role(models.TextChoices): USER="USER","사용자"; ASSISTANT="ASSISTANT","RA 도우미"
+    conversation=models.ForeignKey(AssistantConversation,on_delete=models.CASCADE,related_name="messages"); role=models.CharField(max_length=10,choices=Role.choices); content=models.TextField(max_length=4000); intent=models.CharField(max_length=40,blank=True); created_at=models.DateTimeField(auto_now_add=True)
+    class Meta: ordering=["created_at"]

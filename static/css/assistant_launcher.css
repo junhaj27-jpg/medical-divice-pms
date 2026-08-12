@@ -1,0 +1,21 @@
+.assistant-launcher {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--teal), var(--blue));
+  color: white;
+  box-shadow: 0 10px 28px #082f4940;
+  font-weight: 800;
+}
+
+.assistant-launcher:hover { color: white; transform: translateY(-2px); }
+.assistant-launcher span { font-size: 19px; }
+.login-assistant-note { display: flex; flex-direction: column; gap: 3px; margin: 18px 0; padding: 13px 15px; border-radius: 9px; background: var(--ice); color: var(--blue); }
+.login-assistant-note strong { color: var(--teal); }
+.login-assistant-note span { font-size: 13px; }

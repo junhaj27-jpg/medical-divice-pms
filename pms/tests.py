@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from .models import *
 from .services import audit, decide_approval, recurrent_warning, request_complaint_approval, transition_complaint, visible_complaints
+from .assistant_service import answer_question, validate_question
 class Base(TestCase):
     def setUp(self):
         self.staff=User.objects.create_user("staff",password="test-password-123"); Profile.objects.create(user=self.staff,role="STAFF")
@@ -64,3 +65,11 @@ class WebApiTests(Base):
         recall=Recall.objects.create(title="R",reason="x",risk_level="HIGH",device=self.d,distributed_quantity=10,target_quantity=8,recovered_quantity=4,start_date=timezone.localdate(),expected_end_date=timezone.localdate(),owner=self.raqa); self.client.login(username="admin",password="test-password-123"); self.client.post(reverse("recall-admin-action",args=[recall.pk]),{"action":"reject"}); recall.refresh_from_db(); self.assertEqual(recall.approval_status,"DRAFT"); self.client.post(reverse("recall-admin-action",args=[recall.pk]),{"action":"approve"}); self.client.post(reverse("recall-admin-action",args=[recall.pk]),{"action":"close","closure_report":"회수 종료 확인"}); recall.refresh_from_db(); self.assertEqual(recall.progress_status,"CLOSED")
     def test_admin_cannot_demote_self(self):
         self.client.login(username="admin",password="test-password-123"); self.client.post(reverse("user-update",args=[self.admin.profile.pk]),{"role":"STAFF","is_active":"on"}); self.admin.profile.refresh_from_db(); self.assertEqual(self.admin.profile.role,"ADMIN")
+    def test_assistant_respects_staff_case_scope(self):
+        mine=self.complaint(); foreign=self.complaint(self.other); RiskAssessment.objects.create(complaint=mine,severity=5,probability=4,assessed_by=self.raqa); RiskAssessment.objects.create(complaint=foreign,severity=5,probability=4,assessed_by=self.raqa); intent,response=answer_question(self.staff,"고위험 사건 보여줘"); self.assertEqual(intent,"HIGH_RISK"); self.assertIn(f"CMP-{mine.pk:05d}",response); self.assertNotIn(f"CMP-{foreign.pk:05d}",response)
+    def test_assistant_rejects_direct_identifiers(self):
+        self.assertRaises(ValueError,validate_question,"환자 전화번호 010-1234-5678 확인해줘"); self.assertRaises(ValueError,validate_question,"주민번호 900101-1234567")
+    def test_assistant_chat_persists_without_prompt_audit(self):
+        self.client.login(username="staff",password="test-password-123"); response=self.client.post(reverse("assistant-chat"),{"message":"업무 흐름 알려줘"}); self.assertRedirects(response,reverse("assistant-chat")); conversation=AssistantConversation.objects.get(user=self.staff); self.assertEqual(conversation.messages.count(),2); log=AuditLog.objects.get(action="ASSISTANT_QUERY"); self.assertEqual(log.after["intent"],"WORKFLOW"); self.assertNotIn("업무 흐름",str(log.after))
+    def test_assistant_conversations_are_user_isolated(self):
+        mine=AssistantConversation.objects.create(user=self.staff); AssistantMessage.objects.create(conversation=mine,role="USER",content="내 질문"); other=AssistantConversation.objects.create(user=self.other); AssistantMessage.objects.create(conversation=other,role="USER",content="타인 비밀 질문"); self.client.login(username="staff",password="test-password-123"); response=self.client.get(reverse("assistant-chat")); self.assertContains(response,"내 질문"); self.assertNotContains(response,"타인 비밀 질문")
