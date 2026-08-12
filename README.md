@@ -33,12 +33,51 @@
 9. `admin`으로 승인 또는 사유를 포함한 반려를 처리합니다.
 10. 감사 로그와 포트폴리오용 규제보고서·리콜 종료 보고서를 인쇄합니다.
 
+## RA 전용 챗봇
+
+로그인 후 상단의 **RA 도우미** 메뉴 또는 모든 업무 화면 우측 하단의 **RA 챗봇** 버튼으로 실행합니다. 직접 주소는 `/assistant/`입니다. 이 기능은 외부 생성형 AI API를 호출하지 않는 로컬 규칙 기반 도우미로, 데모 데이터와 현재 사용자의 접근 권한 범위 안에서만 답변합니다.
+
+### 지원 질문
+
+| 질문 유형 | 예시 | 응답 내용 |
+|---|---|---|
+| 고위험 사건 | `고위험 사건 현황 알려줘` | HIGH·CRITICAL 사건번호, 제목, 상태 요약 |
+| 기한 초과 | `기한 초과 사건 보여줘` | 완료되지 않은 기한 초과 사건 목록 |
+| 사건 상태 | `CMP-1 상태 알려줘` | 현재 상태, 위험등급, 담당 업무 안내 |
+| CAPA | `진행 중 CAPA 알려줘` | 연결 사건과 CAPA 진행 현황 |
+| 리콜 | `리콜 회수율 보여줘` | 리콜별 회수 수량과 회수율 |
+| 위험 기준 | `위험등급 계산 기준 알려줘` | 심각도 × 발생 가능성과 등급 기준 |
+| 업무 절차 | `PMS 업무 흐름 알려줘` | 불만 접수부터 승인·종료까지 순서 |
+
+### 권한과 개인정보 보호
+
+- STAFF 질문에는 본인이 접수한 사건만 포함됩니다.
+- RA_QA와 ADMIN은 각 역할에서 허용된 전체 업무 범위를 조회합니다.
+- 대화는 로그인 사용자별로 분리되며 다른 사용자의 대화를 조회할 수 없습니다.
+- 이름·전화번호·주민등록번호처럼 직접 식별 가능한 정보가 포함된 질문은 서버에서 거부합니다.
+- 감사 로그에는 질문 원문 대신 의도 분류와 글자 수만 저장합니다.
+- 챗봇 답변은 업무 참고용이며 최종 규제 판단과 의료 판단은 담당자가 검토해야 합니다.
+
+### 챗봇 처리 흐름
+
+```mermaid
+flowchart LR
+    Q["사용자 질문"] --> V["입력 길이·식별정보 검증"]
+    V --> P["로그인 역할·사건 접근범위 적용"]
+    P --> I["질문 의도 분류"]
+    I --> D["PMS 데이터 조회"]
+    D --> A["근거와 면책문구를 포함한 답변"]
+    A --> H["사용자별 대화 저장"]
+    I --> L["원문 없는 감사 로그"]
+```
+
 ## 주요 화면
 
 | 화면 | 핵심 내용 |
 |---|---|
 | 로그인 | Django 인증, 성공·실패 감사 로그 |
 | 역할별 대시보드 | 불만, 기한 초과, 고위험 사건, CAPA, 보고서, 리콜 지표와 차트 |
+| RA 전용 챗봇 | 사건 상태·고위험·기한·CAPA·리콜 현황과 업무 절차 질의 |
 | 사건 통합 워크스페이스 | 사건 개요, 위험평가, CAPA, 규제보고, 리콜, 승인 상태를 한 화면에서 처리 |
 | 의료기기 상세 | 제조사, 모델, 위험등급, UDI·LOT·불만·리콜 연결 현황 |
 | UDI·LOT 상세 | 제품 추적성, 시리얼번호, 제조·사용기한, 유통 수량 |
@@ -56,6 +95,7 @@ flowchart TB
     API["Django REST Framework\nSearch · Filter · Pagination"]
     Auth["Authentication & Role Permission\nSTAFF · RA_QA · ADMIN"]
     Service["Service Layer\nState Transition · Approval · Detection"]
+    Assistant["RA Assistant\nIntent · Scope · Privacy Validation"]
     Domain["PMS Domain Models\nComplaint · Risk · CAPA · Report · Recall"]
     Audit["Audit & Notification\nRedaction · Deadline Alert"]
     DB[("SQLite / PostgreSQL")]
@@ -64,6 +104,9 @@ flowchart TB
     Browser --> Auth
     API --> Auth
     Auth --> Service
+    Auth --> Assistant
+    Assistant --> Domain
+    Assistant --> Audit
     Service --> Domain
     Service --> Audit
     Domain --> DB
@@ -79,6 +122,7 @@ flowchart TB
 - `views.py`: 서버 렌더링 화면과 POST 작업의 권한·객체 접근 통제
 - `forms.py` / `serializers.py`: 화면과 API 입력 검증
 - `middleware.py`: 로그인 성공·실패 감사 기록
+- `assistant_service.py`: 질문 검증, 역할별 사건 범위, 의도 분류와 로컬 응답 생성
 
 ## 핵심 설계 결정
 
@@ -120,6 +164,7 @@ STAFF는 단순히 읽기 권한을 받는 것이 아니라 `reporter=request.us
 | 감사 로그 | `audit()`, middleware | 민감정보 마스킹 테스트 |
 | 첨부 보안 | `Attachment`, serializer | 확장자·크기 테스트 |
 | 익명 환자 | `PatientAnonymousInfo` | 직접 식별정보 차단 테스트 |
+| RA 챗봇 | `assistant_service.py`, 대화 모델 | 역할별 범위·사용자 격리·식별정보 차단 테스트 |
 | 보고서 | `report_print.html`, `recall_print.html` | HTML 인쇄/PDF 저장 |
 
 ## 위험평가 예시
@@ -233,6 +278,16 @@ python manage.py runserver
 
 브라우저에서 `http://127.0.0.1:8000/`을 엽니다. API 문서는 `/api/docs/`, Django 관리 화면은 `/admin/`입니다. `.env`를 자동 로드하는 패키지를 일부러 강제하지 않았으므로 로컬 셸에서 값을 내보내거나 Docker Compose의 `env_file`을 사용합니다. 개발 시 `DEBUG=True`, 운영 시 반드시 `False`를 사용하세요.
 
+### 주요 로컬 주소
+
+| 화면 | 주소 |
+|---|---|
+| 로그인 | `http://127.0.0.1:8000/accounts/login/` |
+| 대시보드 | `http://127.0.0.1:8000/` |
+| RA 챗봇 | `http://127.0.0.1:8000/assistant/` |
+| API 문서 | `http://127.0.0.1:8000/api/docs/` |
+| 관리자 | `http://127.0.0.1:8000/admin/` |
+
 ### 환경변수
 
 | 이름 | 설명 / 기본값 |
@@ -265,8 +320,297 @@ DEMO_PASSWORD='직접-정한-안전한-비밀번호' python manage.py seed_demo
 
 생성 계정은 `admin`(ADMIN), `raqa`(RA_QA), `staff`(STAFF)입니다. 비밀번호는 소스에 없으며 `DEMO_PASSWORD`가 없으면 명령이 실패합니다. 샘플 환자 데이터에는 직접 식별정보가 없습니다.
 
+| 계정 | 역할 | 권장 데모 동선 |
+|---|---|---|
+| `staff` | 접수 담당 | 본인 불만 등록·조회, 챗봇에서 본인 사건 범위 확인 |
+| `raqa` | RA/QA 검토 | 위험평가·CAPA·보고·리콜, 챗봇 업무 현황 질의 |
+| `admin` | 관리자 | 최종 승인·반려·감사·사용자 관리 |
+
 기한 알림은 스케줄러에서 다음 명령을 매일 실행할 수 있습니다.
 
 ```bash
-python manage.p��w��$z{-���jם��&��f�&��6fR�6��֗C�f�6R���&��6�����C�6�����C��&��FWf�6S�6�����B�FWf�6S��&���v�W#�&WVW7B�W6W#��&��gV���6�Vₓ��&��6fR���VF�B�&WVW7B�W6W"�$5$TDR"��&��gFW#ײ'F&vWE�V�F�G�#��&��F&vWE�V�F�G�ғ��W76vW2�7V66W72�&WVW7B�.�j�����(�j�X���B�9��K�h�ȫ^�����B�"��V�6S��W76vW2�W'&�"�&WVW7B�f�&��W'&�'2�5�FW�B����&WGW&�&VF�&V7B�&6�����B�v�&�76R"������v���&WV�&V@�&�&WV�&V@�&WV�&U��5@�FVb&�f��&WVW7B�&WVW7B�����6�����C�vWE��&�V7E��%�CB�7W7F��W$6�����B������G'��&WVW7E�6�����E�&�f6�����B�&WVW7B�W6W"�&WVW7B��UD�vWB�%$T��DU�DE""����W76vW2�7V66W72�&WVW7B�.�H�j���ȫ��ێ��BɩN�*��h�ȫ^�����B�"��W�6WBfƖFF���W'&�"2W�3��W76vW2�W'&�"�&WVW7B�""����W�2��W76vW2���&WGW&�&VF�&V7B�&6�����B�v�&�76R"������v���&WV�&V@�&WV�&U��5@�FVb&�f��FV6�FR�&WVW7B���&�f�������b&��R�&WVW7B�W6W"��&�f��R�&��R�DԔ�&�6RW&֗76���FV�V@�&�f��vWE��&�V7E��%�CB�&�f����&�f����6��FV�E�G�S�$7W7F��W$6�����B"��&�V7E��C����G'��FV6�FU�&�f&�f��&WVW7B�W6W"�&WVW7B��5B�vWB�&FV6�6���"��&WVW7B��5B�vWB�'&V6��"�""��&WVW7B��UD�vWB�%$T��DU�DE""����W76vW2�7V66W72�&WVW7B�.ȫ��ۂ�+�	^��B���^�h�ȫ^�����B�"��W�6WBfƖFF���W'&�"2W�3��W76vW2�W'&�"�&WVW7B�""����W�2��W76vW2���&WGW&�&VF�&V7B�&6�����B�v�&�76R"������v���&WV�&V@�FVbFWf�6U�Ɨ7B�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2��&�V7E�Ɨ7B�F��"ǲ'F�F�R#�.�َ�8Ϋ���"�&�FV�2#��VF�6�FWf�6R��&�V7G2�6V�V7E�&V�FVB�&��Vf7GW&W""��&�VFW'2#��.�	��(���R"�.����ۂ"�.�	���*�%�Ґ���v���&WV�&V@�FVbFWf�6U�FWF�&WVW7B����&WGW&�&V�FW"�&WVW7B�'�2�FWf�6U�FWF���F��"ǲ&�FV�#�vWE��&�V7E��%�CB��VF�6�FWf�6R��&�V7G2�6V�V7E�&V�FVB�&��Vf7GW&W""������Ґ���v���&WV�&V@�&�&WV�&V@�FVbFWf�6U�7&VFR�&WVW7B���f�&��FWf�6Tf�&҇&WVW7B��5B�"���R���bf�&��5�fƖB����&��f�&��6fR���VF�B�&WVW7B�W6W"�$5$TDR"��&��gFW#ײ&��FV���V�&W"#��&����FV���V�&W'ғ�&WGW&�&VF�&V7B�&FWf�6R�FWF��"��&�����&WGW&�&V�FW"�&WVW7B�'�2�f�&��F��"ǲ&f�&�#�f�&��'F�F�R#�.�َ�8Ϋ����;��'Ґ���v���&WV�&V@�FVb��E�Ɨ7B�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2���E�Ɨ7B�F��"ǲ&�FV�2#�&�GV7D��B��&�V7G2�6V�V7E�&V�FVB�&FWf�6R"�'VF�"�Ґ���v���&WV�&V@�FVb��E�FWF�&WVW7B����&WGW&�&V�FW"�&WVW7B�'�2���E�FWF���F��"ǲ&�FV�#�vWE��&�V7E��%�CB�&�GV7D��B��&�V7G2�6V�V7E�&V�FVB�&FWf�6R"�'VF�"������Ґ���v���&WV�&V@�&�&WV�&V@�FVb��E�7&VFR�&WVW7B���f�&����Df�&҇&WVW7B��5B�"���R���bf�&��5�fƖB����&��f�&��6fR���VF�B�&WVW7B�W6W"�$5$TDR"��&��gFW#ײ&��E��V�&W"#��&����E��V�&W'ғ�&WGW&�&VF�&V7B�&��B�FWF��"��&�����&WGW&�&V�FW"�&WVW7B�'�2�f�&��F��"ǲ&f�&�#�f�&��'F�F�R#�%TD�+t��L+~ȹκj��k��;��'Ґ���v���&WV�&V@�FVbGfW'6U�Ɨ7B�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2�GfW'6U�Ɨ7B�F��"ǲ&�FV�2#�GfW'6TWfV�B��&�V7G2�f��FW"�6�����E�����f�6�&�U�6�����G2�&WVW7B�W6W"���6V�V7E�&V�FVB�&6�����B"�Ґ���v���&WV�&V@�FVbGfW'6U�7&VFR�&WVW7B���f�&��GfW'6TWfV�Df�&҇&WVW7B��5B�"���R��f�&��f�V�G5�&6�����B%��VW'�6WC�f�6�&�U�6�����G2�&WVW7B�W6W"���b&��R�&WVW7B�W6W"���&�f��R�&��R�5Ddc�f�&��f�V�G5�'F�V�B%��VW'�6WC�F�V�D�����W4��f���&�V7G2�f��FW"�6�����E��&W�'FW#�&WVW7B�W6W"���bf�&��5�fƖB����&��f�&��6fR���VF�B�&WVW7B�W6W"�$5$TDR"��&��gFW#ײ&WfV�E�G�R#��&��WfV�E�G�Wғ�&WGW&�&VF�&V7B�&GfW'6R�FWF��"��&�����&WGW&�&V�FW"�&WVW7B�'�2�f�&��F��"ǲ&f�&�#�f�&��'F�F�R#�.��N�8�*κ�;��'Ґ���v���&WV�&V@�FVbGfW'6U�FWF�&WVW7B����&WGW&�&V�FW"�&WVW7B�'�2�GfW'6U�FWF���F��"ǲ&�FV�#�vWE��&�V7E��%�CB�GfW'6TWfV�B��&�V7G2�f��FW"�6�����E�����f�6�&�U�6�����G2�&WVW7B�W6W"���6V�V7E�&V�FVB�&6�����B"�'F�V�B"������Ґ���v���&WV�&V@�&�&WV�&V@�FVb6�Ɨ7B�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2�6�Ɨ7B�F��"ǲ&�FV�2#�4��&�V7G2�6V�V7E�&V�FVB�&6�����B"�&�v�W""�Ґ���v���&WV�&V@�&�&WV�&V@�FVb6�FWF�&WVW7B����&WGW&�&V�FW"�&WVW7B�'�2�6�FWF���F��"ǲ&�FV�#�vWE��&�V7E��%�CB�4��&�V7G2�6V�V7E�&V�FVB�&6�����B"�&�v�W""������Ґ���v���&WV�&V@�&�&WV�&V@�FVb&V6���Ɨ7B�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2�&V6���Ɨ7B�F��"ǲ&�FV�2#�&V6����&�V7G2�6V�V7E�&V�FVB�&FWf�6R"�Ґ���v���&WV�&V@�&�&WV�&V@�FVb&V6���FWF�&WVW7B����&WGW&�&V�FW"�&WVW7B�'�2�&V6���FWF���F��"ǲ&�FV�#�vWE��&�V7E��%�CB�&V6����&�V7G2�6V�V7E�&V�FVB�&FWf�6R"�&�v�W""�&6�����B"������Ґ���v���&WV�&V@�&WV�&U��5@�FVb&V6���F֖��7F���&WVW7B������b&��R�&WVW7B�W6W"��&�f��R�&��R�DԔ�&�6RW&֗76���FV�V@��&��vWE��&�V7E��%�CB�&V6��������7F����&WVW7B��5B�vWB�&7F���"��&Vf�&Sײ&&�f��7FGW2#��&��&�f��7FGW2�'&�w&W75�7FGW2#��&��&�w&W75�7FGW7Т&V6���&WVW7B��5B�vWB�&FV6�6����&V6��"�""��7G&�����b7F�����&&�fR#��&��&�f��7FGW3�&V6���&�f��$�dTC��&��FV6�6����&V6���&V6��VƖb7F�����'&V�V7B#���b��B&V6���W76vW2�W'&�"�&WVW7B�.�j�����	��
-B�*�����B�XNȉ���^�����B�"��&WGW&�&VF�&V7B�'&V6���FWF��"�����&��&�f��7FGW3�&V6���&�f��$T�T5DTC��&��FV6�6����&V6���&V6��VƖb7F�����&6��6R#���&��6��7W&U�&W�'C�&WVW7B��5B�vWB�&6��7W&U�&W�'B"��&��6��7W&U�&W�'B��7G&�����b�&��&�f��7FGW2�&V6���&�f��$�dTB�"��B�&��6��7W&U�&W�'B�7G&�����W76vW2�W'&�"�&WVW7B�.ȫ��ێ�;��(^�8��;N�:�IΫ���kN�[��j������B�(^�8��Zȉ���ȫ^�����B�"��&WGW&�&VF�&V7B�'&V6���FWF��"�����&��&�w&W75�7FGW3�&V6���&�w&W72�4��4T@�V�6S�&�6RfƖFF���W'&�"�.�xɹ�Y��x�X���B�j�����˙���^�����B�"���&��6fR���VF�B�&WVW7B�W6W"�%$T4���"�7F����WW"����&��&Vf�&Rǲ&&�f��7FGW2#��&��&�f��7FGW2�'&�w&W75�7FGW2#��&��&�w&W75�7FGW7ғ��W76vW2�7V66W72�&WVW7B�.�j�����8�9κ[��8�+��h�ȫ^�����B�"��&WGW&�&VF�&V7B�'&V6���FWF��"������v���&WV�&V@�&�&WV�&V@�FVb&V6���&��B�&WVW7B������&��vWE��&�V7E��%�CB�&V6����&�V7G2�6V�V7E�&V�FVB�&FWf�6R"�&�v�W""�&6�����B"�������VF�B�&WVW7B�W6W"�%$U�%E�tT�U$DR"��&���&WGW&�&V�FW"�&WVW7B�'�2�&V6���&��B�F��"ǲ&�FV�#��&�Ґ���v���&WV�&V@�&�&WV�&V@�FVb&W�'E�Ɨ7B�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2�&W�'E�Ɨ7B�F��"ǲ&�FV�2#�&VwV�F�'�&W�'B��&�V7G2�6V�V7E�&V�FVB�&6�����B"�Ґ���v���&WV�&V@�&�&WV�&V@�FVb&W�'E�&��B�&WVW7B������&��vWE��&�V7E��%�CB�&VwV�F�'�&W�'B������VF�B�&WVW7B�W6W"�%$U�%E�tT�U$DR"��&���&WGW&�&V�FW"�&WVW7B�'�2�&W�'E�&��B�F��"ǲ&�FV�#��&�Ґ���v���&WV�&V@�FVb��F�f�6F���2�&WVW7B��&WGW&�&V�FW"�&WVW7B�'�2���F�f�6F���2�F��"ǲ&�FV�2#���F�f�6F�����&�V7G2�f��FW"�W6W#�&WVW7B�W6W"�Ґ���v���&WV�&V@�FVb&�f�2�&WVW7B����b&��R�&WVW7B�W6W"��&�f��R�&��R�DԔ�&�6RW&֗76���FV�V@�&WGW&�&V�FW"�&WVW7B�'�2�&�f�2�F��"ǲ&�FV�2#�&�f���&�V7G2�f��FW"�FV6�6����%T�D��r"�Ґ���v���&WV�&V@�FVbVF�E���w2�&WVW7B����b&��R�&WVW7B�W6W"��&�f��R�&��R�DԔ�&�6RW&֗76���FV�V@�&WGW&�&V�FW"�&WVW7B�'�2�VF�G2�F��"ǲ&�FV�2#�VF�D��r��&�V7G2�6V�V7E�&V�FVB�&7F�""���#�Ґ���v���&WV�&V@�FVbW6W'2�&WVW7B����b&��R�&WVW7B�W6W"��&�f��R�&��R�DԔ�&�6RW&֗76���FV�V@�&WGW&�&V�FW"�&WVW7B�'�2�W6W'2�F��"ǲ&�FV�2#�&�f��R��&�V7G2�6V�V7E�&V�FVB�'W6W""�Ґ���v���&WV�&V@�&WV�&U��5@�FVbW6W%�WFFR�&WVW7B������b&��R�&WVW7B�W6W"��&�f��R�&��R�DԔ�&�6RW&֗76���FV�V@�&�f��S�vWE��&�V7E��%�CB�&�f��R��&�V7G2�6V�V7E�&V�FVB�'W6W""�������&Vf�&Sײ'&��R#�&�f��R�&��R�&7F�fR#�&�f��R�W6W"�5�7F�fWӲ&WVW7FVC�&WVW7B��5B�vWB�'&��R"���b&WVW7FVB��B��&�f��R�&��R�f�VW3��W76vW2�W'&�"�&WVW7B�.Ɋλ	N�[N�x�X����z��Z��^�����B�"��&WGW&�&VF�&V7B�'W6W"�Ɨ7B"���b&�f��R�W6W%��C��&WVW7B�W6W"�B�B�&WVW7FVB�&�f��R�&��R�DԔ��"&WVW7B��5B�vWB�&�5�7F�fR"��&��"���W76vW2�W'&�"�&WVW7B�.وN����H�j�����Ⱥ�قDԔ��h��Y���N�)�ٙ��K�8�9θ�B�[N�	��Zȉ��xnȫ^�����B�"��&WGW&�&VF�&V7B�'W6W"�Ɨ7B"��&�f��R�&��S�&WVW7FVC�&�f��R�6fR�WFFU�f�V�G3ղ'&��R%ғ�&�f��R�W6W"�5�7F�fS�&WVW7B��5B�vWB�&�5�7F�fR"���&��#�&�f��R�W6W"�6fR�WFFU�f�V�G3ղ&�5�7F�fR%ғ�VF�B�&WVW7B�W6W"�%UDDR"�&�f��R�&Vf�&Rǲ'&��R#�&�f��R�&��R�&7F�fR#�&�f��R�W6W"�5�7F�fWғ��W76vW2�7V66W72�&WVW7B�.�*�ɪ����h��Y���B�8�+��h�ȫ^�����B�"��&WGW&�&VF�&V7B�'W6W"�Ɨ7B"����v���&WV�&V@�FVb76�7F�E�6�B�&WVW7B���6��fW'6F����76�7F�D6��fW'6F�����&�V7G2�f��FW"�W6W#�&WVW7B�W6W"Ɨ5�7F�fS�G'VR��f�'7B����b��B6��fW'6F���6��fW'6F����76�7F�D6��fW'6F�����&�V7G2�7&VFR�W6W#�&WVW7B�W6W"���b&WVW7B��WF��C��%�5B#��G'���VW7F����fƖFFU�VW7F���&WVW7B��5B�vWB�&�W76vR"�����FV�B�&W7��6S��7vW%�VW7F���&WVW7B�W6W"�VW7F��␢76�7F�D�W76vR��&�V7G2�7&VFR�6��fW'6F����6��fW'6F����&��S�76�7F�D�W76vR�&��R�U4U"�6��FV�C�VW7F���Ɩ�FV�C֖�FV�B��76�7F�D�W76vR��&�V7G2�7&VFR�6��fW'6F����6��fW'6F����&��S�76�7F�D�W76vR�&��R�54�5D�B�6��FV�C�&W7��6RƖ�FV�C֖�FV�B��6��fW'6F����6fR�WFFU�f�V�G3ղ'WFFVE�B%ғ�VF�B�&WVW7B�W6W"�$54�5D�E�TU%�"�6��fW'6F����gFW#ײ&��FV�B#���FV�B�&�V�wF�#��V�VW7F����Ɨ�&WVW7B��UD�vWB�%$T��DU�DE""���W�6WBf�VTW'&�"2W�3��W76vW2�W'&�"�&WVW7B�7G"�W�2���&WGW&�&VF�&V7B�&76�7F�B�6�B"��&WGW&�&V�FW"�&WVW7B�'�2�76�7F�E�6�B�F��"ǲ&6��fW'6F���#�6��fW'6F����&6�E��W76vW2#�6��fW'6F�����W76vW2������Ґ���v���&WV�&V@�&WV�&U��5@�FVb76�7F�E��Wr�&WVW7B���76�7F�D6��fW'6F�����&�V7G2�f��FW"�W6W#�&WVW7B�W6W"Ɨ5�7F�fS�G'VR��WFFR��5�7F�fS�f�6R��76�7F�D6��fW'6F�����&�V7G2�7&VFR�W6W#�&WVW7B�W6W"��&WGW&�&VF�&V7B�&76�7F�B�6�B"����v���&WV�&V@�FVbGF6��V�E�F�v���B�&WVW7B������&��vWE��&�V7E��%�CB�GF6��V�B�����6�����E�����f�6�&�U�6�����G2�&WVW7B�W6W"���VF�B�&WVW7B�W6W"�$ED4��T�E�D�t���B"��&���&WGW&�f��U&W7��6R��&��f��R��V�'&""��5�GF6��V�C�G'VR�f��V��S��&���&�v������R�"&GF6��V�B"����v���&WV�&V@�&WV�&U��5@�FVbGF6��V�E�W��B�&WVW7B�����6�����C�vWE��&�V7E��%�CB�f�6�&�U�6�����G2�&WVW7B�W6W"�������f�&��GF6��V�Df�&҇&WVW7B��5B�&WVW7B�d��U2���b��Bf�&��5�fƖB���&�6RfƖFF���W'&�"�f�&��W'&�'2�5��6�ₒ���&��f�&��6fR�6��֗C�f�6R���&��6�����C�6�����C��&��W��FVE�'��&WVW7B�W6W#��&���&�v������S�F���&��f��R���R����S��&��gV���6�Vₓ��&��6fR���VF�B�&WVW7B�W6W"�$5$TDR"��&��gFW#ײ&�&�v������R#��&���&�v������Wғ�&WGW&�&VF�&V7B�&6�����B�v�&�76R"���
+python manage.py notify_deadlines
+```
+
+## 테스트
+
+```bash
+python manage.py check
+python manage.py test -v 2
+python manage.py check --deploy
+```
+
+역할별 권한, 타인 사건 차단, 위험 계산, 잘못된 전이, 반복 불만, 회수율/수량, 승인·반려, 감사 마스킹, 파일 검증, API 비인증, 익명 환자 규칙을 테스트합니다.
+
+챗봇 테스트는 STAFF 사건 범위, 직접 식별정보 거부, 대화 저장, 질문 원문 감사 로그 제외, 사용자 간 대화 격리를 검증합니다.
+
+## Docker / PostgreSQL
+
+`.env.example`을 `.env`로 복사하고 `SECRET_KEY`, `DB_PASSWORD`, `ALLOWED_HOSTS`를 변경한 뒤 실행합니다.
+
+```bash
+docker compose up --build
+docker compose exec web python manage.py seed_demo
+```
+
+웹은 8000 포트에 열립니다. PostgreSQL과 업로드 파일은 named volume에 보존됩니다. Redis/Celery 없이 핵심 기능이 작동하며, 대규모 배포에서는 `notify_deadlines`를 Celery Beat 작업으로 교체할 수 있습니다.
+
+## REST API
+
+기본 경로는 `/api/`이며 세션 인증과 Basic 인증을 지원합니다. 주요 리소스:
+
+- `/api/devices/`, `/api/udis/`, `/api/lots/`
+- `/api/complaints/`, `/api/adverse-events/`, `/api/risks/`
+- `/api/capas/`, `/api/recalls/`, `/api/reports/`
+- `/api/recall-targets/`, `/api/attachments/`
+- `/api/approvals/`, `/api/notifications/`, `/api/audits/`
+- 상태 전이: `POST /api/complaints/{id}/transition/` 본문 `{"status":"REVIEW"}`
+- 승인 결정: `POST /api/approvals/{id}/decide/` 본문 `{"decision":"REJECTED","reason":"자료 보완"}`
+
+예시:
+
+```bash
+curl -u raqa:비밀번호 'http://127.0.0.1:8000/api/complaints/?status=REVIEW&search=센서&ordering=-reported_on'
+```
+
+오류는 `{"success": false, "error": {"code": "...", "detail": ...}}` 형태입니다.
+
+## 보안 고려사항
+
+- Django CSRF 미들웨어와 자동 HTML escaping, `X_FRAME_OPTIONS=DENY`
+- 화면·API·객체 queryset에 서버 권한 적용; STAFF는 본인이 등록한 불만만 조회
+- 업로드 허용 확장자(pdf/png/jpg/jpeg/txt/csv), 크기 제한, UUID 저장 경로
+- 비밀번호·토큰·세션·환자 코드 등 감사 로그 제외
+- SECRET_KEY/DB 자격증명 환경변수화, `.env`와 DB/미디어 Git 제외
+- 운영 Secure Cookie·HTTPS redirect 선택 가능
+- 환자 이름, 주민등록번호, 전화번호 필드 자체가 없고 익명 코드만 사용
+
+확장자 검사는 콘텐츠 무해성을 보장하지 않습니다. 운영 환경에서는 MIME/매직바이트 검사, 악성코드 스캔, 객체 스토리지 격리, 다운로드 시 `Content-Security-Policy`와 별도 도메인을 추가해야 합니다. 감사 로그는 애플리케이션 DB에 있으므로 규제 수준의 불변 저장소/WORM은 아닙니다.
+
+## 규제·의료 면책 및 한계
+
+이 프로젝트의 위험등급, 반복 불만 임계치, 체크리스트와 보고서는 **포트폴리오 시연을 위한 내부 데모 규칙**입니다. 실제 MFDS 또는 타 관할 규정, 법정 양식, 보고 시한, 임상 판단을 대체하지 않습니다. 실제 사용 전 관할 규정 검토, 품질시스템 밸리데이션, 전자서명·기록 보존 요구, 개인정보 영향평가가 필요합니다.
+
+현재 데모는 범용 객체 승인을 단순 참조(`content_type`, `object_id`)로 표현하고 PDF는 브라우저의 인쇄/PDF 저장을 사용합니다. 완전한 규제 제출 연동, 전자서명, 불변 감사원장, 백신 스캔, 다국가 기한 엔진은 포함하지 않습니다.
+
+## 향후 개선 과제
+
+- 관리자 UI에서 버전 관리되는 관할별 보고 규칙/기한 설정
+- Celery·Redis 기반 알림, 이메일 및 에스컬레이션
+- PostgreSQL trigram/분류 모델을 이용한 유사도 보조(사람의 검토 유지)
+- object-level permission과 조직/사이트 다중 테넌시
+- WeasyPrint 기반 서버 PDF, 전자서명, 승인 스냅샷
+- S3 호환 스토리지, MIME/악성코드 검사, 감사 로그 외부 불변 보관
+- API 토큰/OIDC, CSP, rate limiting, observability와 백업 복구 훈련
+
+## API 활용 예시
+
+### 사건 검색
+
+```bash
+curl -u raqa:비밀번호 \
+  "http://127.0.0.1:8000/api/complaints/?status=REVIEW&search=센서&ordering=-reported_on"
+```
+
+### 정상 상태 전이
+
+```bash
+curl -u raqa:비밀번호 \
+  -H "Content-Type: application/json" \
+  -X POST \
+  -d '{"status":"REVIEW"}' \
+  http://127.0.0.1:8000/api/complaints/1/transition/
+```
+
+### 관리자 승인
+
+```bash
+curl -u admin:비밀번호 \
+  -H "Content-Type: application/json" \
+  -X POST \
+  -d '{"decision":"APPROVED","reason":"검토 완료"}' \
+  http://127.0.0.1:8000/api/approvals/1/decide/
+```
+
+### 리콜 대상 등록
+
+```bash
+curl -u raqa:비밀번호 \
+  -H "Content-Type: application/json" \
+  -X POST \
+  -d '{"recall":1,"lot":1,"serial_number":"SN-001","target_quantity":10}' \
+  http://127.0.0.1:8000/api/recall-targets/
+```
+
+Swagger UI는 `/api/docs/`, OpenAPI 스키마는 `/api/schema/`에서 확인할 수 있습니다.
+
+## 운영 배포 체크리스트
+
+- [ ] 50자 이상의 무작위 `SECRET_KEY` 설정
+- [ ] `DEBUG=False` 확인
+- [ ] 실제 도메인만 `ALLOWED_HOSTS`에 등록
+- [ ] PostgreSQL 전용 사용자와 강한 비밀번호 사용
+- [ ] HTTPS 적용 후 Secure Cookie와 SSL Redirect 활성화
+- [ ] HSTS는 HTTPS 검증과 복구 계획 확인 후 활성화
+- [ ] 업로드 저장소 분리, MIME·매직바이트 검사와 악성코드 스캔 추가
+- [ ] 정적 파일을 CDN 또는 웹 서버에서 제공
+- [ ] 데이터베이스·미디어 백업 및 복구 시험
+- [ ] 감사 로그의 보존기간과 불변 저장 정책 결정
+- [ ] 관할별 실제 규제 규칙과 보고 기한을 RA 책임자가 검토
+- [ ] 전자서명과 컴퓨터화 시스템 밸리데이션 요구 검토
+
+## 문제 해결
+
+### `python` 명령을 찾을 수 없음
+
+Python 3.12 설치 후 새 터미널을 열고 다음 명령으로 확인합니다.
+
+```bash
+python --version
+```
+
+Windows에서 `py -3.12`를 대신 사용할 수도 있습니다.
+
+### 마이그레이션 오류
+
+```bash
+python manage.py makemigrations --check --dry-run
+python manage.py migrate
+python manage.py showmigrations
+```
+
+개발 DB를 삭제하기 전에 필요한 데이터가 없는지 반드시 확인하세요.
+
+### 데모 데이터 명령이 실패함
+
+`DEMO_PASSWORD`가 없으면 안전을 위해 의도적으로 실패합니다.
+
+```powershell
+$env:DEMO_PASSWORD="직접-정한-안전한-비밀번호"
+python manage.py seed_demo
+```
+
+### 정적 파일이 보이지 않음
+
+개발환경에서는 `DEBUG=True` 여부와 `static/` 경로를 확인합니다. Docker/운영환경에서는 다음 명령을 실행합니다.
+
+```bash
+python manage.py collectstatic --noinput
+```
+
+### PostgreSQL 연결 실패
+
+`DB_ENGINE=postgresql`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`를 확인하고 Docker 사용 시 `db` 서비스의 healthcheck 상태를 점검합니다.
+
+## 면접에서 강조할 부분
+
+### 업무 이해
+
+- 고객 불만을 단일 CRUD 데이터가 아니라 이상사례, 위험평가, CAPA, 규제보고, 리콜로 이어지는 의사결정 흐름으로 모델링했습니다.
+- 결과뿐 아니라 판단 근거, 담당자, 승인자, 반려 사유, 변경 전후 값까지 추적합니다.
+- 규제 판단을 자동화한다고 과장하지 않고 설정 가능한 데모 규칙과 사람의 최종 판단을 분리했습니다.
+
+### 기술적 깊이
+
+- UI 버튼 제어와 별개로 서버 서비스·queryset·API permission에서 권한을 중복 검증했습니다.
+- 상태 머신에 단계별 선행조건을 결합해 데이터가 불완전한 사건의 진행을 차단했습니다.
+- 승인 요청 시점의 데이터 스냅샷으로 사후 변경과 승인 근거를 구분했습니다.
+- SQLite 개발 편의성과 PostgreSQL·Docker 운영 구성을 동시에 지원합니다.
+
+### 보안과 개인정보
+
+- 환자 직접 식별정보를 저장하는 컬럼을 처음부터 설계하지 않았습니다.
+- 업로드 확장자·크기·저장명과 감사 로그 민감정보 마스킹을 구현했습니다.
+- CSRF, XSS escaping, Secure Cookie, HTTPS redirect, HSTS 설정 지점을 문서화했습니다.
+
+### 테스트 전략
+
+- 단순 응답 코드 외에 권한, 객체 소유권, 도메인 계산, 상태 전이, 승인 게이트와 개인정보 규칙을 테스트합니다.
+- 테스트가 업무 요구사항 추적표와 연결되어 있어 변경 영향 범위를 설명할 수 있습니다.
+
+## 예상 면접 질문과 답변 포인트
+
+**왜 상태 전이를 모델의 `save()`가 아니라 서비스 계층에서 처리했나요?**
+
+상태 변경에는 사용자 역할, 현재 상태, 관련 위험평가·CAPA·보고서·승인 등 여러 객체의 조건과 감사 로그가 함께 필요합니다. 이를 서비스 계층의 트랜잭션으로 묶어 화면과 API가 같은 규칙을 사용하도록 했습니다.
+
+**STAFF가 URL을 직접 입력하면 다른 사람의 사건을 볼 수 있나요?**
+
+볼 수 없습니다. 화면과 API가 모두 `visible_complaints()`를 기준으로 객체를 조회하므로 STAFF에게는 본인이 등록한 사건만 queryset에 포함되고, 다른 사건은 404 또는 권한 오류로 처리됩니다.
+
+**위험점수 자동 계산이 실제 규제 판단을 대신하나요?**
+
+아닙니다. 포트폴리오 시연을 위한 내부 기준이며 화면과 보고서에 면책 문구를 표시합니다. 실제 운영에서는 관할별 승인된 규칙, 버전, 시행일과 RA 검토가 필요합니다.
+
+**감사 로그가 완전한 규제 수준인가요?**
+
+현재는 애플리케이션 DB에 저장되는 데모 구현입니다. 실제 운영에서는 append-only 정책, 외부 불변 저장소, 전자서명, 보존기간, 시간 동기화와 관리자 접근 통제가 추가되어야 합니다.
+
+## 테스트 범위
+
+현재 Django TestCase는 다음을 포함한 **27개 시나리오**를 검증합니다.
+
+- 위험점수와 위험등급
+- 정상·비정상 상태 전이 및 단계별 선행조건
+- HIGH 위험 사건의 CAPA 의무
+- 규제보고 체크리스트 의무
+- 관리자 승인 전 조치 완료 차단
+- 승인 스냅샷과 반려 사유
+- 역할별 화면과 API 접근
+- 타인 사건·이상사례 접근 차단
+- 반복 불만 탐지
+- 리콜 수량·회수율·종료 보고서
+- UDI와 제품 관계
+- 감사 로그 민감정보 제거
+- 첨부 확장자·크기
+- 익명 환자정보
+- API 비인증 요청
+- 관리자 자기 권한 해제 방지
+- 챗봇의 STAFF 사건 범위 제한
+- 챗봇 직접 식별정보 입력 거부
+- 챗봇 대화 사용자 격리와 프롬프트 비저장 감사
+
+## 변경 이력
+
+### v1.3
+
+- PMS 데이터와 연결된 로그인 사용자 전용 RA 업무 도우미 추가
+- 역할별 사건 조회 범위, 대화 사용자 격리, 직접 식별정보 차단 및 프롬프트 비저장 감사 로그 적용
+- Django TestCase 27개로 확대
+
+### v1.2
+
+- 의료기기·LOT·이상사례·CAPA·리콜 상세 화면 추가
+- 리콜 대상과 첨부파일 REST API 추가
+- 리콜 승인·반려 사유와 종료 보고서 인쇄 추가
+- 사용자 역할·활성 상태 관리와 관리자 자기 잠금 방지
+- PostgreSQL 호환 월별 대시보드 집계 및 테스트 23개로 확대
+
+### v1.1
+
+- 사건 상세 통합 RA 워크스페이스 추가
+- 위험평가, CAPA, 규제보고, 리콜, 승인 흐름 연결
+- 단계별 서버 선행조건과 승인 스냅샷 추가
+
+### v1.0
+
+- Django 5 기반 PMS·리콜 핵심 도메인, API, 대시보드, Docker, CI 최초 구현
+
+## 프로젝트 구조
+
+```text
+config/                 Django 설정·URL·WSGI
+pms/models.py           PMS 도메인과 챗봇 대화 모델
+pms/services.py         상태 전이·승인·반복 신호·감사·알림
+pms/assistant_service.py 권한 기반 RA 챗봇 응답·개인정보 입력 검증
+pms/api.py              DRF ViewSet과 역할별 queryset
+pms/views.py            서버 렌더링 화면과 인쇄 보고서
+pms/management/commands 데모 데이터·기한 알림
+pms/tests.py            핵심 도메인/보안/API 테스트
+static/css/app.css       Deep Sea Blue 반응형 디자인
+static/css/assistant.css 챗봇 대화 화면 디자인
+static/css/assistant_launcher.css 전 화면 고정 챗봇 버튼
+Dockerfile / compose     PostgreSQL 배포형 구성
+.github/workflows/ci.yml GitHub Actions 검사
+```
+
