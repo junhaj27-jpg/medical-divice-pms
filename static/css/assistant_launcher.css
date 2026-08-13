@@ -1,3 +1,5 @@
+@import url("sidebar.css?v=5");
+
 .assistant-launcher {
   position: fixed;
   right: 24px;

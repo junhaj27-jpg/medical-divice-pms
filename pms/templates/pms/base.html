@@ -1,1 +1,84 @@
-{% load static %}<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}MedWatch PMS{% endblock %}</title><link rel="stylesheet" href="{% static 'css/app.css' %}"><link rel="stylesheet" href="{% static 'css/assistant_launcher.css' %}"><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script></head><body><header><a class="brand" href="/">◆ MedWatch <span>PMS</span></a><button class="nav-toggle" onclick="document.querySelector('nav').classList.toggle('open')">☰</button><nav><a href="/">대시보드</a><a href="/complaints/">불만</a><a href="/adverse-events/">이상사례</a><a href="/devices/">제품</a><a href="/lots/">UDI·LOT</a><a href="/capas/">CAPA</a><a href="/recalls/">리콜</a><a href="/reports/">보고서</a><a class="assistant-nav" href="{% url 'assistant-chat' %}">✦ RA 도우미</a><a href="/notifications/">알림</a>{% if user.profile.role == 'ADMIN' or user.is_superuser %}<a href="/approvals/">승인</a><a href="/audits/">감사</a><a href="/users/">사용자</a>{% endif %}</nav><div class="user">{{ user.username }} <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button>로그아웃</button></form></div></header><main class="container">{% if messages %}{% for message in messages %}<div class="alert">{{message}}</div>{% endfor %}{% endif %}{% block content %}{% endblock %}</main><aside class="assistant-drawer" id="assistantDrawer" aria-hidden="true"><div class="drawer-head"><div><span>✦</span><strong>RA 업무 센터</strong><small>기존 PMS 기능과 챗봇을 함께 사용하세요</small></div><button type="button" data-assistant-close aria-label="닫기">×</button></div><a class="drawer-chat" href="{% url 'assistant-chat' %}"><b>RA 챗봇 열기</b><small>사건 현황과 업무 절차 질문하기 →</small></a><div class="drawer-links"><a href="{% url 'dashboard' %}">대시보드</a><a href="{% url 'complaint-create' %}">+ 불만 접수</a><a href="{% url 'complaint-list' %}?risk=HIGH">고위험 사건</a><a href="{% url 'adverse-list' %}">이상사례</a><a href="{% url 'capa-list' %}">CAPA</a><a href="{% url 'recall-list' %}">리콜</a><a href="{% url 'report-list' %}">보고서</a><a href="{% url 'notifications' %}">알림</a>{% if user.profile.role == 'ADMIN' or user.is_superuser %}<a href="{% url 'approval-list' %}">승인</a><a href="{% url 'audit-list' %}">감사 로그</a>{% endif %}</div><p>환자 이름·전화번호·주민등록번호를 챗봇에 입력하지 마세요.</p></aside><button class="assistant-launcher" type="button" data-assistant-open aria-controls="assistantDrawer" aria-expanded="false"><span>✦</span><strong>RA 업무·챗봇</strong></button><footer>포트폴리오용 데모 · 실제 식약처 규정 준수 또는 의료 판단을 보장하지 않습니다.</footer><script>const drawer=document.getElementById('assistantDrawer'),launcher=document.querySelector('[data-assistant-open]');function setDrawer(open){drawer.classList.toggle('open',open);drawer.setAttribute('aria-hidden',String(!open));launcher.setAttribute('aria-expanded',String(open))}launcher.addEventListener('click',()=>setDrawer(!drawer.classList.contains('open')));document.querySelector('[data-assistant-close]').addEventListener('click',()=>setDrawer(false));document.addEventListener('keydown',e=>{if(e.key==='Escape')setDrawer(false)});</script>{% block scripts %}{% endblock %}</body></html>
+{% load static %}
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}MedWatch PMS{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/assistant_launcher.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}?v=3">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">◆ MedWatch <span>PMS</span></a>
+    <button class="nav-toggle" type="button" onclick="document.querySelector('nav').classList.toggle('open')">☰</button>
+    <nav>
+      <a href="/">대시보드</a>
+      <a href="/complaints/">불만</a>
+      <a href="/adverse-events/">이상사례</a>
+      <a href="/devices/">제품</a>
+      <a href="/lots/">UDI·LOT</a>
+      <a href="/capas/">CAPA</a>
+      <a href="/recalls/">리콜</a>
+      <a href="/reports/">보고서</a>
+      <a class="assistant-nav" href="{% url 'assistant-chat' %}">✦ RA 도우미</a>
+      <a href="/notifications/">알림</a>
+      {% if user.profile.role == 'ADMIN' or user.is_superuser %}
+        <a href="/approvals/">승인</a>
+        <a href="/audits/">감사</a>
+        <a href="/users/">사용자</a>
+      {% endif %}
+    </nav>
+    <div class="user">
+      <span>{{ user.username }}</span>
+      <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button>로그아웃</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      {% for message in messages %}<div class="alert">{{ message }}</div>{% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <aside class="assistant-drawer" id="assistantDrawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div><span>✦</span><strong>RA 업무 센터</strong><small>기존 PMS 기능과 챗봇을 함께 사용하세요</small></div>
+      <button type="button" data-assistant-close aria-label="닫기">×</button>
+    </div>
+    <a class="drawer-chat" href="{% url 'assistant-chat' %}"><b>RA 챗봇 열기</b><small>사건 현황과 업무 절차 질문하기 →</small></a>
+    <div class="drawer-links">
+      <a href="{% url 'dashboard' %}">대시보드</a>
+      <a href="{% url 'complaint-create' %}">+ 불만 접수</a>
+      <a href="{% url 'complaint-list' %}?risk=HIGH">고위험 사건</a>
+      <a href="{% url 'adverse-list' %}">이상사례</a>
+      <a href="{% url 'capa-list' %}">CAPA</a>
+      <a href="{% url 'recall-list' %}">리콜</a>
+      <a href="{% url 'report-list' %}">보고서</a>
+      <a href="{% url 'notifications' %}">알림</a>
+      {% if user.profile.role == 'ADMIN' or user.is_superuser %}
+        <a href="{% url 'approval-list' %}">승인</a>
+        <a href="{% url 'audit-list' %}">감사 로그</a>
+      {% endif %}
+    </div>
+    <p>환자 이름·전화번호·주민등록번호를 챗봇에 입력하지 마세요.</p>
+  </aside>
+  <button class="assistant-launcher" type="button" data-assistant-open aria-controls="assistantDrawer" aria-expanded="false"><span>✦</span><strong>RA 업무·챗봇</strong></button>
+
+  <footer>포트폴리오용 데모 · 실제 식약처 규정 준수 또는 의료 판단을 보장하지 않습니다.</footer>
+  <script>
+    const drawer=document.getElementById('assistantDrawer'), launcher=document.querySelector('[data-assistant-open]');
+    function setDrawer(open){drawer.classList.toggle('open',open);drawer.setAttribute('aria-hidden',String(!open));launcher.setAttribute('aria-expanded',String(open))}
+    launcher.addEventListener('click',()=>setDrawer(!drawer.classList.contains('open')));
+    document.querySelector('[data-assistant-close]').addEventListener('click',()=>setDrawer(false));
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')setDrawer(false)});
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
