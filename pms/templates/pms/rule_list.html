@@ -1,0 +1,2 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>보고 규칙 버전 관리</h1><p>실제 법정 기준은 자동 제공되지 않습니다. 영업일은 토·일과 각 버전에 명시한 휴일만 제외합니다. 공휴일 자동 갱신은 지원하지 않습니다.</p><a class="btn primary" href="{% url 'rule-create' %}">새 규칙·버전 생성</a>
+{% for r in items %}<section class="panel"><h2>{{r}}</h2><p>시행 {{r.effective_on}} · {{r.get_basis_display}} 이후 {{r.days}} {{r.get_day_type_display}}</p><p>조건 {{r.conditions}} · 휴일 달력 {{r.holidays}}</p><p>변경 사유 {{r.change_reason}}</p></section>{% empty %}<p>등록된 규칙이 없습니다. 법정 기준을 임의로 생성하지 않습니다.</p>{% endfor %}{% endblock %}

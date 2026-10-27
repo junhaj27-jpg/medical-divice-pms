@@ -23,6 +23,18 @@ class RiskSerializer(serializers.ModelSerializer):
     class Meta: model=RiskAssessment; fields="__all__"
 class CAPASerializer(serializers.ModelSerializer):
     class Meta: model=CAPA; fields="__all__"
+    def validate(self,data):
+        if data.get("status")=="CLOSED":
+            from django.core.exceptions import ValidationError
+            if not self.instance: raise serializers.ValidationError("평가 후 종결하세요.")
+            from copy import copy
+            obj=copy(self.instance)
+            for key,value in data.items(): setattr(obj,key,value)
+            try:
+                obj.clean()
+                if obj.tasks.exclude(status="DONE").exists(): raise ValidationError("연결 업무를 먼저 완료하세요.")
+            except ValidationError as exc: raise serializers.ValidationError(exc.messages)
+        return data
 class RecallSerializer(serializers.ModelSerializer):
     recovery_rate=serializers.FloatField(read_only=True)
     class Meta: model=Recall; fields="__all__"
@@ -40,10 +52,12 @@ class AuditSerializer(serializers.ModelSerializer):
     class Meta: model=AuditLog; fields="__all__"
 class AttachmentSerializer(serializers.ModelSerializer):
     uploaded_by=serializers.PrimaryKeyRelatedField(read_only=True)
-    class Meta: model=Attachment; fields="__all__"; read_only_fields=("original_name",)
+    class Meta: model=Attachment; fields="__all__"; read_only_fields=("original_name","scan_status","sha256","detected_type","scanned_at")
     def validate_file(self,value):
-        from django.conf import settings
-        if value.size>settings.DATA_UPLOAD_MAX_MEMORY_SIZE: raise serializers.ValidationError("첨부파일 크기 제한을 초과했습니다.")
+        from .file_security import validate_upload
+        from django.core.exceptions import ValidationError
+        try: validate_upload(value)
+        except ValidationError as exc: raise serializers.ValidationError(exc.messages)
         return value
 class RecallTargetSerializer(serializers.ModelSerializer):
     class Meta: model=RecallTarget; fields="__all__"

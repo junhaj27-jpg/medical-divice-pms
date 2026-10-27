@@ -6,6 +6,7 @@ services:
     environment:
       DB_ENGINE: postgresql
       DB_HOST: db
+      PDF_KOREAN_FONT: /usr/share/fonts/truetype/nanum/NanumGothic.ttf
     volumes: ["media:/app/media"]
     depends_on:
       db: {condition: service_healthy}

@@ -1,4 +1,5 @@
 from pathlib import Path
+from .file_security import normalized_name, scan_attachment
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
 from rest_framework.permissions import IsAuthenticated
@@ -15,7 +16,7 @@ def custom_exception_handler(exc,context):
     return response
 class AuditedViewSet(viewsets.ModelViewSet):
     def perform_create(self,s): obj=s.save(); audit(self.request.user,"CREATE",obj,after=s.data,ip=self.request.META.get("REMOTE_ADDR"))
-    def perform_update(self,s): before=s.instance.__dict__.copy(); obj=s.save(); audit(self.request.user,"UPDATE",obj,before,s.data,self.request.META.get("REMOTE_ADDR"))
+    def perform_update(self,s): before=dict(self.get_serializer(s.instance).data); obj=s.save(); audit(self.request.user,"UPDATE",obj,before,s.data,self.request.META.get("REMOTE_ADDR"))
     def perform_destroy(self,obj): audit(self.request.user,"DELETE",obj); obj.delete()
 class ManufacturerViewSet(AuditedViewSet): queryset=Manufacturer.objects.all(); serializer_class=ManufacturerSerializer; permission_classes=[RoleWritePermission]; search_fields=["name"]; ordering_fields=["name","created_at"]
 class DeviceViewSet(AuditedViewSet): queryset=MedicalDevice.objects.select_related("manufacturer"); serializer_class=DeviceSerializer; permission_classes=[RoleWritePermission]; filterset_fields=["manufacturer","active"]; search_fields=["name","model_number"]
@@ -68,5 +69,10 @@ class AttachmentViewSet(AuditedViewSet):
     def perform_create(self,s):
         complaint=s.validated_data["complaint"]
         if not visible_complaints(self.request.user).filter(pk=complaint.pk).exists(): raise DRFPermissionDenied("접근할 수 없는 사건입니다.")
-        obj=s.save(uploaded_by=self.request.user,original_name=Path(s.validated_data["file"].name).name); obj.full_clean(); audit(self.request.user,"CREATE",obj,after={"original_name":obj.original_name})
+        obj=s.save(uploaded_by=self.request.user,original_name=normalized_name(s.validated_data["file"].name)); scan_attachment(obj,self.request.user); audit(self.request.user,"CREATE",obj,after={"original_name":obj.original_name})
+    def perform_update(self,s):
+        if not visible_complaints(self.request.user).filter(pk=s.validated_data.get("complaint",s.instance.complaint).pk).exists(): raise DRFPermissionDenied
+        if "file" in s.validated_data or "complaint" in s.validated_data: raise DRFPermissionDenied("증빙은 덮어쓰지 않고 새로 업로드하세요.")
+        super().perform_update(s)
+    def perform_destroy(self,obj): raise DRFPermissionDenied("증빙 이력은 삭제할 수 없습니다.")
 class RecallTargetViewSet(AuditedViewSet): queryset=RecallTarget.objects.select_related("recall","lot"); serializer_class=RecallTargetSerializer; permission_classes=[IsRAQAOrAdmin]; filterset_fields=["recall","lot"]

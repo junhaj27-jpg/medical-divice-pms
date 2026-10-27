@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}MedWatch PMS{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/regulatory.css' %}">
   <link rel="stylesheet" href="{% static 'css/assistant_launcher.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}?v=3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -22,9 +23,9 @@
       <a href="/lots/">UDI·LOT</a>
       <a href="/capas/">CAPA</a>
       <a href="/recalls/">리콜</a>
-      <a href="/reports/">보고서</a>
+      <a href="/reports/">보고서</a><a href="/rules/">보고 규칙·근거</a>
       <a class="assistant-nav" href="{% url 'assistant-chat' %}">✦ RA 도우미</a>
-      <a href="/notifications/">알림</a>
+      <a href="/notifications/">알림</a><a href="/tasks/">내 할 일</a>
       {% if user.profile.role == 'ADMIN' or user.is_superuser %}
         <a href="/approvals/">승인</a>
         <a href="/audits/">감사</a>

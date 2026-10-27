@@ -1,0 +1,4 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{item.title}}</h1><p>{{item.description|linebreaksbr}}</p><p>담당자 {{item.assignee}} · 마감 {{item.due_at|date:'Y-m-d H:i T'}} · {{item.get_status_display}}</p>
+<a class="btn" href="{% url 'task-edit' item.pk %}">업무 변경</a> <a class="btn" href="{% url 'complaint-workspace' item.complaint_id %}">연결 사건</a>
+<h2>변경 이력</h2>{% for h in item.history.all %}<section class="panel"><p>{{h.created_at}} · {{h.actor}}</p><p>이전: {{h.before}}</p><p>이후: {{h.after}}</p></section>{% empty %}<p>이력이 없습니다.</p>{% endfor %}{% endblock %}

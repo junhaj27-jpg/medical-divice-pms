@@ -12,7 +12,7 @@ TEMPLATES = [{"BACKEND":"django.template.backends.django.DjangoTemplates","DIRS"
 WSGI_APPLICATION = "config.wsgi.application"
 if os.getenv("DB_ENGINE") == "postgresql":
     DATABASES={"default":{"ENGINE":"django.db.backends.postgresql","NAME":os.getenv("DB_NAME","pms"),"USER":os.getenv("DB_USER","pms"),"PASSWORD":os.getenv("DB_PASSWORD","pms"),"HOST":os.getenv("DB_HOST","db"),"PORT":os.getenv("DB_PORT","5432")}}
-else: DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3","NAME":BASE_DIR/"db.sqlite3"}}
+else: DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3","NAME":os.getenv("SQLITE_PATH",str(BASE_DIR/"db.sqlite3"))}}
 AUTH_PASSWORD_VALIDATORS=[{"NAME":"django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},{"NAME":"django.contrib.auth.password_validation.MinimumLengthValidator"},{"NAME":"django.contrib.auth.password_validation.CommonPasswordValidator"}]
 LANGUAGE_CODE="ko-kr"; TIME_ZONE="Asia/Seoul"; USE_I18N=True; USE_TZ=True
 STATIC_URL="static/"; STATIC_ROOT=BASE_DIR/"staticfiles"; STATICFILES_DIRS=[BASE_DIR/"static"]
@@ -27,3 +27,29 @@ DATA_UPLOAD_MAX_MEMORY_SIZE=int(os.getenv("MAX_UPLOAD_BYTES","5242880")); FILE_U
 REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES":["rest_framework.authentication.SessionAuthentication","rest_framework.authentication.BasicAuthentication"],"DEFAULT_PERMISSION_CLASSES":["rest_framework.permissions.IsAuthenticated"],"DEFAULT_PAGINATION_CLASS":"rest_framework.pagination.PageNumberPagination","PAGE_SIZE":20,"DEFAULT_FILTER_BACKENDS":["django_filters.rest_framework.DjangoFilterBackend","rest_framework.filters.SearchFilter","rest_framework.filters.OrderingFilter"],"DEFAULT_SCHEMA_CLASS":"drf_spectacular.openapi.AutoSchema","EXCEPTION_HANDLER":"pms.api.custom_exception_handler"}
 SPECTACULAR_SETTINGS={"TITLE":"의료기기 PMS·리콜 API","DESCRIPTION":"포트폴리오용 데모 API","VERSION":"1.0.0"}
 PMS_RULES={"LOT_WINDOW_DAYS":int(os.getenv("LOT_WINDOW_DAYS","30")),"LOT_THRESHOLD":int(os.getenv("LOT_THRESHOLD","3")),"DEVICE_WINDOW_DAYS":int(os.getenv("DEVICE_WINDOW_DAYS","90")),"DEVICE_THRESHOLD":int(os.getenv("DEVICE_THRESHOLD","5"))}
+
+# Workflow and private evidence settings
+TASK_DUE_SOON_DAYS=max(0,int(os.getenv("TASK_DUE_SOON_DAYS","3")))
+TIME_ZONE=os.getenv("TIME_ZONE","Asia/Seoul")
+MEDIA_ROOT=Path(os.getenv("PRIVATE_MEDIA_ROOT",str(BASE_DIR/"media")))
+MAX_EVIDENCE_PIXELS=int(os.getenv("MAX_EVIDENCE_PIXELS","25000000"))
+import json
+ANTIVIRUS_COMMAND=json.loads(os.getenv("ANTIVIRUS_COMMAND","[]"))
+ANTIVIRUS_TIMEOUT=int(os.getenv("ANTIVIRUS_TIMEOUT","60"))
+PDF_KOREAN_FONT=os.getenv("PDF_KOREAN_FONT","")
+LOGIN_ATTEMPT_LIMIT=int(os.getenv("LOGIN_ATTEMPT_LIMIT","10"))
+LOGIN_WINDOW_SECONDS=int(os.getenv("LOGIN_WINDOW_SECONDS","900"))
+MIDDLEWARE.insert(5,"pms.security.LoginRateLimitMiddleware")
+
+MIDDLEWARE.insert(MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware")+1,"pms.security.UserTimezoneMiddleware")
+
+# Evidence-backed reporting rules: no external AI or source-URL collection by default.
+RULE_AUTHOR_ROLES=tuple(x.strip() for x in os.getenv("RULE_AUTHOR_ROLES","RA_QA,ADMIN").split(",") if x.strip())
+RULE_APPROVER_ROLES=tuple(x.strip() for x in os.getenv("RULE_APPROVER_ROLES","ADMIN").split(",") if x.strip())
+RULE_REQUIRE_SEPARATION=os.getenv("RULE_REQUIRE_SEPARATION","True").lower()=="true"
+RULE_AI_ENABLED=os.getenv("RULE_AI_ENABLED","False").lower()=="true"
+RULE_AI_APPROVED=os.getenv("RULE_AI_APPROVED","False").lower()=="true"
+RULE_AI_ADAPTER=os.getenv("RULE_AI_ADAPTER","")
+REGULATION_MAX_PAGES=500
+REGULATION_MAX_CHUNKS=5000
+REGULATION_SEARCH_CHUNKS=10000

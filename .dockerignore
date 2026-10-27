@@ -1,0 +1,11 @@
+.test-media/
+.test-tmp/
+.deps/
+.git/
+media/
+private_media/
+db.sqlite3
+staticfiles/
+.env
+__pycache__/
+*.pyc

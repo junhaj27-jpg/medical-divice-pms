@@ -1,0 +1,6 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>내 할 일</h1><p>표시 시간대: {{TIME_ZONE|default:'사용자 활성 시간대'}} · 마감 임박 {{days}}일</p>
+<p><a class="btn" href="?">전체 상태</a> <a class="btn" href="?filter=soon">마감 임박</a> <a class="btn" href="?filter=overdue">기한 초과</a>
+{% if user.is_superuser or user.profile.role != 'STAFF' %}<a class="btn" href="?all=1">전체 담당 업무</a> <a class="btn primary" href="{% url 'task-create' %}">업무 등록</a>{% endif %}</p>
+<section class="panel"><table><thead><tr><th>제목</th><th>담당자</th><th>마감</th><th>우선순위</th><th>상태</th></tr></thead><tbody>
+{% for t in items %}<tr><td><a href="{% url 'task-detail' t.pk %}">{{t.title}}</a></td><td>{{t.assignee}}</td><td>{{t.due_at|date:'Y-m-d H:i T'}}</td><td>{{t.get_priority_display}}</td><td>{{t.get_status_display}}</td></tr>{% empty %}<tr><td colspan="5">해당 업무가 없습니다.</td></tr>{% endfor %}</tbody></table></section>{% endblock %}

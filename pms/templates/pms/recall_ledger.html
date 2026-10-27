@@ -1,0 +1,8 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{item.title}} · 거래처별 회수 원장</h1><p>수량은 단위별로 집계합니다. 기존 리콜 수기 집계와 원장은 합산하지 않습니다.</p>
+<p><a class="btn" href="{% url 'recipient-create' item.pk %}">회수 대상 등록</a> <a class="btn" href="{% url 'partner-create' %}">거래처 등록</a></p>
+{% for unit,total in totals.items %}<section class="panel"><h2>단위: {{unit}}</h2>대상 {{total.target}} · 회수 {{total.recovered}} · 미회수 {{total.remaining}}</section>{% endfor %}
+{% for r in item.recipients.all %}<section class="panel"><h2>{{r.partner}} · {{r.lot}} · {{r.unit}}</h2><p>대상 {{r.target_quantity}} / 누적 회수 {{r.recovered_quantity}} / 미회수 {{r.remaining_quantity}}</p><p>통보 {{r.notified_on|default:'미통보'}} ({{r.notification_method}}) · 회신 {{r.replied_on|default:'없음'}} / {{r.get_reply_status_display}}</p><p>미회수 사유: {{r.unrecovered_reason|default:'미입력'}}</p>
+<a class="btn" href="{% url 'recipient-edit' item.pk r.pk %}">통보·회신 수정</a> <a class="btn" href="{% url 'recovery-create' r.pk %}">부분 회수 등록</a> <a class="btn" href="{% url 'contact-create' r.pk %}">후속 연락 등록</a>
+<h3>회수 이력</h3>{% for e in r.recoveries.all %}<p>{{e.recovered_on}} · {{e.quantity}} {{r.unit}} · {{e.actor}}</p>{% empty %}<p>회수 이력이 없습니다.</p>{% endfor %}
+<h3>후속 연락</h3>{% for e in r.contacts.all %}<p>{{e.contacted_at}} · {{e.method}} · {{e.actor}} · {{e.note|linebreaksbr}}</p>{% empty %}<p>연락 이력이 없습니다.</p>{% endfor %}</section>{% empty %}<p>등록된 거래처별 대상이 없습니다.</p>{% endfor %}{% endblock %}

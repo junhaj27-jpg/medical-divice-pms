@@ -51,7 +51,8 @@ def request_complaint_approval(complaint,user,ip=None):
     snapshot={"complaint_id":complaint.pk,"version":complaint.version,"title":complaint.title,"status":complaint.status,"device":str(complaint.device),"udi":str(complaint.udi),"lot":str(complaint.lot or ""),"risk":{"score":getattr(risk,"score",None),"level":getattr(risk,"level",None)},"capa_ids":list(complaint.capas.values_list("id",flat=True)),"report_ids":list(complaint.reports.values_list("id",flat=True)),"recall_ids":list(complaint.recalls.values_list("id",flat=True))}
     approval=Approval.objects.create(content_type="CustomerComplaint",object_id=complaint.pk,requested_by=user,snapshot=snapshot); audit(user,"APPROVAL_REQUEST",approval,after=snapshot,ip=ip); return approval
 def create_deadline_notifications():
-    today=timezone.localdate(); count=0
+    from .workflow import notify_tasks
+    today=timezone.localdate(); count=notify_tasks()
     for c in CustomerComplaint.objects.filter(due_date__lte=today).exclude(status="CLOSED").select_related("assignee","reporter"):
         user=c.assignee or c.reporter
         _,created=Notification.objects.get_or_create(user=user,title=f"사건 #{c.pk} 처리 기한",message=f"{c.due_date}까지 처리가 필요합니다.",defaults={"level":"WARNING"}); count+=int(created)
