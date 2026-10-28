@@ -52,3 +52,11 @@ urlpatterns += [
  path("rules/<int:pk>/preview/",regulatory.rule_preview,name="rule-preview"),
  path("rules/<int:pk>/compare/",regulatory.compare_versions,name="rule-compare"),
 ]
+
+from . import analysis_views
+urlpatterns += [
+ path('analysis/', analysis_views.dashboard, name='analysis'),
+ path('analysis/imports/<int:pk>/', analysis_views.import_detail, name='analysis-import'),
+ path('analysis/review/', analysis_views.review, name='analysis-review'),
+ path('analysis/reviews/<int:pk>/', analysis_views.review_detail, name='analysis-review-detail'),
+]

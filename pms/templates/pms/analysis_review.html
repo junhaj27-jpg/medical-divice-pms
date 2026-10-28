@@ -1,0 +1,10 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>저장된 PMS 분석 검토</h1>
+<h2>{{ review.snapshot.device|join:' / ' }}</h2>
+<p>상태 {{ review.get_status_display }} / 담당자 {{ review.assignee.username }} / 변경 {{ review.updated_at|date:'c' }}</p>
+<p>검토 당시 필터: {{ review.snapshot.filters }}</p>
+<p>현재 보고 {{ review.snapshot.count }}건 / 비교 {{ review.snapshot.previous }}건 / 비교 기간 {{ review.snapshot.previous_start }} ~ {{ review.snapshot.previous_end }}</p>
+{% for e in review.snapshot.evidence %}<p>레코드 #{{ e.id }} / {{ e.source }} / {{ e.record_id }} / 수집 #{{ e.batch }} 행 {{ e.row }}: {{ e.quote|default:'근거 문장 부족' }}</p>{% endfor %}
+{% for h in review.history.all %}<p>{{ h.created_at|date:'c' }} / 변경자 {{ h.actor.username }} / {{ h.before }} → {{ h.after }} / 담당자 {{ h.assignee.username }} / {{ h.note }}</p>{% endfor %}
+<p>저장 시점의 스냅샷입니다. 새 데이터 수집으로 재분석 결과가 달라지더라도 이 이력은 유지됩니다.</p>
+<a href="{% url 'analysis' %}">분석으로 돌아가기</a>{% endblock %}

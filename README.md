@@ -681,3 +681,35 @@ Dockerfile / compose     PostgreSQL 배포형 구성
 기존 규칙은 LEGACY로 구분해 내용과 기존 사건 적용 이력을 보존합니다. 초안을 저장해도 승인·시행되지 않습니다. RA_QA 작성·ADMIN 승인 및 작성자 본인 승인 차단이 기본입니다. AI 원문 전송은 기본 비활성화이며 미연결 화면은 ‘AI 연결 필요’로 표시합니다. 외부 AI 실제 연동·OCR·공휴일 자동 갱신·법정 규정 기본 데이터는 제공하지 않습니다. 승인된 AI 어댑터 확장 계약은 포함합니다.
 
 `python manage.py migrate`로 0007을 적용하세요. 신규 33개를 포함한 총 87개 테스트를 제공합니다. 사용 순서·권한·AI 설정·계산 가정·운영 제한은 [RA 규정 관리 안내](REGULATORY_GUIDE.md)를 참고하세요.
+
+## PMS 데이터 품질·기간 비교 분석 (추가)
+
+로그인한 RA_QA/ADMIN은 `/analysis/`에서 **CSV 입력 → 품질 검증 → 보고 건수·신호 분석 → 원문 근거 확인 → 담당자 검토 → CSV/보고서/PDF**를 사용할 수 있습니다. 기존 사건·승인·리콜 데이터와 분석 코호트는 별도 테이블로 유지합니다. 기존 사건이 자동으로 분석에 포함되지는 않습니다.
+
+설치와 실행은 기존 Django 방법을 사용합니다. DB/미디어 백업 후 `python manage.py migrate`, `python manage.py runserver`를 실행하세요. 새 의존성이나 유료 API 키는 필요하지 않습니다. 서버 PDF만 기존 `PDF_KOREAN_FONT`에 한글 TTF 경로를 설정해야 하며 미설정 시 브라우저 인쇄/PDF 저장과 기본 분석은 계속 사용할 수 있습니다. `.env.example`은 변수 설명용이며 자동 로드하지 않습니다.
+
+CSV 헤더는 다음 순서입니다. 파일은 UTF-8(BOM 가능), 최대 5MB와 `MAX_UPLOAD_BYTES` 중 작은 제한, 최대 10000행입니다.
+
+```csv
+source,record_id,device,manufacturer,model,occurred_on,reported_on,event_type,seriousness,narrative
+```
+
+- 필수: source(출처), device(기기명), reported_on(보고일), event_type(유형). 날짜는 YYYY-MM-DD이며 미래 날짜/발생일이 보고일보다 늦은 값은 거부합니다. 발생일 미상은 비워둘 수 있고 발생일 분석에서는 제외 건수를 표시합니다.
+- 선택: record_id(출처별 ID), manufacturer, model, occurred_on, narrative. seriousness는 SERIOUS/NON_SERIOUS/UNKNOWN이며 빈 값은 UNKNOWN(미상)입니다. 최대 길이는 서술 10000자, 그 외 200자입니다.
+- 원본 파일 바이트·해시·수집자와 정제 전 raw 행을 DB에 보존합니다. 잘못된 행은 사유와 CSV 물리 행 번호(여러 줄 필드는 끝 행)를 표시하고 정제 데이터에서 제외합니다. 정제 과정에서 앞뒤 공백을 제거합니다.
+- 출처+record_id를 우선 고유키로 사용합니다. ID가 없으면 출처·기기·제조사·모델·발생일·보고일·유형·서술의 정제 값이 모두 같은 행을 중복 의심으로 제외합니다. 중대성만 바뀐 행도 의심 중복이며 수정 내용은 원본에 보존됩니다. 확정 중복/의심 중복 사유를 확인한 뒤 원본을 대조하세요. 서로 다른 ID는 자동 병합하지 않습니다. 실제/샘플 고유키 공간은 분리합니다.
+- 날짜 축은 보고일/발생일 중 하나를 선택합니다. 양끝 포함 동일 길이의 직전 기간과 기기명+제조사+모델별 보고 건수를 비교합니다. 현재 최소 건수와 증가 임계값은 화면에서 조정합니다. 비교 0건은 증가율 미산출이며 최소 건수 이상 신규 보고를 검토 신호로 표시합니다. 판매량·사용량 분모가 없어 발생률은 제공하지 않습니다.
+- 검토는 신규/검토 중/조치 필요/종료 상태와 인증 사용자 담당자, 의견, 변경자, 시각, 전후 이력을 DB에 저장합니다. 분석 근거/필터/기간/기준이 바뀌면 새 신호로 취급하며, 예전 검토 스냅샷은 별도 목록에서 조회합니다.
+- CSV는 UTF-8 BOM을 포함하며 수식 시작 문자(=,+,-,@,탭/개행 등)를 작은따옴표로 무력화합니다. 분석 보고서와 서버 PDF에 기간, 필터, 출처, 생성 시각, 주요 통계, 규칙, 검토 이력이 포함됩니다.
+- 외부 문서·서술은 데이터로만 표시합니다. 분석은 AI를 호출하지 않습니다. 기존 선택형 AI 규칙 초안의 인용 타입 검증과 timeout 오류 안내를 보강했으며, 어댑터는 자체 네트워크 timeout을 설정해야 합니다.
+
+샘플은 `samples/pms-analysis-demo.csv`를 **샘플 데이터**로 업로드하세요. 상세 절차는 `docs/demo-scenario.md`, 구현 상태·경계·우선순위는 `docs/development-plan.md`를 참조하세요.
+
+```bash
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test pms.test_analysis pms.test_regulatory
+python manage.py test
+```
+
+마이그레이션 `0008`은 분석용 테이블 4개만 추가합니다. 기존 사건 값과 기존 중대성 bool은 변경하지 않습니다. 기존 AdverseEvent의 False는 과거 기본값인지 확인된 비중대인지 구분할 수 있어야 하므로 자동 이관하지 않습니다. 적용 전 DB를 백업하고 기존 사건 건수를 대조하세요. 역마이그레이션은 분석 데이터를 삭제하므로 백업 복원을 우선하세요. 수집 원본은 비공개 DB 내에 저장되므로 DB 백업도 동일한 접근 통제가 필요합니다.

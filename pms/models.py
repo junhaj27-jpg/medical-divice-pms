@@ -394,3 +394,5 @@ class RuleChange(models.Model):
 class RuleFamilyLock(models.Model):
     # One lock per existing rule family, shared across all writers/approvers.
     key=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+
+from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory

@@ -1,0 +1,5 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>수집 #{{ batch.pk }} 품질 검증 결과</h1><p>{{ batch.filename }} / {{ batch.created_at|date:'c' }} / {% if batch.is_example %}샘플{% else %}실제{% endif %} / 수집자 {{ batch.actor.username }}</p>
+<p>원본 SHA256: {{ batch.sha256 }}. 원본 바이트는 비공개 DB에 보존됩니다. 기존 사건 데이터는 변경하지 않습니다.</p><p>정제 승인 {{ batch.accepted }}건 / 오류·중복 제외 {{ batch.errors|length }}행</p>
+<table><tr><th>CSV 행 번호 (헤더 포함, 여러 줄이면 끝 물리 행)</th><th>사유</th></tr>{% for error in batch.errors %}<tr><td>{{ error.row }}</td><td>{{ error.reasons|join:'; ' }}</td></tr>{% empty %}<tr><td colspan="2">오류 없음</td></tr>{% endfor %}</table>
+<a href="{% url 'analysis' %}?{{ analysis_query }}">분석으로 이동 (기간 확인)</a>{% endblock %}

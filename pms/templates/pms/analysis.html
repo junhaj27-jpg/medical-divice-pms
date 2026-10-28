@@ -1,0 +1,31 @@
+{% extends 'pms/base.html' %}
+{% block content %}
+<h1>PMS 보고 건수 분석</h1>
+<p>검토가 필요한 신호를 찾는 분석 도구입니다. 발생률·인과관계·규제기관 제출 적합성을 자동 보증하지 않습니다. 기존 사건 관리와 별도 수집한 분석 코호트입니다.</p>
+{% if not report %}
+<section class="card"><h2>데이터 수집·품질 검증</h2><p>UTF-8 CSV, 최대 5MB / 10000행. 샘플 열과 순서는 README를 참조하세요. 개인정보를 입력하지 마세요.</p>
+<form method="post" enctype="multipart/form-data" class="loading-form">{% csrf_token %}{{ upload_form.as_p }}<button>업로드·검증</button></form>
+<p>{% for b in batches %}<a href="{% url 'analysis-import' b.pk %}">수집 #{{ b.pk }} ({{ b.accepted }}건)</a> {% empty %}수집 데이터가 없습니다.{% endfor %}</p></section>
+{% endif %}
+<section class="card"><h2>분석 기간·필터·신호 기준</h2><form method="get" class="loading-form">{{ form.as_p }}<button>분석</button></form></section>
+{% if result %}
+<p>생성 시각: {{ result.generated_at|date:'c' }} / 데이터 구분: {{ form.cleaned_data.example }} / 날짜 축: {{ form.cleaned_data.basis }}</p>
+<p>현재: {{ form.cleaned_data.start }} ~ {{ form.cleaned_data.end }} (양끝 포함) / 비교: {{ result.previous_start }} ~ {{ result.previous_end }} (동일 길이)</p>
+<p>기준: 현재 최소 {{ form.cleaned_data.minimum }}건, 증가 임계값 {{ form.cleaned_data.threshold }}%. 비교기간 0건은 증가율 미산출, 최소 건수 이상이면 신규 보고 신호.</p>
+<p>전체 필터: {{ form.cleaned_data }} / 데이터 출처: {{ result.sources|join:', ' }}</p>
+<p>현재 보고 건수 {{ result.total }} / 비교 보고 건수 {{ result.previous_total }} / 선택 날짜 누락으로 제외된 건수 {{ result.missing_dates }}</p>
+<p>중대성 분포: {{ result.seriousness }} / 월별 보고 건수 (선택 날짜 기준): {{ result.periods }}</p>
+<a href="?{{ query }}&amp;format=csv">필터 결과 CSV</a> | <a href="?{{ query }}&amp;format=report">분석 보고서</a> <a href="?{{ query }}&amp;format=pdf">서버 PDF</a> <button type="button" onclick="window.print()">인쇄 / PDF 저장</button>
+<h2>기기별 보고 건수</h2><table><tr><th>기기 / 제조사 / 모델</th><th>현재</th><th>비교</th><th>증가율</th></tr>{% for g in result.groups %}<tr><td>{{ g.device|join:' / ' }}</td><td>{{ g.count }}</td><td>{{ g.previous }}</td><td>{% if g.increase != None %}{{ g.increase }}%{% else %}미산출 (비교 0건){% endif %}</td></tr>{% empty %}<tr><td colspan="4">검색 결과가 없습니다.</td></tr>{% endfor %}</table>
+<h2>검토가 필요한 신호</h2>
+{% for signal in result.signals %}<section class="card"><h3>{{ signal.group.device|join:' / ' }}</h3>
+<p>관찰 사실: 현재 {{ signal.group.count }}건 / 비교 {{ signal.group.previous }}건. 규칙 해석: 증가 기준 충족, 원문과 중복 가능성을 담당자가 확인해야 합니다. AI 해석은 생성하지 않습니다.</p>
+<details><summary>원문 근거 (레코드 ID·출처·문장)</summary>{% for e in signal.snapshot.evidence %}<p>#{{ e.id }} / {{ e.source }} / {{ e.record_id|default:'외부 ID 없음' }} / 수집 #{{ e.batch }}, 행 {{ e.row }}: {{ e.quote|default:'근거 문장 부족' }}</p>{% endfor %}</details>
+<p>검토 상태: {{ signal.review.get_status_display|default:'신규' }} / 담당자: {{ signal.review.assignee.username|default:'미지정' }}</p>
+{% if not report %}<form method="post" action="{% url 'analysis-review' %}?{{ query }}" class="loading-form">{% csrf_token %}<input type="hidden" name="key" value="{{ signal.key }}"><label>상태<select name="status">{% for value,label in statuses %}<option value="{{ value }}" {% if signal.review.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label>담당자<select name="assignee">{% for u in users %}<option value="{{ u.pk }}" {% if signal.review.assignee_id == u.pk %}selected{% endif %}>{{ u.username }}</option>{% endfor %}</select></label><label>검토 의견<textarea name="note" required maxlength="4000"></textarea></label><button>검토 저장</button></form>{% endif %}
+{% for h in signal.review.history.all %}<p>{{ h.created_at|date:'c' }} / {{ h.actor.username }} / {{ h.before }} → {{ h.after }} / 담당자 {{ h.assignee.username }} / {{ h.note }}</p>{% endfor %}</section>{% empty %}<p>검토가 필요한 신호가 없습니다.</p>{% endfor %}
+<h2>정제 레코드</h2><table><tr><th>ID / 출처</th><th>기기</th><th>발생일 / 보고일</th><th>유형 / 중대성</th></tr>{% for r in result.records %}<tr><td>{{ r.pk }} / {{ r.source }} / {{ r.record_id }}</td><td>{{ r.device }} / {{ r.manufacturer }} / {{ r.model }}</td><td>{{ r.occurred_on|default:'미상' }} / {{ r.reported_on }}</td><td>{{ r.event_type }} / {{ r.get_seriousness_display }}</td></tr>{% empty %}<tr><td colspan="4">검색 결과가 없습니다. 필터 또는 데이터 구분을 확인하세요.</td></tr>{% endfor %}</table>
+{% else %}<p role="alert">필터 오류를 수정하면 분석할 수 있습니다.</p>{% endif %}
+<h2>저장된 검토 이력 (최근 20개)</h2>{% for saved in saved_reviews %}<p><a href="{% url 'analysis-review-detail' saved.pk %}">{{ saved.snapshot.device|join:' / ' }} / {{ saved.get_status_display }} / {{ saved.updated_at|date:'c' }}</a></p>{% empty %}<p>저장된 검토가 없습니다.</p>{% endfor %}<p id="loading" role="status" hidden>처리 중입니다. 잠시 기다려 주세요.</p>
+<script>document.querySelectorAll('.loading-form').forEach(f=>f.addEventListener('submit',()=>{document.getElementById('loading').hidden=false;f.querySelector('button').disabled=true;}));</script>
+{% endblock %}

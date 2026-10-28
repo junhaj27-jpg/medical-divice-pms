@@ -1,0 +1,7 @@
+source,record_id,device,manufacturer,model,occurred_on,reported_on,event_type,seriousness,narrative
+SAMPLE_ONLY,S-001,시연용 주입기,가상 제조사,DEMO-M1,2026-10-02,2026-10-03,전원 중단,SERIOUS,시연용 문장: 전원이 중단되었다고 보고됨
+SAMPLE_ONLY,S-002,시연용 주입기,가상 제조사,DEMO-M1,2026-10-04,2026-10-05,전원 중단,,시연용 문장: 중대성 확인 전
+SAMPLE_ONLY,S-003,시연용 주입기,가상 제조사,DEMO-M1,2026-10-06,2026-10-07,전원 중단,NON_SERIOUS,시연용 문장: 추가 기록 확인 필요
+SAMPLE_ONLY,S-001,시연용 주입기,가상 제조사,DEMO-M1,2026-10-02,2026-10-03,전원 중단,SERIOUS,중복 검증용 행
+SAMPLE_ONLY,S-004,시연용 주입기,가상 제조사,DEMO-M1,2026-02-30,2026-10-08,전원 중단,UNKNOWN,잘못된 날짜 검증용 행
+SAMPLE_ONLY,S-005,,가상 제조사,DEMO-M1,2026-10-08,2026-10-09,전원 중단,UNKNOWN,필수값 누락 검증용 행

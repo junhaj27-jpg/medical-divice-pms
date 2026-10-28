@@ -249,3 +249,14 @@ class RegulatoryTests(Base):
         self.assertEqual(self.client.get(reverse('rule-compare',args=[rule.pk])+'?other=bad').status_code,404)
         self.assertEqual(self.client.get(reverse('rule-citation-new',args=[rule.pk])+'?chunk=bad').status_code,404)
         self.assertEqual(self.client.post(reverse('rule-apply',args=[self.c.pk]),{'action':'confirm','preview_id':'bad'}).status_code,404)
+
+    def test_ai_adapter_timeout_and_malformed_citation_types(self):
+        doc = self.document()
+        chunk = doc.chunks.first()
+        with override_settings(RULE_AI_ENABLED=True, RULE_AI_APPROVED=True, RULE_AI_ADAPTER='tests.adapter'):
+            with patch('pms.rule_ai.import_string', return_value=lambda **kwargs: (_ for _ in ()).throw(TimeoutError())):
+                self.assertRaisesMessage(ValidationError, '시간이 초과', generate_ai_draft, self.raqa, {}, [chunk], True)
+            for citation in [dict(field='days', chunk_id=[], quote='3'), dict(field=[], chunk_id=chunk.pk, quote='3'), dict(field='days', chunk_id=chunk.pk, quote='3', interpretation=[])]:
+                response = {'fields':{}, 'citations':[citation]}
+                with patch('pms.rule_ai.import_string', return_value=lambda **kwargs: response):
+                    self.assertRaisesMessage(ValidationError, '형식 오류', generate_ai_draft, self.raqa, {}, [chunk], True)

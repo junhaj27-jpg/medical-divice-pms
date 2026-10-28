@@ -6,7 +6,7 @@ from django.test import TransactionTestCase
 class LegacyRegulationMigrationTests(TransactionTestCase):
     def test_old_rules_and_case_applications_are_preserved(self):
         previous=('pms','0006_alter_reportingrule_conditions')
-        latest=('pms','0007_regulationchunk_regulationdocument_rulechange_and_more')
+        latest=('pms','0008_analysisimport_analysisrecord_analysisreview_and_more')
         executor=MigrationExecutor(connection);executor.migrate([previous])
         try:
             old=executor.loader.project_state([previous]).apps

@@ -22,7 +22,8 @@ def generate_ai_draft(user,request_data,chunks,consent=False):
     if not chunks: raise ValidationError("실제 검색된 근거가 필요합니다.")
     context=[{"chunk_id":c.pk,"document":c.document.title,"edition":c.document.edition,"page":c.page,"section":c.section,"paragraph":c.paragraph,"sha256":c.document.sha256,"text":c.text} for c in chunks]
     try: response=import_string(settings.RULE_AI_ADAPTER)(system=SYSTEM_PROMPT,request=request_data,evidence=context)
-    except Exception as exc: raise ValidationError("AI 연동에 실패했습니다. 원문·인증 정보는 오류 로그에 기록하지 않습니다.") from None
+    except TimeoutError: raise ValidationError("AI 응답 시간이 초과되었습니다. 수동 검색·통계 기능을 이용하세요.") from None
+    except Exception: raise ValidationError("AI 연동에 실패했습니다. 원문·인증 정보는 오류 로그에 기록하지 않습니다.") from None
     if not isinstance(response,dict) or set(response)-{"fields","citations","unresolved","conflicts"}: raise ValidationError("AI 응답 구조가 올바르지 않습니다.")
     fields=response.get("fields",{});citations=response.get("citations",[])
     if not isinstance(fields,dict) or set(fields)-set(FIELD_LABELS)-{"name"} or not isinstance(citations,list): raise ValidationError("허용되지 않는 AI 필드입니다.")
@@ -33,6 +34,8 @@ def generate_ai_draft(user,request_data,chunks,consent=False):
         unresolved.extend(values)
     for cite in citations:
         if not isinstance(cite,dict) or set(cite)-{"field","chunk_id","quote","interpretation"}: raise ValidationError("AI 인용 구조 오류")
+        if type(cite.get("chunk_id")) is not int or not isinstance(cite.get("field"),str) or not isinstance(cite.get("interpretation",""),str):
+            raise ValidationError("AI 인용 필드 형식 오류")
         chunk=available.get(cite.get("chunk_id"));quote=cite.get("quote","")
         if not chunk or cite.get("field") not in FIELD_LABELS or not isinstance(quote,str) or not quote.strip() or quote.strip() not in chunk.text:
             raise ValidationError("AI가 실제 검색 결과에 없는 근거를 인용했습니다.")
