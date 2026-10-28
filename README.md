@@ -1,5 +1,7 @@
 # MedWatch PMS · 의료기기 PMS·리콜 관리 시스템
 
+이번 개정은 규정 관리의 **개정 영향 분석**(`/rules/impacts/`), 후보별 검토 업무·기한 비교·명시적 재적용, 내용 해시 기반 승인 유효성·재승인, PostgreSQL 동시성 CI를 추가합니다. 설치 시 `python manage.py migrate`로 0008을 적용하세요. 사용 순서, 레거시 승인 처리, 검증·격리 시연 명령과 구현 한계는 [개정 영향·승인 안내](IMPACT_APPROVAL_GUIDE.md)를 따릅니다. 아래 과거 버전의 테스트 개수는 당시 기록이며 현재 결과는 실제 테스트 실행으로 확인합니다.
+
 의료기기 출시 후 고객 불만, 이상사례, 위험평가, CAPA, 규제보고, 리콜과 회수율을 하나의 추적 가능한 흐름으로 관리하는 **취업 포트폴리오용 Django 5 데모**입니다. 실제 식약처 규정 준수, 법정 보고 기한 또는 의료 판단을 자동 보장하는 시스템이 아닙니다.
 
 > **한 줄 소개**: 흩어진 시판 후 안전관리 업무를 역할 기반 상태 머신과 감사 가능한 승인 흐름으로 연결한 의료기기 RA·QA 포트폴리오 프로젝트
@@ -16,7 +18,7 @@
 | 데이터베이스 | SQLite 개발환경, PostgreSQL 운영환경 |
 | 프런트엔드 | Django Template, 반응형 자체 CSS, Chart.js |
 | 배포 기반 | Docker, Docker Compose, GitHub Actions |
-| 자동화 검증 | Django 테스트 87개, system check, 마이그레이션 검사 |
+| 자동화 검증 | Django 테스트 113개 (SQLite에서 PostgreSQL 전용 4개 제외), system check, 마이그레이션 검사 |
 
 ## 빠른 데모 시나리오
 
@@ -160,7 +162,7 @@ STAFF는 단순히 읽기 권한을 받는 것이 아니라 `reporter=request.us
 
 ### 3. 승인 시점 데이터 스냅샷
 
-승인 요청에는 사건 버전, 제품, UDI, LOT, 위험점수·등급, CAPA·규제보고·리콜 ID를 JSON으로 저장합니다. 이후 데이터가 변경되더라도 승인자가 어떤 상태를 검토했는지 추적할 수 있는 구조입니다.
+승인 요청에는 사건 버전 메타데이터와 사건·위험평가·CAPA·규제보고·리콜·규칙 적용·증빙 메타데이터의 항목별 내용 해시를 저장합니다. 연결 ID가 같아도 내용 변경을 감지하고 오래된 요청의 승인과 오래된 승인에 근거한 최종 조치를 차단합니다. 서술 원문·개인정보·파일 본문을 승인 스냅샷에 복제하지 않습니다.
 
 ### 4. 환자정보 최소화
 
@@ -184,7 +186,7 @@ STAFF는 단순히 읽기 권한을 받는 것이 아니라 `reporter=request.us
 | 리콜 수량·회수율 | `Recall.clean()`, `recovery_rate` | 초과 수량·회수율 테스트 |
 | 리콜 대상 | `RecallTarget`, REST API | 제품·LOT 및 합계 검증 |
 | 승인·반려 | `Approval`, `decide_approval()` | 반려 사유·승인 게이트 테스트 |
-| 승인 스냅샷 | `Approval.snapshot` | 버전·제품 스냅샷 테스트 |
+| 승인 스냅샷 | `Approval.snapshot`, `approval_integrity.py` | 내용 변경·재승인·레거시·동시성 테스트 |
 | 감사 로그 | `audit()`, middleware | 민감정보 마스킹 테스트 |
 | 첨부 보안 | `Attachment`, serializer | 확장자·크기 테스트 |
 | 익명 환자 | `PatientAnonymousInfo` | 직접 식별정보 차단 테스트 |
@@ -227,7 +229,7 @@ STAFF는 단순히 읽기 권한을 받는 것이 아니라 `reporter=request.us
 - 검색·필터·정렬·페이지네이션 REST API, Chart.js 대시보드
 - 로그인/CRUD/상태/승인/보고서/다운로드 감사 로그
 - 사건 상세 통합 워크스페이스에서 위험평가 → CAPA → 규제보고 → 리콜 → 관리자 승인 처리
-- 승인 요청 시 사건 버전, 제품·UDI·LOT, 위험등급, 연결 CAPA·보고서·리콜을 JSON 스냅샷으로 보존
+- 승인 요청 시 사건 버전과 명시적 승인 대상 내용의 정규화 해시를 보존하고 변경 후 재승인 요구
 - 제품·UDI·LOT·이상사례·CAPA·리콜 상세 화면과 리콜 종료 결과 인쇄
 - ADMIN 사용자 역할·활성 상태 변경, 리콜 승인·반려 사유·종료 보고서 관리
 - cron 또는 Celery 없이도 실행 가능한 `notify_deadlines` 관리 명령
@@ -425,7 +427,7 @@ curl -u raqa:비밀번호 'http://127.0.0.1:8000/api/complaints/?status=REVIEW&s
 - Celery·Redis 기반 알림, 이메일 및 에스컬레이션
 - PostgreSQL trigram/분류 모델을 이용한 유사도 보조(사람의 검토 유지)
 - object-level permission과 조직/사이트 다중 테넌시
-- 전자서명 및 승인 스냅샷 심화 (서버 PDF 버전은 v1.6 ReportLab/pypdf 구현)
+- 전자서명과 외부 불변 승인·감사 저장소 (현재 내용 해시와 서버 PDF 제공)
 - S3 호환 스토리지, 실제 악성코드 도구 운영 검증, 감사 로그 외부 불변 보관
 - API 토큰/OIDC, CSP, rate limiting, observability와 백업 복구 훈련
 
@@ -574,7 +576,7 @@ python manage.py collectstatic --noinput
 
 ## 테스트 범위
 
-현재 Django 테스트는 다음을 포함한 **87개 시나리오**를 검증합니다.
+현재 Django 테스트는 다음을 포함한 **113개 시나리오**를 제공합니다. SQLite에서는 PostgreSQL 전용 4개를 건너뛰며 실제 행 잠금 검증은 별도 PostgreSQL CI에서 실행합니다.
 
 - 위험점수와 위험등급
 - 정상·비정상 상태 전이 및 단계별 선행조건
