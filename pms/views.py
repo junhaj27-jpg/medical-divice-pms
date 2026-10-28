@@ -38,6 +38,10 @@ def complaint_detail(request,pk):
     obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
     approval=Approval.objects.filter(content_type="CustomerComplaint",object_id=obj.pk).order_by("-created_at").first()
     context={"item":obj,"warnings":recurrent_warning(obj),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
+    from .approval_integrity import approval_invalid_reason
+    context['approval_warning']=approval_invalid_reason(approval,obj) if approval else ''
+    context['can_request_approval']=privileged and obj.status in ('APPROVAL','ACTION_COMPLETE') and (not approval or approval.decision=='REJECTED' or bool(context['approval_warning']))
+    context['approval_history']=Approval.objects.filter(content_type='CustomerComplaint',object_id=obj.pk).order_by('-pk')
     return render(request,"pms/complaint_detail.html",context)
 @login_required
 @require_POST

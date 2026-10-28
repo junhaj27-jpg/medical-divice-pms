@@ -25,4 +25,5 @@ class LegacyRegulationMigrationTests(TransactionTestCase):
             self.assertEqual((a.days,b.days,c.holidays),(3,5,['2026-01-02']))
             applied=NewApp.objects.get(pk=app.pk);self.assertEqual(applied.snapshot,snapshot);self.assertEqual(applied.due_at,due);self.assertEqual(applied.reason,'original applied reason');self.assertEqual(NewCase.objects.get(pk=case.pk).due_date,date(2026,1,7))
         finally:
-            MigrationExecutor(connection).migrate([latest])
+            executor=MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())

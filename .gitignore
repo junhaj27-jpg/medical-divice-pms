@@ -10,3 +10,4 @@ __pycache__/
 private_media/
 .test-tmp/
 .test-media/
+tmp*/

@@ -1,6 +1,16 @@
 from django.contrib import admin
 from .models import *
-for model in [Profile,Manufacturer,MedicalDevice,UDI,ProductLot,CustomerComplaint,AdverseEvent,PatientAnonymousInfo,RiskAssessment,CAPA,Recall,RecallTarget,RegulatoryReport,Approval,AuditLog,Notification,AssistantConversation,AssistantMessage]: admin.site.register(model)
+for model in [Profile,Manufacturer,MedicalDevice,UDI,ProductLot,AdverseEvent,PatientAnonymousInfo,RiskAssessment,CAPA,Recall,RecallTarget,RegulatoryReport,AuditLog,Notification,AssistantConversation,AssistantMessage]: admin.site.register(model)
+
+@admin.register(CustomerComplaint)
+class ComplaintAdmin(admin.ModelAdmin):
+    readonly_fields=('status','version')
+
+@admin.register(Approval)
+class ApprovalAdmin(admin.ModelAdmin):
+    readonly_fields=tuple(f.name for f in Approval._meta.fields)
+    def has_add_permission(self,request): return False
+    def has_delete_permission(self,request,obj=None): return False
 
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):

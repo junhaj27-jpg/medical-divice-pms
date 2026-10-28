@@ -1,0 +1,4 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>개정 영향 분석</h1><div class="notice">검토 후보는 실제 적용 대상 확정이 아닙니다. 분석만으로 사건 기한·규칙은 변경되지 않습니다. 관할·시각은 담당자가 확인해 입력하세요.</div>
+<section class="panel"><h2>명시적 버전 비교·새 분석</h2><form method="post">{% csrf_token %}{{form.as_p}}<button class="btn primary">분석 저장</button></form></section>
+<section class="panel"><h2>분석 목록</h2>{% for x in items %}<p><a href="{% url 'impact-detail' x.pk %}">분석 #{{x.pk}} · {{x.old_rule}} → {{x.new_rule}}</a> · {{x.created_at}}</p>{% empty %}<p>분석이 없습니다.</p>{% endfor %}</section>{% endblock %}
