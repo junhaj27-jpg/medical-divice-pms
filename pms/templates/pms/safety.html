@@ -12,8 +12,8 @@
 <p>과거 날짜 실행은 현재 저장된 사건 자료를 해당 접수 기간으로 조회합니다. 이후 정정된 사건의 과거 상태를 추정하지 않습니다.</p>
 {{ result.chart|json_script:"safety-chart-data" }}
 <canvas id="safety-chart" aria-label="제품 LOT별 불만 건수"></canvas>
-<table><tr><th>제품 / LOT / 유형</th><th>현재</th><th>이전</th><th>증가율</th><th>검토 이유</th></tr>
-{% for row in result.groups %}<tr><td><a href="#cases">{{ row.device__name }} / {{ row.lot__lot_number|default:"없음" }} / {{ row.complaint_type }}</a></td><td>{{ row.count }}</td><td>{{ row.previous }}</td><td>{% if row.increase == None %}산정 불가 (이전 0건){% else %}{{ row.increase }}%{% endif %}</td><td>{{ row.reasons|join:", " }}</td></tr>{% endfor %}</table>
+<div class="table-wrap"><table><tr><th>제품 / LOT / 유형</th><th>현재</th><th>이전</th><th>증가율</th><th>검토 이유</th></tr>
+{% for row in result.groups %}<tr><td><a href="#cases">{{ row.device__name }} / {{ row.lot__lot_number|default:"없음" }} / {{ row.complaint_type }}</a></td><td>{{ row.count }}</td><td>{{ row.previous }}</td><td>{% if row.increase == None %}산정 불가 (이전 0건){% else %}{{ row.increase }}%{% endif %}</td><td style="white-space:normal;min-width:16rem">{{ row.reasons|join:", " }}</td></tr>{% endfor %}</table></div>
 {% if privileged %}<form method="post">{% csrf_token %}<button>현재 조건으로 신호 저장·검토 업무 배정</button></form>{% endif %}
 <h2 id="cases">원인 사건 목록</h2>
 {% for c in result.cases %}<p class="safety-case" data-device="{{ c.device_id }}" data-lot="{{ c.lot_id|default_if_none:'' }}" data-date="{{ c.reported_on|date:'Y-m-d' }}"><a href="{% url 'complaint-workspace' c.pk %}">CMP-{{ c.pk }} {{ c.title }}</a> · {{ c.reported_on }} · {{ c.device }} / {{ c.lot|default:"없음" }} · 위험 {{ c.risk_assessment.level|default:"미평가" }} {% if c.adverse_event.serious %}· 중대 이상사례{% endif %}</p>{% empty %}<p>해당 사건 없음</p>{% endfor %}

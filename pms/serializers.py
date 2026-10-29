@@ -18,6 +18,20 @@ class ComplaintSerializer(serializers.ModelSerializer):
         return data
 class AdverseEventSerializer(serializers.ModelSerializer):
     class Meta: model=AdverseEvent; fields="__all__"
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        request=self.context.get("request")
+        if request:
+            from .services import visible_complaints
+            cases=visible_complaints(request.user)
+            self.fields["complaint"].queryset=cases
+            self.fields["patient"].queryset=PatientAnonymousInfo.objects.filter(complaint__in=cases)
+    def validate(self,data):
+        complaint=data.get("complaint",getattr(self.instance,"complaint",None))
+        patient=data.get("patient",getattr(self.instance,"patient",None))
+        if patient and complaint and patient.complaint_id!=complaint.pk:
+            raise serializers.ValidationError("환자 익명정보는 같은 사건에 속해야 합니다.")
+        return data
 class RiskSerializer(serializers.ModelSerializer):
     score=serializers.IntegerField(read_only=True); level=serializers.CharField(read_only=True); capa_review_required=serializers.BooleanField(read_only=True); assessed_by=serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta: model=RiskAssessment; fields="__all__"
@@ -39,6 +53,8 @@ class RecallSerializer(serializers.ModelSerializer):
     recovery_rate=serializers.FloatField(read_only=True)
     class Meta: model=Recall; fields="__all__"
     def validate(self,data):
+        if "approval_status" in self.initial_data or self.initial_data.get("progress_status")=="CLOSED":
+            raise serializers.ValidationError("리콜 승인·반려·종결은 관리자 전용 처리 화면을 사용하세요.")
         if data.get("target_quantity",getattr(self.instance,"target_quantity",0))>data.get("distributed_quantity",getattr(self.instance,"distributed_quantity",0)): raise serializers.ValidationError("회수 목표 수량은 유통 수량을 초과할 수 없습니다.")
         if data.get("recovered_quantity",getattr(self.instance,"recovered_quantity",0))>data.get("target_quantity",getattr(self.instance,"target_quantity",0)): raise serializers.ValidationError("실제 회수 수량은 목표 수량을 초과할 수 없습니다.")
         return data

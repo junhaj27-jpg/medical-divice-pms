@@ -11,6 +11,10 @@ from .permissions import IsAdminRole, IsRAQAOrAdmin, RoleWritePermission
 from .serializers import *
 from .services import audit, decide_approval, role, transition_complaint, visible_complaints
 def custom_exception_handler(exc,context):
+    from django.core.exceptions import ValidationError as DomainValidationError
+    from rest_framework.exceptions import ValidationError as APIValidationError
+    if isinstance(exc,DomainValidationError):
+        exc=APIValidationError(exc.message_dict if hasattr(exc,"message_dict") else exc.messages)
     response=exception_handler(exc,context)
     if response is not None: response.data={"success":False,"error":{"code":getattr(exc,"default_code","error"),"detail":response.data}}
     return response
@@ -41,6 +45,11 @@ class AdverseEventViewSet(AuditedViewSet):
         complaint=s.validated_data["complaint"]
         if not visible_complaints(self.request.user).filter(pk=complaint.pk).exists(): raise DRFPermissionDenied("접근할 수 없는 사건입니다.")
         obj=s.save(); audit(self.request.user,"CREATE",obj,after=s.data)
+    def perform_update(self,s):
+        complaint=s.validated_data.get("complaint",s.instance.complaint)
+        if not visible_complaints(self.request.user).filter(pk=complaint.pk).exists():
+            raise DRFPermissionDenied("접근할 수 없는 사건입니다.")
+        super().perform_update(s)
 class RiskViewSet(AuditedViewSet):
     queryset=RiskAssessment.objects.select_related("complaint"); serializer_class=RiskSerializer; permission_classes=[IsRAQAOrAdmin]
     def perform_create(self,s): obj=s.save(assessed_by=self.request.user); audit(self.request.user,"CREATE",obj,after=s.data)

@@ -331,7 +331,7 @@ def apply_regulated_rule(complaint,rule,user,preview,reason,confirmed_previous,c
     scope_lock=uuid.UUID(int=0)
     RuleFamilyLock.objects.get_or_create(key=scope_lock)
     RuleFamilyLock.objects.filter(pk=scope_lock).update(key=scope_lock)
-    c=visible_complaints(user).select_for_update().get(pk=complaint.pk)
+    c=visible_complaints(user).select_for_update(of=("self",)).get(pk=complaint.pk)
     rule=rules_for(user).select_for_update().get(pk=rule.pk)
     if rule.state!="EFFECTIVE": raise ValidationError("승인 후 시행된 규칙만 사건에 적용할 수 있습니다.")
     today=timezone.now().astimezone(ZoneInfo(rule.timezone_name)).date()

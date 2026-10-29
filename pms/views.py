@@ -14,13 +14,14 @@ from .models import *
 from .file_security import normalized_name, scan_attachment, safe_attachment_bytes
 from io import BytesIO
 from .assistant_service import answer_question, validate_question
-from .services import audit, decide_approval, recurrent_warning, request_complaint_approval, role, transition_complaint, visible_complaints
+from .services import audit, decide_approval, recurrent_warning, request_complaint_approval, role, transition_complaint, visible_complaints, approval_is_current
 def raqa_required(view): return user_passes_test(lambda u: u.is_authenticated and role(u) in (Profile.Role.RA_QA,Profile.Role.ADMIN))(view)
 @login_required
 def dashboard(request):
     qs=visible_complaints(request.user); risks=RiskAssessment.objects.filter(complaint__in=qs); recalls=Recall.objects.exclude(progress_status="CLOSED")
+    if role(request.user)=="STAFF": recalls=recalls.filter(complaint__in=qs)
     monthly=[{"month":x["month"].strftime("%Y-%m"),"count":x["count"]} for x in qs.annotate(month=TruncMonth("reported_on")).values("month").annotate(count=Count("id")).order_by("month")]
-    context={"total":qs.count(),"open":qs.exclude(status="CLOSED").count(),"overdue":qs.filter(due_date__lt=timezone.localdate()).exclude(status="CLOSED").count(),"high":risks.filter(level__in=["HIGH","CRITICAL"]).count(),"critical":risks.filter(level="CRITICAL").count(),"capas":CAPA.objects.exclude(status="CLOSED").count(),"reports":RegulatoryReport.objects.filter(status__in=["DRAFT","REVIEW"]).count(),"recalls":recalls,"monthly":json.dumps(monthly,default=str),"products":json.dumps(list(qs.values(label=models.F("device__name")).annotate(count=Count("id")).order_by("-count")[:8]),default=str)}
+    context={"total":qs.count(),"open":qs.exclude(status="CLOSED").count(),"overdue":qs.filter(due_date__lt=timezone.localdate()).exclude(status="CLOSED").count(),"high":risks.filter(level__in=["HIGH","CRITICAL"]).count(),"critical":risks.filter(level="CRITICAL").count(),"capas":CAPA.objects.filter(complaint__in=qs).exclude(status="CLOSED").count(),"reports":RegulatoryReport.objects.filter(complaint__in=qs,status__in=["DRAFT","REVIEW"]).count(),"recalls":recalls.select_related("device"),"monthly":monthly,"products":list(qs.values(label=models.F("device__name")).annotate(count=Count("id")).order_by("-count")[:8])}
     return render(request,"pms/dashboard.html",context)
 @login_required
 def complaint_list(request):
@@ -38,6 +39,7 @@ def complaint_detail(request,pk):
     obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
     approval=Approval.objects.filter(content_type="CustomerComplaint",object_id=obj.pk).order_by("-created_at").first()
     context={"item":obj,"warnings":recurrent_warning(obj,user=request.user),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
+    context["approval_current"]=approval_is_current(obj) if approval else False
     return render(request,"pms/complaint_detail.html",context)
 @login_required
 @require_POST
@@ -84,7 +86,7 @@ def recall_create(request,pk):
 @require_POST
 def approval_request(request,pk):
     complaint=get_object_or_404(CustomerComplaint,pk=pk)
-    try: request_complaint_approval(complaint,request.user,request.META.get("REMOTE_ADDR")); messages.success(request,"관리자 승인을 요청했습니다.")
+    try: request_complaint_approval(complaint,request.user,request.META.get("REMOTE_ADDR"),reason=request.POST.get("reason","")); messages.success(request,"관리자 승인을 요청했습니다.")
     except ValidationError as exc: messages.error(request," ".join(exc.messages))
     return redirect("complaint-workspace",pk)
 @login_required
@@ -98,7 +100,12 @@ def approval_decide(request,pk,approval_pk):
 @login_required
 def device_list(request): return render(request,"pms/object_list.html",{"title":"의료기기","items":MedicalDevice.objects.select_related("manufacturer"),"headers":["제품명","모델","제조사"]})
 @login_required
-def device_detail(request,pk): return render(request,"pms/device_detail.html",{"item":get_object_or_404(MedicalDevice.objects.select_related("manufacturer"),pk=pk)})
+def device_detail(request,pk):
+    item=get_object_or_404(MedicalDevice.objects.select_related("manufacturer"),pk=pk)
+    cases=visible_complaints(request.user)
+    recalls=item.recalls.all()
+    if role(request.user)=="STAFF": recalls=recalls.filter(complaint__in=cases)
+    return render(request,"pms/device_detail.html",{"item":item,"complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count()})
 @login_required
 @raqa_required
 def device_create(request):
@@ -108,7 +115,12 @@ def device_create(request):
 @login_required
 def lot_list(request): return render(request,"pms/lot_list.html",{"items":ProductLot.objects.select_related("device","udi")})
 @login_required
-def lot_detail(request,pk): return render(request,"pms/lot_detail.html",{"item":get_object_or_404(ProductLot.objects.select_related("device","udi"),pk=pk)})
+def lot_detail(request,pk):
+    item=get_object_or_404(ProductLot.objects.select_related("device","udi"),pk=pk)
+    cases=visible_complaints(request.user)
+    targets=item.recalltarget_set.all()
+    if role(request.user)=="STAFF": targets=targets.filter(recall__complaint__in=cases)
+    return render(request,"pms/lot_detail.html",{"item":item,"complaint_count":cases.filter(lot=item).count(),"recall_target_count":targets.count()})
 @login_required
 @raqa_required
 def lot_create(request):

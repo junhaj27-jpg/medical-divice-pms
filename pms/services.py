@@ -26,7 +26,8 @@ def transition_complaint(complaint,new_status,user,ip=None):
     if complaint.status=="RISK" and not hasattr(complaint,"risk_assessment"): raise ValidationError("위험평가를 먼저 완료해야 합니다.")
     if complaint.status=="CAPA_DECISION" and getattr(getattr(complaint,"risk_assessment",None),"capa_review_required",False) and not complaint.capas.exists(): raise ValidationError("HIGH 이상 사건은 CAPA를 등록해야 합니다.")
     if complaint.status=="REPORT_REVIEW" and not complaint.reports.exists(): raise ValidationError("규제보고 판단과 체크리스트를 먼저 작성해야 합니다.")
-    if complaint.status=="APPROVAL" and not any(a.snapshot.get("integrity")==approval_integrity(complaint) for a in Approval.objects.filter(content_type="CustomerComplaint",object_id=complaint.pk,decision=Approval.Decision.APPROVED)): raise ValidationError("관리자 승인 무결성이 확인되어야 조치를 완료할 수 있습니다. 변경 후 재승인이 필요합니다.")
+    if complaint.status in ("APPROVAL","ACTION_COMPLETE") and not approval_is_current(complaint):
+        raise ValidationError("관리자 승인 무결성이 확인되어야 진행할 수 있습니다. 변경 사유를 입력하고 재승인을 요청하세요.")
     if new_status in ("ACTION_COMPLETE","CLOSED") and role(user)!=Profile.Role.ADMIN: raise PermissionDenied("최종 승인·종료는 관리자만 수행할 수 있습니다.")
     old=complaint.status; complaint.status=new_status; complaint.version+=1; complaint.save(update_fields=["status","version","updated_at"]); audit(user,"STATUS_CHANGE",complaint,{"status":old},{"status":new_status},ip); return complaint
 def recurrent_warning(complaint,user=None,as_of=None):
@@ -57,26 +58,62 @@ def decide_approval(approval,user,decision,reason="",ip=None):
     if decision==Approval.Decision.REJECTED and not reason.strip(): raise ValidationError("반려 사유는 필수입니다.")
     approval.decision=decision; approval.reason=reason; approval.decided_by=user; approval.decided_at=timezone.now(); approval.save(); audit(user,decision,approval,after={"reason":reason}); return approval
 @transaction.atomic
-def request_complaint_approval(complaint,user,ip=None):
+def request_complaint_approval(complaint,user,ip=None,reason=""):
     complaint=CustomerComplaint.objects.select_for_update().get(pk=complaint.pk)
     if role(user) not in (Profile.Role.RA_QA,Profile.Role.ADMIN): raise PermissionDenied("RA/QA 또는 관리자만 승인을 요청할 수 있습니다.")
-    if complaint.status!="APPROVAL": raise ValidationError("관리자 승인 단계에서만 요청할 수 있습니다.")
+    if complaint.status not in ("APPROVAL","ACTION_COMPLETE"): raise ValidationError("관리자 승인 또는 조치 완료 단계에서만 요청할 수 있습니다.")
     if Approval.objects.filter(content_type="CustomerComplaint",object_id=complaint.pk,decision=Approval.Decision.PENDING).exists(): raise ValidationError("이미 대기 중인 승인 요청이 있습니다.")
+    latest=latest_complaint_approval(complaint)
+    if (complaint.status=="ACTION_COMPLETE" or (latest and latest.decision=="APPROVED")) and not reason.strip():
+        raise ValidationError("재승인 요청에는 변경·재검토 사유가 필요합니다.")
+    if complaint.status=="ACTION_COMPLETE":
+        before={"status":complaint.status,"version":complaint.version}
+        complaint.status="APPROVAL";complaint.version+=1
+        complaint.save(update_fields=["status","version","updated_at"])
+        audit(user,"REAPPROVAL_REOPEN",complaint,before,{"status":complaint.status,"reason":reason},ip)
     risk=getattr(complaint,"risk_assessment",None)
     snapshot={"complaint_id":complaint.pk,"version":complaint.version,"title":complaint.title,"status":complaint.status,"device":str(complaint.device),"udi":str(complaint.udi),"lot":str(complaint.lot or ""),"risk":{"score":getattr(risk,"score",None),"level":getattr(risk,"level",None)},"capa_ids":list(complaint.capas.values_list("id",flat=True)),"report_ids":list(complaint.reports.values_list("id",flat=True)),"recall_ids":list(complaint.recalls.values_list("id",flat=True))}
     snapshot["integrity"]=approval_integrity(complaint)
+    snapshot["content_integrity"]=approval_integrity(complaint,content_only=True)
+    snapshot["integrity_version"]=2
+    snapshot["request_reason"]=reason.strip()
     approval=Approval.objects.create(content_type="CustomerComplaint",object_id=complaint.pk,requested_by=user,snapshot=snapshot); audit(user,"APPROVAL_REQUEST",approval,after=snapshot,ip=ip); return approval
 
-def approval_integrity(complaint):
+def latest_complaint_approval(complaint):
+    return Approval.objects.filter(content_type="CustomerComplaint",object_id=complaint.pk).order_by("-created_at","-pk").first()
+
+def approval_is_current(complaint):
+    latest=latest_complaint_approval(complaint)
+    if not latest or latest.decision!="APPROVED": return False
+    content_only=complaint.status=="ACTION_COMPLETE"
+    key="content_integrity" if content_only else "integrity"
+    return bool(latest.snapshot.get(key)) and latest.snapshot[key]==approval_integrity(complaint,content_only=content_only)
+
+def approval_integrity(complaint,content_only=False):
     import hashlib, json
     from django.core.serializers.json import DjangoJSONEncoder
     # Values include related content, so unchanged IDs cannot conceal edits.
     data={"complaint":CustomerComplaint.objects.filter(pk=complaint.pk).values().get()}
+    if content_only:
+        # These three fields change during the authorized workflow itself.
+        for field in ("status","version","updated_at"): data["complaint"].pop(field,None)
     for name in ("capas","reports","recalls","attachments","tasks","rule_applications"):
         data[name]=list(getattr(complaint,name).order_by("pk").values())
     from .models import RiskAssessment, AdverseEvent
     data["risk"]=list(RiskAssessment.objects.filter(complaint=complaint).values())
     data["adverse"]=list(AdverseEvent.objects.filter(complaint=complaint).values())
+    # Child ledgers and evidence links can change without updating their parent.
+    from .models import RecallTarget, RecallRecipient, RecoveryEntry, RecallContact, CAPAEvaluation, TaskHistory
+    for name,model,filters in (
+        ("recall_targets",RecallTarget,{"recall__complaint":complaint}),
+        ("recall_recipients",RecallRecipient,{"recall__complaint":complaint}),
+        ("recoveries",RecoveryEntry,{"recipient__recall__complaint":complaint}),
+        ("recall_contacts",RecallContact,{"recipient__recall__complaint":complaint}),
+        ("capa_evaluations",CAPAEvaluation,{"capa__complaint":complaint}),
+        ("capa_evidence",CAPAEvaluation.evidence.through,{"capaevaluation__capa__complaint":complaint}),
+        ("task_history",TaskHistory,{"task__complaint":complaint}),
+    ):
+        data[name]=list(model.objects.filter(**filters).order_by("pk").values())
     return hashlib.sha256(json.dumps(data,sort_keys=True,cls=DjangoJSONEncoder).encode()).hexdigest()
 def create_deadline_notifications():
     from .workflow import notify_tasks

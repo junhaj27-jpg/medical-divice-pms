@@ -128,7 +128,7 @@ def detect(user, data):
 @transaction.atomic
 def review_signal(user, signal_id, status, assignee_id, note, capa_id=None, recall_id=None):
     if role(user) not in ("RA_QA","ADMIN"): raise PermissionDenied
-    signal = signals_for(user).select_for_update().get(pk=signal_id)
+    signal = signals_for(user).select_for_update(of=("self",)).get(pk=signal_id)
     if status not in dict(SafetySignal._meta.get_field("status").choices) or not note.strip() or len(note)>10000:
         raise ValidationError("상태와 검토 의견·사유가 필요합니다.")
     try:

@@ -14,7 +14,8 @@ items: [{chunk_id:정수, quote:정확한 원문}], missing/conflicts: [문자�
 
 
 def retrieve(user, question, jurisdiction="", device_id=None, as_of=None):
-    question=validate_question(question)
+    try: question=validate_question(question)
+    except ValueError as exc: raise ValidationError(str(exc)) from None
     results=search_evidence(user,question,jurisdiction=jurisdiction,device_id=device_id,as_of=as_of)
     return dict(mode="로컬 검색 결과 · 생성형 AI 답변 아님", results=results,
                 missing=["근거의 적용 범위·최신 여부와 법정 기한은 담당자 확인 필요"] if results else ["관련 근거 부족 · 확인 필요"],
