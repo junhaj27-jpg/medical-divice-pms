@@ -11,10 +11,17 @@ from .permissions import IsAdminRole, IsRAQAOrAdmin, RoleWritePermission
 from .serializers import *
 from .services import audit, decide_approval, role, transition_complaint, visible_complaints
 def custom_exception_handler(exc,context):
+<<<<<<< HEAD
     from django.core.exceptions import ValidationError as DomainValidationError
     from rest_framework.exceptions import ValidationError as APIValidationError
     if isinstance(exc,DomainValidationError):
         exc=APIValidationError(exc.message_dict if hasattr(exc,"message_dict") else exc.messages)
+=======
+    from django.core.exceptions import ValidationError, PermissionDenied
+    from rest_framework.exceptions import ValidationError as APIValidationError, PermissionDenied as APIPermissionDenied
+    if isinstance(exc,ValidationError): exc=APIValidationError(exc.messages)
+    if isinstance(exc,PermissionDenied): exc=APIPermissionDenied(str(exc))
+>>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
     response=exception_handler(exc,context)
     if response is not None: response.data={"success":False,"error":{"code":getattr(exc,"default_code","error"),"detail":response.data}}
     return response
@@ -33,6 +40,10 @@ class ComplaintViewSet(AuditedViewSet):
         if getattr(self,"swagger_fake_view",False): return CustomerComplaint.objects.none()
         return visible_complaints(self.request.user)
     def perform_create(self,s): obj=s.save(reporter=self.request.user); audit(self.request.user,"CREATE",obj,after=s.data)
+    @action(detail=True,methods=["post"],permission_classes=[IsRAQAOrAdmin])
+    def request_approval(self,request,pk=None):
+        from .services import request_complaint_approval
+        return Response(ApprovalSerializer(request_complaint_approval(self.get_object(),request.user)).data)
     @action(detail=True,methods=["post"],permission_classes=[IsRAQAOrAdmin])
     def transition(self,request,pk=None):
         obj=transition_complaint(self.get_object(),request.data.get("status"),request.user,request.META.get("REMOTE_ADDR")); return Response(self.get_serializer(obj).data)

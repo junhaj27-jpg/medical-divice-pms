@@ -102,7 +102,7 @@ def save_draft(rule,user,reason,expected_revision=None):
     if not reason.strip(): raise ValidationError("변경 사유를 입력하세요.")
     before={}
     if rule.pk:
-        old=ReportingRule.objects.select_for_update().get(pk=rule.pk);editable(old,user)
+        old=ReportingRule.objects.select_for_update(of=("self",)).get(pk=rule.pk);editable(old,user)
         if expected_revision is None or old.revision!=expected_revision: raise ValidationError("다른 사용자가 수정했습니다. 새로고침 후 다시 저장하세요.")
         before=snapshot_before(old);rule.created_by=old.created_by;rule.family_key=old.family_key;rule.version=old.version;rule.state=old.state;rule.revision=old.revision+1
     else:
@@ -115,10 +115,10 @@ def save_draft(rule,user,reason,expected_revision=None):
 
 @transaction.atomic
 def revise_rule(source,user,reason):
-    require_author(user);source=rules_for(user).select_for_update().get(pk=source.pk)
+    require_author(user);source=rules_for(user).select_for_update(of=("self",)).get(pk=source.pk)
     if not reason.strip(): raise ValidationError("개정 사유를 입력하세요.")
     lock,_=RuleFamilyLock.objects.get_or_create(key=source.family_key)
-    RuleFamilyLock.objects.select_for_update().get(pk=lock.pk)
+    RuleFamilyLock.objects.select_for_update(of=("self",)).get(pk=lock.pk)
     version=(ReportingRule.objects.filter(family_key=source.family_key).aggregate(n=Max("version"))["n"] or 0)+1
     values={key:getattr(source,key) for key in CONTENT_FIELDS}
     values.update(change_reason=reason,origin="MANUAL")
@@ -131,7 +131,7 @@ def revise_rule(source,user,reason):
 
 @transaction.atomic
 def add_citation(rule,user,field_name,chunk,quote,interpretation,reason):
-    rule=ReportingRule.objects.select_for_update().get(pk=rule.pk);editable(rule,user)
+    rule=ReportingRule.objects.select_for_update(of=("self",)).get(pk=rule.pk);editable(rule,user)
     if not reason.strip(): raise ValidationError("근거 변경 사유가 필요합니다.")
     if field_name not in FIELD_LABELS: raise ValidationError("지원하지 않는 근거 항목입니다.")
     if not documents_for(user).filter(pk=chunk.document_id).exists(): raise PermissionDenied
@@ -148,14 +148,14 @@ def add_citation(rule,user,field_name,chunk,quote,interpretation,reason):
 
 @transaction.atomic
 def remove_citation(citation,user,reason):
-    rule=ReportingRule.objects.select_for_update().get(pk=citation.rule_id);editable(rule,user)
+    rule=ReportingRule.objects.select_for_update(of=("self",)).get(pk=citation.rule_id);editable(rule,user)
     if not reason.strip(): raise ValidationError("근거 제거 사유를 입력하세요.")
     before=snapshot_before(rule);citation.delete();rule.revision+=1;rule._workflow_write=True;rule.save();record_change(rule,user,"RULE_CITATION_REMOVE",reason,before)
 
 
 @transaction.atomic
 def import_holidays(rule,user,file,reason):
-    rule=ReportingRule.objects.select_for_update().get(pk=rule.pk);editable(rule,user)
+    rule=ReportingRule.objects.select_for_update(of=("self",)).get(pk=rule.pk);editable(rule,user)
     if not reason.strip(): raise ValidationError("휴일 변경 사유를 입력하세요.")
     if file.size>262144: raise ValidationError("휴일 CSV는 256KB 이하입니다.")
     try:
@@ -280,7 +280,7 @@ def transition_rule(rule,user,action,reason):
         scope_lock=uuid.UUID(int=0)
         RuleFamilyLock.objects.get_or_create(key=scope_lock)
         RuleFamilyLock.objects.filter(pk=scope_lock).update(key=scope_lock)
-    rule=rules_for(user).select_for_update().get(pk=rule.pk);before=snapshot_before(rule)
+    rule=rules_for(user).select_for_update(of=("self",)).get(pk=rule.pk);before=snapshot_before(rule)
     if action=="submit":
         editable(rule,user);errors=readiness(rule,user)
         if errors: raise ValidationError(errors)
@@ -325,14 +325,22 @@ def matches_case(rule,complaint):
 
 
 @transaction.atomic
-def apply_regulated_rule(complaint,rule,user,preview,reason,confirmed_previous,confirmed_due_date=None):
+def apply_regulated_rule(complaint,rule,user,preview,reason,confirmed_previous,confirmed_due_date=None,expected_case_token=None,expected_rule_token=None):
     require_author(user)
     if not reason.strip(): raise ValidationError("적용·재산정 사유를 입력하세요.")
     scope_lock=uuid.UUID(int=0)
     RuleFamilyLock.objects.get_or_create(key=scope_lock)
     RuleFamilyLock.objects.filter(pk=scope_lock).update(key=scope_lock)
     c=visible_complaints(user).select_for_update(of=("self",)).get(pk=complaint.pk)
+<<<<<<< HEAD
     rule=rules_for(user).select_for_update().get(pk=rule.pk)
+=======
+    rule=rules_for(user).select_for_update(of=("self",)).get(pk=rule.pk)
+    if expected_case_token or expected_rule_token:
+        from .impact import case_token, rule_token
+        if expected_case_token!=case_token(c) or expected_rule_token!=rule_token(rule): raise ValidationError("분석 이후 자료가 변경되었습니다. 재분석하세요.")
+    if c.status=="CLOSED": raise ValidationError("종료 사건은 규칙을 재적용할 수 없습니다.")
+>>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
     if rule.state!="EFFECTIVE": raise ValidationError("승인 후 시행된 규칙만 사건에 적용할 수 있습니다.")
     today=timezone.now().astimezone(ZoneInfo(rule.timezone_name)).date()
     if today<rule.effective_on or (rule.effective_until and today>rule.effective_until): raise ValidationError("현재 시행 기간이 아닙니다.")

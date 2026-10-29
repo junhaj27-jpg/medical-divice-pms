@@ -1,13 +1,20 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from . import api, views, regulatory_views as regulatory
+from . import impact_views
 
 r=DefaultRouter()
 for prefix,view,base in [("manufacturers",api.ManufacturerViewSet,"manufacturer"),("devices",api.DeviceViewSet,"device"),("udis",api.UDIViewSet,"udi"),("lots",api.LotViewSet,"lot"),("complaints",api.ComplaintViewSet,"complaint"),("adverse-events",api.AdverseEventViewSet,"adverse"),("risks",api.RiskViewSet,"risk"),("capas",api.CAPAViewSet,"capa"),("recalls",api.RecallViewSet,"recall"),("recall-targets",api.RecallTargetViewSet,"recall-target"),("reports",api.ReportViewSet,"report"),("attachments",api.AttachmentViewSet,"attachment"),("approvals",api.ApprovalViewSet,"approval"),("notifications",api.NotificationViewSet,"notification"),("audits",api.AuditViewSet,"audit")]: r.register(prefix,view,basename=base)
 
 urlpatterns=[
+<<<<<<< HEAD
  # Keep HTML names preferred when legacy DRF route names overlap.
  path("api/",include(r.urls)),
+=======
+ path("rules/impacts/",impact_views.impact_list,name="impact-list"),
+ path("rules/impacts/<int:pk>/",impact_views.impact_detail,name="impact-detail"),
+ path("rules/impacts/reviews/<int:pk>/",impact_views.impact_process,name="impact-process"),
+>>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
  path("assistant/",views.assistant_chat,name="assistant-chat"),path("assistant/new/",views.assistant_new,name="assistant-new"),
  path("",views.dashboard,name="dashboard"),path("complaints/",views.complaint_list,name="complaint-list"),path("complaints/new/",views.complaint_create,name="complaint-create"),path("complaints/<int:pk>/",views.complaint_detail,name="complaint-workspace"),
  path("complaints/<int:pk>/transition/",views.complaint_transition,name="complaint-transition"),path("complaints/<int:pk>/risk/",views.risk_save,name="risk-save"),path("complaints/<int:pk>/capa/",views.capa_create,name="capa-create"),path("complaints/<int:pk>/report/",views.report_create,name="report-create"),path("complaints/<int:pk>/recall/",views.recall_create,name="recall-create"),path("complaints/<int:pk>/approval/request/",views.approval_request,name="approval-request"),path("complaints/<int:pk>/approval/<int:approval_pk>/decide/",views.approval_decide,name="approval-decide"),path("complaints/<int:pk>/attachments/",views.attachment_upload,name="attachment-upload"),

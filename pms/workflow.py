@@ -60,7 +60,9 @@ def notify_tasks(now=None):
 
 @transaction.atomic
 def evaluate_capa(capa,user,data,evidence=()):
-    privileged(user); capa=CAPA.objects.select_for_update().get(pk=capa.pk)
+    privileged(user)
+    CustomerComplaint.objects.select_for_update().get(pk=capa.complaint_id)
+    capa=CAPA.objects.select_for_update().get(pk=capa.pk)
     if capa.status=="CLOSED": raise ValidationError("종결 CAPA는 평가할 수 없습니다.")
     required=("action_result","criteria","scheduled_on","evaluated_on","verdict","rationale")
     if any(not data.get(k) or (isinstance(data.get(k),str) and not data[k].strip()) for k in required): raise ValidationError("조치 결과·기준·예정일·평가일·판정·근거는 필수입니다.")
@@ -80,7 +82,9 @@ def evaluate_capa(capa,user,data,evidence=()):
 
 @transaction.atomic
 def close_capa(capa,user):
-    privileged(user); capa=CAPA.objects.select_for_update().get(pk=capa.pk)
+    privileged(user)
+    CustomerComplaint.objects.select_for_update().get(pk=capa.complaint_id)
+    capa=CAPA.objects.select_for_update().get(pk=capa.pk)
     if capa.tasks.exclude(status="DONE").exists(): raise ValidationError("재조치를 포함한 연결 업무를 먼저 완료하세요.")
     capa.status="CLOSED"; capa.full_clean(); capa.save(); audit(user,"CAPA_CLOSE",capa); return capa
 
@@ -88,6 +92,7 @@ def close_capa(capa,user):
 @transaction.atomic
 def save_recipient(obj,user):
     privileged(user)
+    if obj.recall.complaint_id: CustomerComplaint.objects.select_for_update().get(pk=obj.recall.complaint_id)
     Recall.objects.select_for_update().get(pk=obj.recall_id)
     if obj.pk:
         old=RecallRecipient.objects.select_for_update().get(pk=obj.pk)
@@ -100,6 +105,7 @@ def save_recipient(obj,user):
 @transaction.atomic
 def record_recovery(recipient,user,quantity,recovered_on):
     privileged(user)
+    if recipient.recall.complaint_id: CustomerComplaint.objects.select_for_update().get(pk=recipient.recall.complaint_id)
     if not isinstance(quantity,int) or isinstance(quantity,bool) or quantity<=0: raise ValidationError("회수 수량은 양수 정수여야 합니다.")
     # Lock parent for PostgreSQL; conditional UPDATE also enforces capacity on SQLite.
     obj=RecallRecipient.objects.select_for_update().get(pk=recipient.pk)

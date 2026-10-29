@@ -10,6 +10,18 @@ from django.utils import timezone
 class TimeStamped(models.Model):
     created_at=models.DateTimeField(auto_now_add=True); updated_at=models.DateTimeField(auto_now=True)
     class Meta: abstract=True
+    def save(self,*args,**kwargs):
+        # Writers of approval inputs share the case lock used by approval and transitions.
+        with transaction.atomic():
+            case_id=self.pk if type(self).__name__=='CustomerComplaint' else getattr(self,'complaint_id',None)
+            if not case_id and type(self).__name__ in ('RecallTarget','RecallRecipient') and self.recall_id:
+                case_id=Recall.objects.values_list('complaint_id',flat=True).get(pk=self.recall_id)
+            case_ids={case_id} if case_id else set()
+            if self.pk and hasattr(self,'complaint_id'):
+                old_id=type(self).objects.filter(pk=self.pk).values_list('complaint_id',flat=True).first()
+                if old_id: case_ids.add(old_id)
+            for locked_id in sorted(case_ids): CustomerComplaint.objects.select_for_update().get(pk=locked_id)
+            return super().save(*args,**kwargs)
 
 class Profile(models.Model):
     class Role(models.TextChoices): STAFF="STAFF","직원"; RA_QA="RA_QA","RA/QA"; ADMIN="ADMIN","관리자"
@@ -68,6 +80,7 @@ class CAPA(TimeStamped):
                 raise ValidationError("조치 결과·평가 기준·예정일과 적합 효과성 평가가 있어야 종결할 수 있습니다.")
     def save(self,*args,**kwargs):
         with transaction.atomic():
+            if self.complaint_id: CustomerComplaint.objects.select_for_update().get(pk=self.complaint_id)
             if self.pk: type(self).objects.select_for_update().get(pk=self.pk)
             self.clean(); return super().save(*args,**kwargs)
 class Recall(TimeStamped):
@@ -97,6 +110,9 @@ class Attachment(TimeStamped):
             from .file_security import validate_upload
             validate_upload(self.file)
 class Approval(TimeStamped):
+    superseded=models.BooleanField(default=False)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=["content_type","object_id"],condition=models.Q(decision="PENDING",superseded=False,content_type="CustomerComplaint"),name="unique_pending_case_approval")]
     class Decision(models.TextChoices): PENDING="PENDING","대기"; APPROVED="APPROVED","승인"; REJECTED="REJECTED","반려"
     content_type=models.CharField(max_length=50); object_id=models.PositiveIntegerField(); requested_by=models.ForeignKey(User,on_delete=models.PROTECT,related_name="requested_approvals"); decided_by=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="decided_approvals"); decision=models.CharField(max_length=10,choices=Decision.choices,default=Decision.PENDING); reason=models.TextField(blank=True); snapshot=models.JSONField(default=dict,blank=True); decided_at=models.DateTimeField(null=True,blank=True)
 class AuditLog(models.Model):
@@ -157,6 +173,10 @@ class CAPAEvaluation(models.Model):
     followup=models.OneToOneField(WorkTask,on_delete=models.PROTECT,null=True,blank=True)
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta: ordering=["-created_at","-pk"]
+    def save(self,*args,**kwargs):
+        with transaction.atomic():
+            CustomerComplaint.objects.select_for_update().get(pk=self.capa.complaint_id)
+            return super().save(*args,**kwargs)
 
 class BusinessPartner(TimeStamped):
     name=models.CharField("거래처명",max_length=200,unique=True)
@@ -397,5 +417,49 @@ class RuleFamilyLock(models.Model):
     # One lock per existing rule family, shared across all writers/approvers.
     key=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
 
+<<<<<<< HEAD
 from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory
 from .safety_models import SafetySignal, SafetyReview
+=======
+
+class RegulatoryImpact(TimeStamped):
+    old_rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT,related_name="old_impacts")
+    new_rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT,related_name="new_impacts")
+    created_by=models.ForeignKey(User,on_delete=models.PROTECT)
+    snapshot=models.JSONField()
+    include_closed=models.BooleanField(default=False)
+
+
+class ImpactReview(TimeStamped):
+    analysis=models.ForeignKey(RegulatoryImpact,on_delete=models.PROTECT,related_name="reviews")
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="impact_reviews")
+    task=models.OneToOneField(WorkTask,on_delete=models.PROTECT)
+    status=models.CharField(max_length=16,choices=[("WAITING","검토 대기"),("IN_PROGRESS","검토 중"),("APPLIED","적용 완료"),("EXCLUDED","적용 제외")],default="WAITING")
+    snapshot=models.JSONField()
+    shortened=models.BooleanField(default=False)
+    reason=models.TextField(blank=True)
+    processed_by=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True)
+    processed_at=models.DateTimeField(null=True,blank=True)
+    application=models.OneToOneField(RuleApplication,on_delete=models.PROTECT,null=True,blank=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=["analysis","complaint"],name="unique_impact_case")]
+
+
+# Collector deletions and evidence membership changes also participate in the case lock.
+from django.db.models.signals import pre_delete, m2m_changed
+from django.dispatch import receiver
+
+@receiver(pre_delete)
+def lock_approval_input_delete(sender,instance,using,**kwargs):
+    if sender not in (RiskAssessment,AdverseEvent,CAPA,RegulatoryReport,Recall,Attachment,RecallTarget,RecallRecipient,CAPAEvaluation): return
+    case_id=getattr(instance,'complaint_id',None)
+    if sender in (RecallTarget,RecallRecipient): case_id=instance.recall.complaint_id
+    if sender==CAPAEvaluation: case_id=instance.capa.complaint_id
+    if case_id: CustomerComplaint.objects.using(using).select_for_update().get(pk=case_id)
+
+@receiver(m2m_changed,sender=CAPAEvaluation.evidence.through)
+def lock_evaluation_evidence(sender,instance,action,reverse,using,**kwargs):
+    if not action.startswith('pre_'): return
+    ids=[instance.complaint_id] if reverse else [instance.capa.complaint_id]
+    for case_id in ids: CustomerComplaint.objects.using(using).select_for_update().get(pk=case_id)
+>>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
