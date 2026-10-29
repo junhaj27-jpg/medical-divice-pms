@@ -140,6 +140,8 @@ def search_evidence(user,query,jurisdiction="",device_id=None,edition="",as_of=N
     scored.sort(key=lambda x:(-x[0],x[1].document_id,x[1].sequence))
     result=[];checked={}
     for score,chunk in scored:
+        if hashlib.sha256(chunk.text.encode()).hexdigest()!=chunk.content_hash:
+            continue
         if chunk.document_id not in checked:
             try: safe_attachment_bytes(chunk.document);checked[chunk.document_id]=True
             except (PermissionDenied,OSError): checked[chunk.document_id]=False

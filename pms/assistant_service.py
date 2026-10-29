@@ -19,6 +19,16 @@ def _case_lines(qs):
     return "\n".join(f"- CMP-{x.pk:05d} · {x.title} · {x.get_status_display()}" for x in qs[:5]) or "- 해당 사건이 없습니다."
 
 def answer_question(user,text):
+    match=re.search(r"(?:cmp[- ]?|사건\s*#?)(\d+)",text.lower())
+    if match and "요약" in text:
+        from .ra_assistant import summarize_case
+        try: summary=summarize_case(user,int(match.group(1)))
+        except CustomerComplaint.DoesNotExist:
+            return "CASE_SUMMARY","해당 사건이 없거나 접근할 수 없습니다."
+        body=f"검토용 로컬 요약\n불만: {summary['complaint']}\n위험평가: {summary['risk'] or '미평가'}"
+        for label,key in (("CAPA","capas"),("규제보고","reports"),("리콜","recalls"),("미완료 업무","tasks")):
+            body+=f"\n{label}: "+", ".join(str(x) for x in summary[key])
+        return "CASE_SUMMARY",body+"\n"+DISCLAIMER
     q=text.lower(); complaints=visible_complaints(user); privileged=role(user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
     if any(k in q for k in ("도움","뭘 물어","질문 예시","사용법")):
         intent="HELP"; body="다음 내용을 물어볼 수 있습니다.\n- 고위험 사건 현황\n- 기한 초과 사건\n- 진행 중 CAPA 또는 리콜\n- CMP-번호 사건 상태\n- PMS 업무 흐름\n- 위험등급 계산 기준"

@@ -1,0 +1,8 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>CMP-{{ case.pk }} 구조화 사건 요약</h1><p>로컬 데이터 요약 · 검토용 · 외부 AI 전송 없음 · 업무 판단을 변경하지 않습니다.</p>
+<h2>불만</h2><p>{{ complaint }}</p><h2>위험평가</h2><p>{% if risk %}{{ risk.level }} · 점수 {{ risk.score }} · 근거 {{ risk.rationale }}{% else %}미평가{% endif %}</p>
+<h2>CAPA 진행</h2>{% for x in capas %}<p>{{ x.title }} · {{ x.get_status_display }}</p>{% empty %}<p>미등록</p>{% endfor %}
+<h2>규제보고 검토</h2>{% for x in reports %}<p>{{ x.document_number }} · {{ x.get_status_display }} · 보고 필요 {{ x.required }} · {{ x.investigation_result }}</p>{% empty %}<p>미등록</p>{% endfor %}
+<h2>리콜</h2>{% for x in recalls %}<p>{{ x.title }} · {{ x.get_progress_status_display }}</p>{% empty %}<p>미등록</p>{% endfor %}
+<h2>미완료 업무</h2>{% for x in tasks %}<p>{{ x.title }} · {{ x.get_status_display }} · {{ x.due_at }}</p>{% empty %}<p>없음</p>{% endfor %}
+{% endblock %}

@@ -20,8 +20,21 @@ def generate_ai_draft(user,request_data,chunks,consent=False):
     if not ai_available(): raise ValidationError("AI 연결 필요: 승인된 AI 어댑터가 설정되어 있지 않습니다. 수동 업무를 이용하세요.")
     if not consent: raise ValidationError("선택한 문서의 승인된 AI 연동 전송을 명시적으로 확인하세요.")
     if not chunks: raise ValidationError("실제 검색된 근거가 필요합니다.")
+    from .regulation_documents import documents_for
+    from .file_security import safe_attachment_bytes
+    allowed=set(documents_for(user).values_list("pk",flat=True))
+    for chunk in chunks:
+        if chunk.document_id not in allowed: raise ValidationError("접근할 수 없는 근거입니다.")
+        import hashlib
+        from .models import RegulationChunk
+        stored=RegulationChunk.objects.filter(pk=chunk.pk,document_id=chunk.document_id).first()
+        if not stored or stored.text!=chunk.text or hashlib.sha256(chunk.text.encode()).hexdigest()!=stored.content_hash:
+            raise ValidationError("근거 청크 무결성을 확인할 수 없습니다.")
+        safe_attachment_bytes(chunk.document)
     context=[{"chunk_id":c.pk,"document":c.document.title,"edition":c.document.edition,"page":c.page,"section":c.section,"paragraph":c.paragraph,"sha256":c.document.sha256,"text":c.text} for c in chunks]
-    try: response=import_string(settings.RULE_AI_ADAPTER)(system=SYSTEM_PROMPT,request=request_data,evidence=context)
+    from .ai_boundary import call_approved
+    try: response=call_approved(system=SYSTEM_PROMPT,request=request_data,evidence=context)
+    except ValidationError: raise
     except TimeoutError: raise ValidationError("AI 응답 시간이 초과되었습니다. 수동 검색·통계 기능을 이용하세요.") from None
     except Exception: raise ValidationError("AI 연동에 실패했습니다. 원문·인증 정보는 오류 로그에 기록하지 않습니다.") from None
     if not isinstance(response,dict) or set(response)-{"fields","citations","unresolved","conflicts"}: raise ValidationError("AI 응답 구조가 올바르지 않습니다.")

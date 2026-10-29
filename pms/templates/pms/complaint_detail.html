@@ -1,5 +1,5 @@
 {% extends 'pms/base.html' %}
-{% block content %}{% load static %}<link rel="stylesheet" href="{% static 'css/workflow.css' %}">
+{% block content %}<p><a href="/assistant/cases/{{ item.pk }}/">구조화 사건 요약</a></p>{% load static %}<link rel="stylesheet" href="{% static 'css/workflow.css' %}">
 <div class="page-head"><div><p class="eyebrow">CMP-{{item.pk|stringformat:'05d'}} · VERSION {{item.version}}</p><h1>{{item.title}}</h1></div><span class="badge large">{{item.get_status_display}}</span></div>
 {% for w in warnings %}<div class="critical">⚠ 반복 불만 경고: {{w}}</div>{% endfor %}
 <section class="workflow-bar">{% for v,l in item.Status.choices %}<div class="workflow-step {% if v == item.status %}active{% endif %}"><i>{{forloop.counter}}</i><span>{{l}}</span></div>{% endfor %}</section>

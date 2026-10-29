@@ -1,0 +1,7 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{ rule.name }} v{{ rule.version }} 개정 영향 검토</h1>
+<p>같은 규칙 계열의 이전 버전을 마지막으로 적용한 접근 가능한 사건입니다. 아래 계산은 비교용이며 조건 적합성·소급 적용 가능성을 확정하지 않습니다. 사건 기한·상태·승인을 변경하지 않습니다.</p>
+{% for row in rows %}<article><h2><a href="{% url 'complaint-workspace' row.complaint.pk %}">CMP-{{ row.complaint.pk }}</a></h2>
+<p>기존 v{{ row.previous_version }} / {{ row.previous_due }} → 비교 계산 {{ row.proposed_due|default:"계산 불가" }}</p>
+<p>변경 항목 {{ row.changed|join:", " }} · {{ row.notice }}</p></article>{% empty %}<p>검토 대상 이전 적용 사건 없음</p>{% endfor %}
+{% endblock %}

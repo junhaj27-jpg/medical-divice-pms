@@ -1,0 +1,36 @@
+{% extends 'pms/base.html' %}
+{% block content %}
+<h1>안전 신호 분석</h1>
+<p>검토 대상 탐지이며 안전성 문제의 확정 판단이 아닙니다. 내부 불만만 집계하며 외부 CSV 분석과 합산하지 않습니다.</p>
+<form method="get">{{ form.as_p }}<button>분석</button></form>
+{% if result %}
+<p>접수일(reported_on) 날짜 기준 · 시작일/종료일 모두 포함 · 주: 월요일 시작, 월: 1일 시작 · 양 끝 버킷은 선택 기간 내만 포함</p>
+<p>현재 {{ form.cleaned_data.start }} ~ {{ form.cleaned_data.end }}: {{ result.total }}건 / 이전 {{ result.previous_start }} ~ {{ result.previous_end }}: {{ result.previous_total }}건</p>
+<p>고위험·중대 사건 {{ result.urgent }}건 (중복 사건 1건으로 집계) · 발생률: 분모 데이터 없음</p>
+<p>HIGH·CRITICAL {{ result.high }}건 · 중대 이상사례 {{ result.serious }}건</p>
+<p>규칙 {{ result.rules.VERSION }} · 건수 임계치 {{ result.rules.COUNT }}건 · 증가 판단 최소 {{ result.rules.MINIMUM }}건 / {{ result.rules.INCREASE_PERCENT }}% · LOT 반복 {{ result.rules.LOT_COUNT }}건</p>
+<p>과거 날짜 실행은 현재 저장된 사건 자료를 해당 접수 기간으로 조회합니다. 이후 정정된 사건의 과거 상태를 추정하지 않습니다.</p>
+{{ result.chart|json_script:"safety-chart-data" }}
+<canvas id="safety-chart" aria-label="제품 LOT별 불만 건수"></canvas>
+<table><tr><th>제품 / LOT / 유형</th><th>현재</th><th>이전</th><th>증가율</th><th>검토 이유</th></tr>
+{% for row in result.groups %}<tr><td><a href="#cases">{{ row.device__name }} / {{ row.lot__lot_number|default:"없음" }} / {{ row.complaint_type }}</a></td><td>{{ row.count }}</td><td>{{ row.previous }}</td><td>{% if row.increase == None %}산정 불가 (이전 0건){% else %}{{ row.increase }}%{% endif %}</td><td>{{ row.reasons|join:", " }}</td></tr>{% endfor %}</table>
+{% if privileged %}<form method="post">{% csrf_token %}<button>현재 조건으로 신호 저장·검토 업무 배정</button></form>{% endif %}
+<h2 id="cases">원인 사건 목록</h2>
+{% for c in result.cases %}<p class="safety-case" data-device="{{ c.device_id }}" data-lot="{{ c.lot_id|default_if_none:'' }}" data-date="{{ c.reported_on|date:'Y-m-d' }}"><a href="{% url 'complaint-workspace' c.pk %}">CMP-{{ c.pk }} {{ c.title }}</a> · {{ c.reported_on }} · {{ c.device }} / {{ c.lot|default:"없음" }} · 위험 {{ c.risk_assessment.level|default:"미평가" }} {% if c.adverse_event.serious %}· 중대 이상사례{% endif %}</p>{% empty %}<p>해당 사건 없음</p>{% endfor %}
+<button type="button" onclick="document.querySelectorAll('.safety-case').forEach(e=>e.hidden=false)">사건 목록 전체 보기</button>
+<script>
+const chartData=JSON.parse(document.getElementById('safety-chart-data').textContent);
+new Chart(document.getElementById('safety-chart'),{type:'bar',data:chartData,options:{scales:{y:{beginAtZero:true,ticks:{precision:0}}},onClick:(event,points)=>{
+ if(!points.length)return;
+ const p=points[0],series=chartData.datasets[p.datasetIndex],start=chartData.labels[p.index];
+ const end=new Date(start);
+ {% if form.cleaned_data.interval == 'week' %}end.setUTCDate(end.getUTCDate()+7);{% else %}end.setUTCMonth(end.getUTCMonth()+1);{% endif %}
+ const finish=end.toISOString().slice(0,10);
+ document.querySelectorAll('.safety-case').forEach(e=>e.hidden=!(e.dataset.device===String(series.device)&&e.dataset.lot===String(series.lot??'')&&e.dataset.date>=start&&e.dataset.date<finish));
+ document.getElementById('cases').scrollIntoView();
+}}});
+</script>
+{% endif %}
+<h2>보존된 검토 신호 (최근 100개)</h2>
+{% for s in signals %}<p><a href="{% url 'safety-signal' s.pk %}">신호 #{{ s.pk }} · {{ s.get_status_display }} · {{ s.assignee }}</a></p>{% empty %}<p>저장된 신호 없음. STAFF는 본인 사건 분석과 검토 이유만 조회합니다.</p>{% endfor %}
+{% endblock %}

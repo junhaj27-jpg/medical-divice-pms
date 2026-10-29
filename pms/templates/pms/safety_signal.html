@@ -1,0 +1,16 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>안전 신호 #{{ signal.pk }} · {{ signal.get_status_display }}</h1>
+<p>확정 판단이 아닌 검토 대상 · 탐지 근거는 저장 후 덮어쓰지 않습니다.</p>
+<p>{{ error }}</p>
+<p>담당자 {{ signal.assignee }} · 생성 {{ signal.created_at }} · 규칙 {{ signal.snapshot.rules }}</p>
+<p>필터 {{ signal.snapshot.filters }} · 이전 {{ signal.snapshot.previous_start }} ~ {{ signal.snapshot.previous_end }}</p>
+<p>현재 {{ signal.snapshot.group.count }}건 / 이전 {{ signal.snapshot.group.previous }}건 · 이유 {{ signal.snapshot.group.reasons|join:", " }} · 분모 데이터 없음</p>
+{% for c in signal.snapshot.evidence %}<p><a href="{% url 'complaint-workspace' c.pk %}">CMP-{{ c.pk }} {{ c.title }}</a> · {{ c.reported_on }}</p>{% endfor %}
+<form method="post">{% csrf_token %}
+<label>상태<select name="status"><option value="REVIEW">검토 중</option><option value="ACTION">조치 연결</option><option value="CLOSED">종결</option><option value="NEW">신규</option></select></label>
+<label>담당자 ID<input name="assignee" type="number" value="{{ signal.assignee_id }}" required></label>
+<label>검토 의견·사유<textarea name="note" required maxlength="10000"></textarea></label>
+<label>기존 CAPA<select name="capa"><option value="">없음</option>{% for c in capas %}<option value="{{ c.pk }}">{{ c }}</option>{% endfor %}</select></label>
+<label>기존 리콜<select name="recall"><option value="">없음</option>{% for c in recalls %}<option value="{{ c.pk }}">{{ c }}</option>{% endfor %}</select></label><button>검토 기록</button></form>
+{% for h in history %}<p>{{ h.created_at }} · {{ h.actor }} · {{ h.before }} → {{ h.after }} · 담당 {{ h.assignee }} · {{ h.note }} · 연결 {{ h.links }}</p>{% endfor %}
+{% endblock %}

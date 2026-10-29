@@ -33,6 +33,20 @@ TEST_TEXT='''제1조 테스트 전용 문서. 실제 법정 규정이 아닙니�
 
 @override_settings(PASSWORD_HASHERS=['django.contrib.auth.hashers.MD5PasswordHasher'])
 class RegulatoryTests(Base):
+    def test_revision_impact_is_read_only_and_restricted(self):
+        from .rule_impact import revision_impact
+        rule=self.publish(self.cite_all(self.draft()))
+        application=self.apply(rule)
+        revised=revise_rule(rule,self.raqa,"개정 영향 테스트")
+        self.c.refresh_from_db()
+        before=self.c.due_date
+        result=revision_impact(self.raqa,revised.pk)
+        self.assertEqual(result["rows"][0]["complaint"].pk,self.c.pk)
+        self.c.refresh_from_db()
+        self.assertEqual(self.c.due_date,before)
+        self.assertEqual(self.c.rule_applications.count(),1)
+        self.assertRaises(PermissionDenied,revision_impact,self.staff,revised.pk)
+
     def setUp(self):
         super().setUp();self.root=Path(settings.BASE_DIR)/'.test-media'/uuid.uuid4().hex;self.root.mkdir(parents=True)
         self.addCleanup(shutil.rmtree,self.root)
@@ -178,14 +192,14 @@ class RegulatoryTests(Base):
     def test_ai_hallucinated_citation_rejected(self):
         chunk=self.document().chunks.first()
         response={'fields':{'name':'AI 테스트'},'citations':[{'field':'days','chunk_id':999999,'quote':'90일'}]}
-        with override_settings(RULE_AI_ENABLED=True,RULE_AI_APPROVED=True,RULE_AI_ADAPTER='tests.adapter'),patch('pms.rule_ai.import_string',return_value=lambda **kwargs:response):
+        with override_settings(RULE_AI_ENABLED=True,RULE_AI_APPROVED=True,RULE_AI_ADAPTER='tests.adapter'),patch('pms.ai_boundary.call_approved',return_value=response):
             self.assertRaisesMessage(ValidationError,'검색 결과',generate_ai_draft,self.raqa,{},[chunk],True)
         self.assertFalse(ReportingRule.objects.exists())
     def test_ai_ambiguous_or_unsupported_number_stays_unconfirmed(self):
         for index,expression in enumerate(('인지한 날부터 즉시 보고한다.','즉시 보고한다.')):
             doc=self.document(text='제1조 테스트 전용\n\n'+expression);chunk=doc.chunks.last()
             response={'fields':{'name':'AI 모호 표현 테스트 '+str(index),'days':3,'basis':'REPORTED'},'citations':[{'field':'days','chunk_id':chunk.pk,'quote':chunk.text},{'field':'basis','chunk_id':chunk.pk,'quote':chunk.text}]}
-            with override_settings(RULE_AI_ENABLED=True,RULE_AI_APPROVED=True,RULE_AI_ADAPTER='tests.adapter'),patch('pms.rule_ai.import_string',return_value=lambda **kwargs:response):
+            with override_settings(RULE_AI_ENABLED=True,RULE_AI_APPROVED=True,RULE_AI_ADAPTER='tests.adapter'),patch('pms.ai_boundary.call_approved',return_value=response):
                 rule=generate_ai_draft(self.raqa,{},[chunk],True)
             self.assertIsNone(rule.days);self.assertEqual(rule.basis,'');self.assertTrue(rule.unresolved_items);self.assertEqual(rule.state,'DRAFT')
     def test_revoked_or_tampered_document_blocks_search_and_apply(self):
@@ -254,9 +268,9 @@ class RegulatoryTests(Base):
         doc = self.document()
         chunk = doc.chunks.first()
         with override_settings(RULE_AI_ENABLED=True, RULE_AI_APPROVED=True, RULE_AI_ADAPTER='tests.adapter'):
-            with patch('pms.rule_ai.import_string', return_value=lambda **kwargs: (_ for _ in ()).throw(TimeoutError())):
+            with patch('pms.ai_boundary.call_approved', side_effect=TimeoutError()):
                 self.assertRaisesMessage(ValidationError, '시간이 초과', generate_ai_draft, self.raqa, {}, [chunk], True)
             for citation in [dict(field='days', chunk_id=[], quote='3'), dict(field=[], chunk_id=chunk.pk, quote='3'), dict(field='days', chunk_id=chunk.pk, quote='3', interpretation=[])]:
                 response = {'fields':{}, 'citations':[citation]}
-                with patch('pms.rule_ai.import_string', return_value=lambda **kwargs: response):
+                with patch('pms.ai_boundary.call_approved', return_value=response):
                     self.assertRaisesMessage(ValidationError, '형식 오류', generate_ai_draft, self.raqa, {}, [chunk], True)

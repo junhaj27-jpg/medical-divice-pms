@@ -38,7 +38,9 @@ class CustomerComplaint(TimeStamped):
     is_example=models.BooleanField("테스트용 사건",default=False)
     class Status(models.TextChoices): RECEIVED="RECEIVED","접수"; REVIEW="REVIEW","RA/QA 검토"; AE_DECISION="AE_DECISION","이상사례 판단"; RISK="RISK","위험평가"; CAPA_DECISION="CAPA_DECISION","CAPA 판단"; REPORT_REVIEW="REPORT_REVIEW","규제보고 검토"; RECALL_REVIEW="RECALL_REVIEW","리콜 검토"; APPROVAL="APPROVAL","관리자 승인"; ACTION_COMPLETE="ACTION_COMPLETE","조치 완료"; CLOSED="CLOSED","종료"
     device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="complaints"); udi=models.ForeignKey(UDI,on_delete=models.PROTECT); lot=models.ForeignKey(ProductLot,on_delete=models.PROTECT,null=True,blank=True,related_name="complaints"); serial_number=models.CharField(max_length=100,blank=True); complaint_type=models.CharField(max_length=50,db_index=True); title=models.CharField(max_length=200); description=models.TextField(); occurred_on=models.DateField(); reported_on=models.DateField(default=timezone.localdate); reporter=models.ForeignKey(User,on_delete=models.PROTECT,related_name="reported_complaints"); assignee=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="assigned_complaints"); status=models.CharField(max_length=20,choices=Status.choices,default=Status.RECEIVED); due_date=models.DateField(null=True,blank=True); version=models.PositiveIntegerField(default=1)
-    class Meta: ordering=["-created_at"]
+    class Meta:
+        ordering=["-created_at"]
+        indexes=[models.Index(fields=["reported_on","device","lot"],name="complaint_period_product"),models.Index(fields=["reporter","reported_on"],name="complaint_owner_period")]
     def __str__(self): return f"CMP-{self.pk or 'NEW'} {self.title}"
 class PatientAnonymousInfo(TimeStamped):
     complaint=models.OneToOneField(CustomerComplaint,on_delete=models.CASCADE,related_name="patient_info"); anonymous_code=models.CharField(max_length=64,unique=True); age_band=models.CharField(max_length=20,blank=True); sex=models.CharField(max_length=20,blank=True); notes=models.TextField(blank=True)
@@ -396,3 +398,4 @@ class RuleFamilyLock(models.Model):
     key=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
 
 from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory
+from .safety_models import SafetySignal, SafetyReview

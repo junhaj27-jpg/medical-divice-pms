@@ -60,3 +60,12 @@ urlpatterns += [
  path('analysis/review/', analysis_views.review, name='analysis-review'),
  path('analysis/reviews/<int:pk>/', analysis_views.review_detail, name='analysis-review-detail'),
 ]
+
+from . import safety_views
+urlpatterns += [
+ path("safety/",safety_views.dashboard,name="safety"),
+ path("safety/signals/<int:pk>/",safety_views.signal_detail,name="safety-signal"),
+ path("assistant/evidence/",safety_views.evidence,name="ra-evidence"),
+ path("assistant/cases/<int:pk>/",safety_views.case_summary,name="ra-summary"),
+ path("rules/<int:pk>/impact/",safety_views.rule_impact,name="rule-impact"),
+]
