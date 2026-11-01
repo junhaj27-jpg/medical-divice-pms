@@ -25,7 +25,8 @@ def tasks_for(user):
 
 def task_state(obj):
     return {"assignee_id":obj.assignee_id,"due_at":obj.due_at.isoformat(),"status":obj.status,
-            "title":obj.title,"description":obj.description,"priority":obj.priority}
+            "title":obj.title,"description":obj.description,"priority":obj.priority,
+            "completed_at":obj.completed_at.isoformat() if obj.completed_at else None}
 
 
 @transaction.atomic
@@ -36,9 +37,18 @@ def save_task(obj,user):
         if any(getattr(old,k)!=getattr(obj,k) for k in ("assignee_id","due_at","title","description","priority","complaint_id","capa_id","recall_id")):
             raise PermissionDenied("담당 직원은 상태만 변경할 수 있습니다.")
     else: privileged(user)
+    # Validate required fields before dereferencing relations or checking tzinfo,
+    # so service callers receive a validation error instead of an AttributeError.
+    obj.full_clean()
     if role(obj.assignee)=="STAFF" and obj.complaint.reporter_id != obj.assignee_id:
         raise ValidationError("STAFF 담당자는 본인 접수 사건만 배정할 수 있습니다.")
     before=task_state(old) if old else {}
+    if old and old.status=="DONE" and obj.status!="DONE" and role(user)=="STAFF":
+        raise ValidationError("완료 업무의 재개는 RA/QA 또는 관리자에게 요청하세요.")
+    if obj.status=="DONE":
+        obj.completed_at=old.completed_at if old and old.status=="DONE" else timezone.now()
+    else:
+        obj.completed_at=None
     if not timezone.is_aware(obj.due_at): raise ValidationError("마감 시각에는 시간대가 필요합니다.")
     obj.full_clean(); obj.save()
     after=task_state(obj)
@@ -98,27 +108,52 @@ def save_recipient(obj,user):
         old=RecallRecipient.objects.select_for_update().get(pk=obj.pk)
         if any(getattr(old,k)!=getattr(obj,k) for k in ("recall_id","lot_id","partner_id","unit","target_quantity")):
             raise ValidationError("대상 원장은 변경할 수 없습니다. 통보·회신만 수정하세요.")
+        # A form or caller may hold an instance loaded before a recovery. Never
+        # overwrite the atomic reservation counter with that stale value.
+        obj.recovered_total=old.recovered_total
+    elif obj.recovered_total:
+        raise ValidationError("회수 수량은 부분 회수 이력으로 등록하세요.")
+    today=timezone.localdate()
+    if any(value and value>today for value in (obj.notified_on,obj.replied_on)):
+        raise ValidationError("통보일과 회신일은 미래일 수 없습니다.")
+    if obj.replied_on and (not obj.notified_on or obj.replied_on<obj.notified_on):
+        raise ValidationError("회신일은 통보일 이후여야 합니다.")
+    if obj.reply_status in ("REPLIED","DECLINED") and not obj.replied_on:
+        raise ValidationError("회신 상태를 변경하려면 회신일을 입력하세요.")
+    if obj.reply_status=="DECLINED" and not obj.unrecovered_reason.strip():
+        raise ValidationError("회수 불가인 경우 미회수 사유를 입력하세요.")
     obj.full_clean(); obj.save(); audit(user,"RECALL_RECIPIENT",obj,after={"target":obj.target_quantity,"unit":obj.unit,"reply_status":obj.reply_status,"notified_on":str(obj.notified_on),"replied_on":str(obj.replied_on)})
     return obj
 
 
 @transaction.atomic
-def record_recovery(recipient,user,quantity,recovered_on):
+def record_recovery(recipient,user,quantity,recovered_on,submission_key=None):
     privileged(user)
     if recipient.recall.complaint_id: CustomerComplaint.objects.select_for_update().get(pk=recipient.recall.complaint_id)
     if not isinstance(quantity,int) or isinstance(quantity,bool) or quantity<=0: raise ValidationError("회수 수량은 양수 정수여야 합니다.")
+    if not isinstance(recovered_on,date) or isinstance(recovered_on,datetime) or recovered_on>timezone.localdate():
+        raise ValidationError("회수 일자는 오늘 또는 과거 날짜여야 합니다.")
     # Lock parent for PostgreSQL; conditional UPDATE also enforces capacity on SQLite.
     obj=RecallRecipient.objects.select_for_update().get(pk=recipient.pk)
+    if submission_key is not None:
+        existing=RecoveryEntry.objects.filter(submission_key=submission_key).first()
+        if existing:
+            if (existing.recipient_id,existing.quantity,existing.recovered_on,existing.actor_id)!=(obj.pk,quantity,recovered_on,user.pk):
+                raise ValidationError("이미 사용한 회수 등록 키입니다. 새 회수 화면을 여세요.")
+            return existing
     changed=RecallRecipient.objects.filter(pk=obj.pk,recovered_total__lte=F("target_quantity")-quantity).update(recovered_total=F("recovered_total")+quantity)
     if changed!=1: raise ValidationError("회수 대상 수량을 초과했습니다.")
-    entry=RecoveryEntry(recipient=obj,quantity=quantity,recovered_on=recovered_on,actor=user); entry.full_clean(); entry.save()
+    entry=RecoveryEntry(recipient=obj,quantity=quantity,recovered_on=recovered_on,actor=user,submission_key=submission_key); entry.full_clean(); entry.save()
     audit(user,"RECALL_RECOVERY",entry,after={"recipient":obj.pk,"quantity":quantity,"unit":obj.unit})
     return entry
 
 
 @transaction.atomic
 def record_contact(obj,user):
-    privileged(user); obj.actor=user; obj.full_clean(); obj.save()
+    privileged(user)
+    if not obj.contacted_at or not timezone.is_aware(obj.contacted_at) or obj.contacted_at>timezone.now():
+        raise ValidationError("연락 일시는 시간대를 포함한 현재 또는 과거 시각이어야 합니다.")
+    obj.actor=user; obj.full_clean(); obj.save()
     audit(user,"RECALL_CONTACT",obj,after={"recipient":obj.recipient_id,"method":obj.method,"contacted_at":obj.contacted_at.isoformat()}); return obj
 
 

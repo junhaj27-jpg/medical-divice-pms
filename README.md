@@ -1,6 +1,52 @@
+# 2026-11-01 분석·규정 영향 입력 확장
+
+- `/rules/impacts/`: 사건별 행 입력, 관할·오프셋 포함 기준 시각·확인 사유, 검색·필터·20건 페이지, 명시적 공통 값 적용 확인과 중복 제출 방지. 분석만으로 기한은 바뀌지 않습니다.
+- `/analysis/internal/`: RA_QA·ADMIN 선택 사건 미리보기 후 최소 필드 스냅샷 가져오기. 출처 구분·원본 내용 해시·버전·담당자·시각·정정 연결을 보존하며 기본 집계는 최신 내부 버전만 사용합니다. CSV와 자동 병합하지 않습니다.
+- 기존 `AdverseEvent.serious=False`는 비중대로 확정하지 않습니다. 별도 중대성 확인 이력과 승인 무결성 검사를 추가했습니다.
+- `/analysis/`: 비공개 서버 PDF 버전 보관, 생성 조건·비교 기간·원본/정제 범위 내용 해시·생성 시점 검토 이력, 권한 검사·다운로드 감사. SHA-256은 내용 비교용이며 전자서명이 아닙니다.
+- 기존 AI 프로세스 격리(`ai_boundary.py`, `ai_worker.py`)는 이미 구현되어 있습니다. 외부 AI 연결은 필수가 아닙니다.
+
+최신 [실제 검증 결과](VALIDATION_REPORT.md), [PowerShell 설치·실행·격리 시연](docs/analysis-extensions-demo.md), [운영 절차](OPERATIONS.md)를 확인하세요. 버전별 과거 테스트 수를 현재 검증 완료 근거로 사용하지 않습니다.
+
+## 2026-10-30 신뢰성 보완
+
+이 절은 2026-10-30 작업 기록입니다. 최신 실행 결과·skip·미검증 항목은 [VALIDATION_REPORT.md](VALIDATION_REPORT.md)를 기준으로 확인하세요.
+
+커밋된 병합 충돌과 마이그레이션 분기를 통합하고, 업무 완료일·리콜 회수 요청 중복 방지·통보/회신 날짜 검증·보고서 검토 이력을 보완했습니다. 기존 DB/비공개 파일을 백업한 후 `python manage.py migrate`로 0011과 0012를 적용하세요. 기존 완료 업무의 완료일은 추측하지 않고 미기록으로 유지합니다. 회수 화면에서 발급한 요청키를 같은 내용으로 재전송하면 회수 이력이 늘지 않습니다.
+
+새 로컬 환경(Python 3.12):
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+$env:SECRET_KEY = "개발용으로-생성한-충분히-긴-임의값"
+$env:DEBUG = "True"
+$env:ALLOWED_HOSTS = "127.0.0.1,localhost"
+$env:TIME_ZONE = "Asia/Seoul"
+$env:PDF_KOREAN_FONT = "C:\Windows\Fonts\malgun.ttf"
+python manage.py migrate
+# 새 격리 데모 DB에서만 실행: 기존 사용자/데이터 DB에는 seed 금지
+$env:DEMO_PASSWORD = "직접-정한-데모-비밀번호"
+python manage.py seed_demo
+python manage.py runserver 127.0.0.1:8000
+```
+
+`.env.example`은 변수 안내이며 Django가 `.env`를 자동 로드하지 않습니다. 환경변수를 셸 또는 실행 도구에 설정하세요. Windows의 프로젝트 의존성에는 IANA 시간대용 tzdata가 포함됩니다. `PRIVATE_MEDIA_ROOT`는 정적 공개 웹 경로 밖으로 설정하고 운영 스캐너는 OPERATIONS.md를 확인하세요. 검사 전 증빙은 다운로드/평가 연결에 사용할 수 없습니다.
+
+검증:
+```powershell
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test --noinput
+python -m compileall -q pms config scripts
+python manage.py collectstatic --noinput
+```
+
+[현황과 작업 계획](docs/development-plan.md), [시연 흐름](docs/demo-scenario.md), [실제 독립 검증 결과](docs/verification-report.md)를 확인하세요. 규제 적합성은 테스트와 별도의 공식 근거 검토가 필요합니다.
+
 # MedWatch PMS · 의료기기 PMS·리콜 관리 시스템
 
-이번 개정은 규정 관리의 **개정 영향 분석**(`/rules/impacts/`), 후보별 검토 업무·기한 비교·명시적 재적용, 내용 해시 기반 승인 유효성·재승인, PostgreSQL 동시성 CI를 추가합니다. 설치 시 `python manage.py migrate`로 0008을 적용하세요. 사용 순서, 레거시 승인 처리, 검증·격리 시연 명령과 구현 한계는 [개정 영향·승인 안내](IMPACT_APPROVAL_GUIDE.md)를 따릅니다. 아래 과거 버전의 테스트 개수는 당시 기록이며 현재 결과는 실제 테스트 실행으로 확인합니다.
+이번 개정은 규정 관리의 **개정 영향 분석**(`/rules/impacts/`), 후보별 검토 업무·기한 비교·명시적 재적용, 내용 해시 기반 승인 유효성·재승인, PostgreSQL 동시성 CI를 추가합니다. 설치 시 백업 후 `python manage.py migrate`로 의존성 그래프의 최종 leaf까지 적용하세요. 사용 순서, 레거시 승인 처리, 검증·격리 시연 명령과 구현 한계는 [개정 영향·승인 안내](IMPACT_APPROVAL_GUIDE.md)를 따릅니다. 아래 과거 버전의 테스트 개수는 당시 기록이며 현재 결과는 실제 테스트 실행으로 확인합니다.
 
 의료기기 출시 후 고객 불만, 이상사례, 위험평가, CAPA, 규제보고, 리콜과 회수율을 하나의 추적 가능한 흐름으로 관리하는 **취업 포트폴리오용 Django 5 데모**입니다. 실제 식약처 규정 준수, 법정 보고 기한 또는 의료 판단을 자동 보장하는 시스템이 아닙니다.
 
@@ -18,7 +64,7 @@
 | 데이터베이스 | SQLite 개발환경, PostgreSQL 운영환경 |
 | 프런트엔드 | Django Template, 반응형 자체 CSS, Chart.js |
 | 배포 기반 | Docker, Docker Compose, GitHub Actions |
-| 자동화 검증 | Django 테스트 113개 (SQLite에서 PostgreSQL 전용 4개 제외), system check, 마이그레이션 검사 |
+| 자동화 검증 | 실제 실행 결과와 환경별 skip은 [검증 보고서](VALIDATION_REPORT.md) 참조 |
 
 ## 빠른 데모 시나리오
 
@@ -576,7 +622,7 @@ python manage.py collectstatic --noinput
 
 ## 테스트 범위
 
-현재 Django 테스트는 다음을 포함한 **113개 시나리오**를 제공합니다. SQLite에서는 PostgreSQL 전용 4개를 건너뛰며 실제 행 잠금 검증은 별도 PostgreSQL CI에서 실행합니다.
+Django 테스트는 다음 시나리오를 포함합니다. 현재 테스트 수·skip 사유·실제 PostgreSQL 실행 여부는 [검증 보고서](VALIDATION_REPORT.md)에서 확인하세요.
 
 - 위험점수와 위험등급
 - 정상·비정상 상태 전이 및 단계별 선행조건
@@ -673,7 +719,7 @@ Dockerfile / compose     PostgreSQL 배포형 구성
 
 설치 시 `python manage.py migrate`를 실행하세요. 새 마이그레이션은 기존 데이터와 파일 상대경로를 보존합니다. 기존 첨부는 검사 대기 상태로 전환되므로 도구 연결 후 재검사해야 다운로드할 수 있습니다. PDF 생성에는 한글 TTF, 실제 파일 검사에는 ClamAV 호환 검사기가 필요합니다. 구체적인 환경변수·백업·복구·선택한 업무 기본값·보안 제한은 [운영 절차](OPERATIONS.md)를 따르세요.
 
-테스트는 기존 28개와 신규 26개, 총 54개입니다. 신규 검증은 권한·기한 경계·중복 알림·CAPA 재평가·동시 회수·규칙 보존·파일 차단·로그인 제한·PDF 버전·격리 복구와 HTML 입력 경로를 포함합니다. PostgreSQL 실제 도구 및 Docker 빌드는 별도 환경에서 검증해야 합니다.
+당시 workflow 확장에서는 권한·기한 경계·중복 알림·CAPA·회수·파일 차단·PDF 버전·격리 복구를 검사했습니다. 현재 결과는 VALIDATION_REPORT.md를 따릅니다.
 
 
 ## v1.7 규정 근거 기반 RA 규칙 관리
@@ -682,7 +728,7 @@ Dockerfile / compose     PostgreSQL 배포형 구성
 
 기존 규칙은 LEGACY로 구분해 내용과 기존 사건 적용 이력을 보존합니다. 초안을 저장해도 승인·시행되지 않습니다. RA_QA 작성·ADMIN 승인 및 작성자 본인 승인 차단이 기본입니다. AI 원문 전송은 기본 비활성화이며 미연결 화면은 ‘AI 연결 필요’로 표시합니다. 외부 AI 실제 연동·OCR·공휴일 자동 갱신·법정 규정 기본 데이터는 제공하지 않습니다. 승인된 AI 어댑터 확장 계약은 포함합니다.
 
-`python manage.py migrate`로 0007을 적용하세요. 신규 33개를 포함한 총 87개 테스트를 제공합니다. 사용 순서·권한·AI 설정·계산 가정·운영 제한은 [RA 규정 관리 안내](REGULATORY_GUIDE.md)를 참고하세요.
+규정 관리의 사용 순서·권한·AI 설정·계산 가정·운영 제한은 [RA 규정 관리 안내](REGULATORY_GUIDE.md)를 참고하세요. 설치 시 번호를 지정하지 않고 의존성 그래프 전체를 migrate합니다.
 
 ## PMS 데이터 품질·기간 비교 분석 (추가)
 
@@ -749,17 +795,17 @@ python scripts/verify_safety_sample.py D:/pms-verify/new-safety-example
 
 ### 검증 범위
 
-변경 전 101개 테스트: 실패 없음, PDF 글꼴 미설정으로 2개 skip. 최종 결과는 아래 검증 기록과 이번 완료 보고를 따른다. 추가 테스트는 기간 경계·제품/LOT·0건·임계치·분모 없음·중복 방지·근거 보존·검토 이력·STAFF 접근·검색/비공개·원문 명령의 데이터 처리·인용 차단·AI 오류/제한/스키마·사건 요약·승인 무결성·개정 영향 읽기 전용을 포함한다. 실제 AI 공급자, 실제 악성코드 검사기, PostgreSQL/Docker, 운영 부하, 실제 브라우저의 Chart.js 클릭 동작은 별도 검증 대상이다.
+이하 안전 신호·RA 근거 도우미는 이전 개발 기록입니다. 당시 테스트 수·미검증 범위를 현재 실행 결과로 해석하지 마세요. 최신 결과는 VALIDATION_REPORT.md를 따릅니다.
 
 
 ### 이번 변경 최종 검증 기록 (2026-10-29)
 
-전체 `manage.py test`: 117개, 실패 0, skip 0 (Windows malgun.ttf 설정). 마지막 로컬 검색 폼 POST 변경 후 집중 15개 테스트도 별도 통과했다. `check`, `makemigrations --check --dry-run`, `collectstatic --noinput`, `compileall`, `git diff --check` 통과. CI의 `migrate --noinput`도 실행했으며 0009/0010 적용 완료. `check --deploy`는 로컬 기본 설정의 보안 경고 5개(W004/W008/W009/W012/W016)를 보고했다. 격리 예시 DB에서 현재 7건/이전 1건, 신호 2개, 재실행 중복 없음과 근거 부족 검색을 확인했다. 렌더된 Chart.js 스크립트의 Node 구문 검사 통과. 실제 브라우저 클릭·시각적 배치, 실제 AI 공급자/자격증명, ClamAV, PostgreSQL 동시성/부하, Docker/원격 CI 실행은 미검증이다.
+이 절의 검증은 이전 안전 신호 개발 당시 기록입니다. 최신 전체 검사·운영형 설정 검사·브라우저 검사·환경 제한은 [VALIDATION_REPORT.md](VALIDATION_REPORT.md)를 기준으로 확인하세요.
 
 
 ## 독립 검증과 승인 재검토 (섹션 8)
 
-이번 변경은 실제 하위 검증 에이전트가 개발 담당과 분리되어 코드·실행 결과를 확인했다. 개발 담당은 결함 수정, 검증 담당은 재현·요구사항 대조·수정 후 재검증을 맡았으며 검증 담당은 제품 코드를 수정하지 않았다. 테스트 DB·미디어·임시 파일과 브라우저 서버를 별도 경로로 분리했다. 최종 대상 커밋/미커밋 상태, 요구사항별 판정, 실행 결과, 결함과 미검증 항목은 `VALIDATION_REPORT.md`를 따른다. 최초 개발 완료 보고나 이전 테스트 개수만으로 이번 독립 검증 완료를 판단하지 않는다.
+현재 개발은 이 채팅에서 수행했으며 별도 독립 검증 에이전트를 사용하지 않았습니다. README에 연결된 VALIDATION_REPORT.md가 시작 시 없어 이번 실제 실행 로그를 근거로 작성했습니다. 이전 독립 검증 완료 표현이나 과거 테스트 개수는 현재 검증 근거로 사용하지 않습니다.
 
 독립 재현을 바탕으로 이상사례 API의 타인 사건 재연결, 일반 리콜 API의 관리자 상태 우회, 개인정보 패턴 질문의 500 오류, 승인 후 자료 정정의 종결 우회를 보완했다. 개발 추가 점검에서는 대시보드 및 제품·LOT 연결 건수의 STAFF 범위와 차트 스크립트 인코딩도 보완했다. 회귀는 `pms/test_validation_hardening.py`에 추가하며 기존 테스트를 삭제하거나 조건을 약화하지 않았다.
 

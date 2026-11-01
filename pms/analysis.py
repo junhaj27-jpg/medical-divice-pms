@@ -10,6 +10,7 @@ from django import forms
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory
@@ -121,7 +122,7 @@ def default_filters():
 
 
 def analyze(data):
-    qs = AnalysisRecord.objects.filter(batch__is_example=data['example'] == 'sample')
+    qs = AnalysisRecord.objects.filter(batch__is_example=data['example'] == 'sample').filter(Q(origin='CSV') | Q(is_current=True))
     for field in ('device', 'manufacturer', 'model', 'event_type', 'source'):
         if data.get(field): qs = qs.filter(**{field + '__icontains': data[field]})
     if data.get('seriousness'): qs = qs.filter(seriousness=data['seriousness'])
@@ -145,7 +146,7 @@ def analyze(data):
             snapshot = dict(filters=serial_filters, device=list(device), count=count, previous=old, increase=increase, previous_start=previous_start.isoformat(), previous_end=previous_end.isoformat(), evidence=evidence)
             signal_key = digest(snapshot)
             signals.append(dict(key=signal_key, snapshot=snapshot, group=group, review=AnalysisReview.objects.filter(key=signal_key).first()))
-    return dict(records=current, groups=groups, signals=signals, total=len(current), previous_total=len(previous), previous_start=previous_start, previous_end=previous_end, seriousness=dict(Counter(row.get_seriousness_display() for row in current)), periods=dict(sorted(Counter(str(getattr(row, basis))[:7] for row in current).items())), missing_dates=qs.filter(**{basis + '__isnull': True}).count(), sources=sorted({row.source for row in current}), generated_at=timezone.localtime())
+    return dict(records=current, previous_records=previous, groups=groups, signals=signals, total=len(current), previous_total=len(previous), previous_start=previous_start, previous_end=previous_end, seriousness=dict(Counter(row.get_seriousness_display() for row in current)), periods=dict(sorted(Counter(str(getattr(row, basis))[:7] for row in current).items())), missing_dates=qs.filter(**{basis + '__isnull': True}).count(), sources=sorted({row.source for row in current}), generated_at=timezone.localtime())
 
 
 @transaction.atomic

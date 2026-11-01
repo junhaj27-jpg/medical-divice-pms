@@ -11,3 +11,6 @@ private_media/
 .test-tmp/
 .test-media/
 tmp*/
+
+# Isolated local validation databases, logs, static and media
+work/

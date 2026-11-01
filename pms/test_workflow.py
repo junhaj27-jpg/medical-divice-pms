@@ -216,8 +216,8 @@ class WorkflowTests(Base):
         response=self.client.post(reverse('recipient-create',args=[recall.pk]),{'lot':self.lot.pk,'partner':partner.pk,'unit':'개','target_quantity':5,'reply_status':'WAITING'})
         self.assertEqual(response.status_code,302)
         row=recall.recipients.get();url=reverse('recovery-create',args=[row.pk])
-        self.assertEqual(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat()}).status_code,302)
-        self.assertContains(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat()}),'대상 수량을 초과')
+        self.assertEqual(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat(),'submission_key':str(uuid.uuid4())}).status_code,302)
+        self.assertContains(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat(),'submission_key':str(uuid.uuid4())}),'대상 수량을 초과')
         self.assertEqual(row.recovered_quantity,3)
     def test_postgres_adapter_uses_argv_and_hides_output(self):
         import subprocess

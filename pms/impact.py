@@ -59,27 +59,39 @@ def candidate_preview(rule, case, inputs):
 
 
 @transaction.atomic
-def create_analysis(old_rule,new_rule,user,include_closed=False,inputs=None):
+def create_analysis(old_rule,new_rule,user,include_closed=False,inputs=None,case_ids=None,submission_key=None):
     privileged(user)
     scope_lock()
     if not rules_for(user).filter(pk=old_rule.pk).exists() or not rules_for(user).filter(pk=new_rule.pk).exists(): raise PermissionDenied
     old=rules_for(user).select_for_update(of=("self",)).get(pk=old_rule.pk)
     new=rules_for(user).select_for_update(of=("self",)).get(pk=new_rule.pk)
     if old.pk==new.pk: raise ValidationError('서로 다른 두 규칙 버전을 선택하세요.')
+    submission_hash=digest({'old':old.pk,'new':new.pk,'inputs':inputs or {},'case_ids':sorted(case_ids) if case_ids is not None else None,'include_closed':include_closed})
+    if submission_key:
+        existing=RegulatoryImpact.objects.filter(submission_key=submission_key).first()
+        if existing:
+            if existing.created_by_id!=user.pk: raise PermissionDenied
+            if existing.snapshot.get('submission_hash')!=submission_hash: raise ValidationError('이미 제출한 요청의 내용이 다릅니다. 목록을 새로 조회해 새 분석을 만드세요.')
+            return existing
     inputs=inputs or {}
-    if not isinstance(inputs,dict) or any(not isinstance(v,dict) or set(v)-{'jurisdiction','basis_at'} or any(not isinstance(x,str) for x in v.values()) for v in inputs.values()):
+    if not isinstance(inputs,dict) or any(not isinstance(v,dict) or set(v)-{'jurisdiction','basis_at','reason'} or any(not isinstance(x,str) for x in v.values()) for v in inputs.values()):
         raise ValidationError('사건번호별 관할·기준 일시 입력을 확인하세요.')
     left=snapshot_before(old);right=snapshot_before(new)
-    analysis=RegulatoryImpact.objects.create(old_rule=old,new_rule=new,created_by=user,include_closed=include_closed,
-        snapshot={'old':left,'new':right,'old_token':rule_token(old),'new_token':rule_token(new),
+    analysis=RegulatoryImpact.objects.create(old_rule=old,new_rule=new,created_by=user,include_closed=include_closed,submission_key=submission_key,
+        snapshot={'submission_hash':submission_hash,'old':left,'new':right,'old_token':rule_token(old),'new_token':rule_token(new),
                   'changes':{k:{'old':left.get(k),'new':right.get(k)} for k in right if left.get(k)!=right.get(k)}})
     cases=visible_complaints(user)
     if not include_closed: cases=cases.exclude(status='CLOSED')
+    if case_ids is not None:
+        if set(case_ids)!=set(cases.filter(pk__in=case_ids).values_list('pk',flat=True)): raise ValidationError('허용되지 않은 사건입니다.')
+        cases=cases.filter(pk__in=case_ids)
     for case in cases.select_for_update(of=('self',)).order_by('pk'):
         reasons=[]
         if case.rule_applications.filter(rule=old).exists(): reasons.append('OLD_APPLICATION: 기존 버전 적용 이력')
         if case.status!='CLOSED' and matches_case(new,case): reasons.append('NEW_SCOPE: 새 제품·조건 범위 후보 (관할·시행·실제 적용 별도 확인)')
-        if not reasons: continue
+        if not reasons:
+            if case_ids is not None: raise ValidationError(f'CMP-{case.pk}: 선택 규칙의 후보 사건이 아닙니다.')
+            continue
         previous=case.rule_applications.order_by('-pk').first()
         provided=inputs.get(str(case.pk),{})
         result=candidate_preview(new,case,provided)

@@ -332,15 +332,11 @@ def apply_regulated_rule(complaint,rule,user,preview,reason,confirmed_previous,c
     RuleFamilyLock.objects.get_or_create(key=scope_lock)
     RuleFamilyLock.objects.filter(pk=scope_lock).update(key=scope_lock)
     c=visible_complaints(user).select_for_update(of=("self",)).get(pk=complaint.pk)
-<<<<<<< HEAD
-    rule=rules_for(user).select_for_update().get(pk=rule.pk)
-=======
     rule=rules_for(user).select_for_update(of=("self",)).get(pk=rule.pk)
     if expected_case_token or expected_rule_token:
         from .impact import case_token, rule_token
         if expected_case_token!=case_token(c) or expected_rule_token!=rule_token(rule): raise ValidationError("분석 이후 자료가 변경되었습니다. 재분석하세요.")
     if c.status=="CLOSED": raise ValidationError("종료 사건은 규칙을 재적용할 수 없습니다.")
->>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
     if rule.state!="EFFECTIVE": raise ValidationError("승인 후 시행된 규칙만 사건에 적용할 수 있습니다.")
     today=timezone.now().astimezone(ZoneInfo(rule.timezone_name)).date()
     if today<rule.effective_on or (rule.effective_until and today>rule.effective_until): raise ValidationError("현재 시행 기간이 아닙니다.")

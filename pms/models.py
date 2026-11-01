@@ -144,6 +144,7 @@ class WorkTask(TimeStamped):
     priority=models.CharField("우선순위",max_length=10,choices=[("LOW","낮음"),("NORMAL","보통"),("HIGH","높음"),("URGENT","긴급")],default="NORMAL")
     due_at=models.DateTimeField("마감일")
     status=models.CharField("상태",max_length=16,choices=Status.choices,default=Status.WAITING)
+    completed_at=models.DateTimeField("완료일",null=True,blank=True,editable=False)
     class Meta:
         indexes=[models.Index(fields=["assignee","status","due_at"])]
         ordering=["due_at","pk"]
@@ -207,6 +208,7 @@ class RecallRecipient(TimeStamped):
     def __str__(self): return f"{self.partner} / {self.lot} ({self.unit})"
 
 class RecoveryEntry(models.Model):
+    submission_key=models.UUIDField(null=True,blank=True,unique=True,editable=False)
     recipient=models.ForeignKey(RecallRecipient,on_delete=models.PROTECT,related_name="recoveries")
     recovered_on=models.DateField("회수 일자")
     quantity=models.PositiveIntegerField("회수 수량",validators=[MinValueValidator(1)])
@@ -417,12 +419,11 @@ class RuleFamilyLock(models.Model):
     # One lock per existing rule family, shared across all writers/approvers.
     key=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
 
-<<<<<<< HEAD
-from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory
+from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory, SeriousnessConfirmation, AnalysisReport, AnalysisArtifact
 from .safety_models import SafetySignal, SafetyReview
-=======
 
 class RegulatoryImpact(TimeStamped):
+    submission_key=models.UUIDField(null=True,blank=True,unique=True)
     old_rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT,related_name="old_impacts")
     new_rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT,related_name="new_impacts")
     created_by=models.ForeignKey(User,on_delete=models.PROTECT)
@@ -462,4 +463,3 @@ def lock_evaluation_evidence(sender,instance,action,reverse,using,**kwargs):
     if not action.startswith('pre_'): return
     ids=[instance.complaint_id] if reverse else [instance.capa.complaint_id]
     for case_id in ids: CustomerComplaint.objects.using(using).select_for_update().get(pk=case_id)
->>>>>>> 243e562e399fc29d60693843cff3275fba58fa23

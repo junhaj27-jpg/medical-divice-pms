@@ -50,6 +50,8 @@ def approval_snapshot(case):
                     value['recipients'] = list(obj.recipients.order_by('pk').values('id', 'lot_id', 'partner_id', 'unit', 'target_quantity', 'recovered_total', 'reply_status', 'unrecovered_reason', 'notified_on', 'replied_on'))
                 values.append(value)
         scopes[name] = digest(values)
+    confirmations = list(case.seriousness_confirmations.order_by('pk').values('id','value','reason','actor_id','created_at'))
+    if confirmations: scopes['seriousness_confirmation'] = digest(confirmations)
     return {'schema': 1, 'version': case.version, 'device': str(case.device),
             'scopes': scopes, 'hash': digest(scopes)}
 

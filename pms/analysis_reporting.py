@@ -23,7 +23,11 @@ def analysis_pdf(data, result):
         story.append(Paragraph(escape(str(value)).replace('\n', '<br/>'), title if heading else style))
         story.append(Spacer(1, 6))
 
-    text('PMS 보고 건수 분석 보고서', True)
+    text('PMS 보고 건수 분석 보고서 · 발생률 아님', True)
+    archive=result.get('archive_snapshot')
+    if archive:
+        text(f"보고서 {archive['number']} / 버전 {archive['version']} / 작성자 ID {archive['author_id']}")
+        text(f"범위 내용 해시 (SHA-256): {archive['scope_hash']} · 내용 비교용이며 전자서명이 아닙니다.")
     text('규제기관 제출 적합성·인과관계를 자동 보증하지 않습니다. AI 해석 없이 관찰 사실과 내부 신호 규칙을 제공합니다.')
     text(f"생성 시각: {result['generated_at'].isoformat()} / 실제·샘플 구분: {data['example']}")
     text(f"날짜 축: {data['basis']} / 분석: {data['start']} ~ {data['end']} / 비교: {result['previous_start']} ~ {result['previous_end']} (동일 길이, 양끝 포함)")
@@ -36,10 +40,15 @@ def analysis_pdf(data, result):
         increase = str(group['increase']) + '%' if group['increase'] is not None else '미산출 (비교 0건)'
         text(f"{' / '.join(group['device'])}: 현재 {group['count']} / 비교 {group['previous']} / 증가율 {increase}")
     text('검토가 필요한 신호 및 근거', True)
+    if archive:
+        for saved in archive['reviews']:
+            text(f"보관 검토 상태: {saved['status']} / 담당자 ID: {saved['assignee_id']}")
+            for h in saved['history']:
+                text(f"{h['created_at']} / 작성자 ID {h['actor_id']} / {h['before']} → {h['after']} / {h['note']}")
     for signal in result['signals']:
         text(' / '.join(signal['group']['device']))
-        review = signal['review']
-        text(f"상태: {review.get_status_display() if review else '신규'} / 담당자: {review.assignee.username if review else '미지정'}")
+        review = None if archive else signal['review']
+        if not archive: text(f"상태: {review.get_status_display() if review else '신규'} / 담당자: {review.assignee.username if review else '미지정'}")
         for evidence in signal['snapshot']['evidence']:
             text(f"레코드 #{evidence['id']} / 출처 {evidence['source']} / 외부 ID {evidence['record_id']} / 수집 #{evidence['batch']} 행 {evidence['row']}: {evidence['quote'] or '근거 문장 부족'}")
         if review:
