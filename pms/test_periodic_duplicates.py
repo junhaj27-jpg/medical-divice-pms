@@ -150,3 +150,21 @@ class PeriodicDuplicateTests(Base):
         self.assertContains(self.client.get(reverse('periodic-detail',args=[draft.pk])),'산출 근거 목록')
         api.force_authenticate(self.raqa)
         self.assertEqual(api.get(f'/api/pms-reviews/{draft.pk}/').status_code,200)
+
+    def test_final_pdf_is_preserved_private_and_receipt_metrics_are_separate(self):
+        import hashlib, io
+        from pypdf import PdfReader
+        draft=create_periodic(self.raqa,self.report_data())
+        self.assertEqual(self.count(draft,'내부 사건 / 기간 내 접수 불만'),2)
+        final=finalize_periodic(self.admin,draft.pk,self.payload(review_note='검토 완료',confirm=True))
+        content=bytes(final.pdf_content)
+        self.assertEqual(hashlib.sha256(content).hexdigest(),final.pdf_sha256)
+        self.assertIn('내부 PMS 정기 검토 보고서',''.join(p.extract_text() for p in PdfReader(io.BytesIO(content)).pages))
+        self.c.title='후속 변경';self.c.save()
+        final.refresh_from_db();self.assertEqual(bytes(final.pdf_content),content)
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(reverse('periodic-pdf',args=[final.pk])).status_code,403)
+        self.client.force_login(self.raqa)
+        self.assertEqual(self.client.get(reverse('periodic-pdf',args=[final.pk])).content,content)
+        api=APIClient();api.force_authenticate(self.raqa)
+        self.assertNotIn('pdf_content',api.get(f'/api/pms-reviews/{final.pk}/').json()[0])

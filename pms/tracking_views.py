@@ -1,5 +1,6 @@
 import uuid
 from django import forms
+from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import Http404
@@ -25,6 +26,7 @@ def form_for(mode, data=None):
     if mode=='signal':
         add('kind',forms.ChoiceField(label='작업',choices=[('INVESTIGATE','조사 기록'),('NO_ACTION','조치 불필요 판단'),('LINK','기존 조치 연결'),('DRAFT_CAPA','신규 CAPA 초안 명시적 요청'),('DRAFT_RECALL','신규 리콜 초안 명시적 요청'),('EFFECT','효과 확인'),('CLOSE','종결'),('REOPEN','재검토')]))
         for name,label in [('assignee','담당자 ID'),('complaint','신호 근거 사건 ID'),('capa','기존 CAPA ID'),('recall','기존 리콜 ID'),('evaluation','기존 CAPA 효과성 평가 ID')]: add(name,forms.IntegerField(label=label,required=False,min_value=1))
+        form.fields['kind'].choices += [('ACTION_REQUIRED','조치 필요 판단'),('HOLD','판단 보류')]
         add('basis',forms.CharField(label='조사 근거',required=False,widget=forms.Textarea,max_length=10000))
         for name,label in [('due_on','조사·조치 기한'),('evaluated_on','효과 확인일')]: add(name,forms.DateField(label=label,required=False,widget=forms.DateInput(attrs={'type':'date'})))
         add('verdict',forms.ChoiceField(label='리콜 효과 판정',required=False,choices=[('','선택'),('PASS','적합'),('FAIL','미흡·재검토')]))
@@ -40,6 +42,9 @@ def form_for(mode, data=None):
         add('replacement',forms.IntegerField(label='보완 제출용 새 제출본 ID',required=False,min_value=1))
         add('due_at',forms.DateTimeField(label='수동 후속 기한',required=False))
         add('due_reason',forms.CharField(label='수동 기한 설정 사유',required=False,max_length=2000))
+        form.fields['state'].choices += [('CORRECT_METADATA','접수번호 정정 (기존 기록 보존)')]
+        form.fields['state'].choices += [('UPDATE_FOLLOWUP','보완 담당·기한·처리 의견 변경 (이력 보존)')]
+        add('assignee',forms.IntegerField(label='보완 담당자 ID',required=False,min_value=1))
     add('evidence',forms.CharField(label='검사 통과 증빙 ID (쉼표 구분)',required=False))
     add('confirm',forms.BooleanField(label='신규 초안 생성 또는 실제 제출 완료를 명시적으로 요청·확인합니다',required=False))
     return form
@@ -81,7 +86,13 @@ def tracking_page(request, mode, pk):
         else:
             if mode=='prepare': return redirect('submission-tracking',pk=result.pk)
             return redirect(request.path)
-    return render(request,'pms/tracking.html',dict(title=title,item=obj,records=records,form=form,mode=mode,plan_form=plan_form))
+    actions=None
+    if mode=='signal':
+        from .signal_tracking import linked_actions
+        capas,recalls=linked_actions(obj)
+        actions={'capas':capas.select_related('owner').prefetch_related('evaluations'),'recalls':recalls.select_related('owner')}
+    page=Paginator(records.select_related('actor'),20).get_page(request.GET.get('page'))
+    return render(request,'pms/tracking.html',dict(title=title,item=obj,records=page,form=form,mode=mode,plan_form=plan_form,actions=actions))
 
 
 @api_view(['GET','POST'])
@@ -93,7 +104,9 @@ def tracking_api(request, mode, pk):
         obj=get_object_or_404(RegulatoryReport,pk=pk,complaint__in=visible_complaints(request.user));qs=obj.submissions.all();service=prepare_submission
     else:
         obj=get_object_or_404(SubmissionVersion,pk=pk,report__complaint__in=visible_complaints(request.user));qs=obj.events.all();service=record_submission
-    if request.method=='GET': return Response(list(qs.order_by('pk').values()))
+    if request.method=='GET':
+        page=Paginator(qs.order_by('pk'),20).get_page(request.query_params.get('page'))
+        return Response(list(page.object_list.values()),headers={'X-Total-Count':str(page.paginator.count),'X-Page':str(page.number)})
     if mode=='prepare' and request.data.get('operation')=='plan': return Response({'id':save_submission_plan(request.user,pk,dict(request.data)).pk})
     result=service(request.user,pk,dict(request.data))
     return Response({'id':result.pk},status=200)

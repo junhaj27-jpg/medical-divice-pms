@@ -67,6 +67,36 @@ class TrackingTests(Base):
         bad=CAPA.objects.create(complaint=other,title='다른 사건',owner=self.raqa,corrective_action='x',due_date=timezone.localdate())
         self.assertRaises(ValidationError,self.signal_do,'LINK',capa=bad.pk)
 
+    def test_reopened_or_deferred_signal_requires_fresh_decision(self):
+        self.signal_do('INVESTIGATE',basis='근거',due_on='2026-12-01')
+        self.signal_do('NO_ACTION')
+        self.signal_do('CLOSE')
+        self.signal_do('REOPEN')
+        self.assertRaises(ValidationError,self.signal_do,'CLOSE')
+        for kind in ('HOLD','ACTION_REQUIRED','INVESTIGATE'):
+            self.signal_do('NO_ACTION')
+            args={'basis':'추가 근거','due_on':'2026-12-02'} if kind=='INVESTIGATE' else {}
+            self.signal_do(kind,**args)
+            self.assertRaises(ValidationError,self.signal_do,'CLOSE')
+        self.signal_do('NO_ACTION')
+        self.signal_do('CLOSE')
+        self.assertEqual(self.signal.tracking.filter(kind='NO_ACTION').count(),5)
+
+    def test_investigation_deadline_uses_user_timezone_and_task_history(self):
+        task=WorkTask.objects.create(complaint=self.c,assignee=self.raqa,title='조사',due_at=timezone.now())
+        self.signal.task=task;self.signal.save(update_fields=['task'])
+        with timezone.override('Asia/Seoul'):
+            self.signal_do('INVESTIGATE',basis='근거',due_on='2026-12-01')
+            task.refresh_from_db()
+            self.assertEqual(timezone.localtime(task.due_at).isoformat(),'2026-12-01T23:59:59+09:00')
+        from rest_framework.test import APIClient
+        api=APIClient();api.force_authenticate(self.raqa)
+        data=self.payload(kind='CLOSE')
+        self.assertEqual(api.post(f'/api/safety/signals/{self.signal.pk}/tracking/',data,format='json').status_code,400)
+        self.client.force_login(self.raqa)
+        page=self.client.post(reverse('signal-tracking',args=[self.signal.pk]),data)
+        self.assertContains(page,'최신 조사·재검토 이후 조치 불필요 사유 검토가 필요합니다.')
+
     def test_submission_explicit_state_retry_and_reapproval(self):
         report,artifact,data=self.approved_report()
         v=prepare_submission(self.raqa,report.pk,data)
@@ -92,6 +122,19 @@ class TrackingTests(Base):
         record_submission(self.raqa,v.pk,self.payload(state='ACKNOWLEDGED',evidence=[a.pk],receipt_number='A-1'))
         self.assertTrue(approval_is_current(self.c))
         self.assertRaises(ValidationError,record_submission,self.raqa,v.pk,self.payload(state='SUPPLEMENT_REQUESTED',evidence=[a.pk],due_at=timezone.now().isoformat()))
+
+    def test_metadata_correction_preserves_submission_and_state(self):
+        report,artifact,data=self.approved_report();v=prepare_submission(self.raqa,report.pk,data)
+        original=record_submission(self.raqa,v.pk,self.payload(state='SUBMITTED',confirm=True,submitted_at=timezone.now().isoformat(),submitter='RA'))
+        correction=self.payload(state='CORRECT_METADATA',receipt_number='corrected-1',assignee=self.admin.pk)
+        fixed=record_submission(self.raqa,v.pk,correction)
+        self.assertEqual(fixed.state,'SUBMITTED')
+        self.assertEqual(fixed.data['corrects_event'],original.pk)
+        self.assertEqual(record_submission(self.raqa,v.pk,correction).pk,fixed.pk)
+        original.refresh_from_db();self.assertEqual(original.data['submitter'],'RA')
+        self.assertTrue(approval_is_current(self.c))
+        self.assertRaises(ValidationError,record_submission,self.raqa,v.pk,dict(correction,request_key=str(uuid.uuid4()),submitter='changed'))
+        self.assertRaises(ValidationError,record_submission,self.raqa,v.pk,dict(correction,request_key=str(uuid.uuid4()),assignee=self.staff.pk))
 
     def test_screen_api_role_and_submission_status_bypass(self):
         report,artifact,data=self.approved_report()
@@ -126,6 +169,12 @@ class TrackingTests(Base):
         record_submission(self.raqa,v.pk,self.payload(state='SUBMITTED',confirm=True,submitted_at=timezone.now().isoformat(),submitter='RA'))
         receipt=self.receipt()
         record_submission(self.raqa,v.pk,self.payload(state='SUPPLEMENT_REQUESTED',evidence=[receipt.pk],due_at=(timezone.now()+timedelta(days=10)).isoformat(),due_reason='기관 보완 요청서 기한'))
+        request_event=v.events.last()
+        update=record_submission(self.raqa,v.pk,self.payload(state='UPDATE_FOLLOWUP',assignee=self.admin.pk,due_at=(timezone.now()+timedelta(days=11)).isoformat(),due_reason='담당자 확인한 수동 기한 정정'))
+        self.assertEqual(update.state,'SUPPLEMENT_REQUESTED')
+        self.assertEqual(update.data['updates_event'],request_event.pk)
+        self.assertEqual(update.data['assignee_id'],self.admin.pk)
+        request_event.refresh_from_db();self.assertNotEqual(request_event.data['due_at'],update.data['due_at'])
         from django.db import transaction
         with self.assertRaises(ValidationError), transaction.atomic(): receipt.delete()
         receipt.sha256='x'*64;self.assertRaises(ValidationError,receipt.save)

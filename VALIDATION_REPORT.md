@@ -1,3 +1,41 @@
+# 이번 요청 최종 검증 (2026-11-01, Asia/Seoul)
+
+기준 HEAD `f0812ed`, 브랜치 `feature/pms-analysis-snapshots-20261101`. 시작 작업 트리는 깨끗했다. 이전 절의 HEAD·테스트 개수·미커밋 상태는 과거 작업 기록이다. 실제 Git 루트는 지정 폴더의 `work/medical-divice-pms`이며 원격은 변경하지 않았다. 이번 작업은 별도 에이전트 없이 개발 담당이 실행했다.
+
+## 추가 구현과 회귀
+
+- 신호 필요/불필요/보류 판단, 재검토 이후 과거 불필요 판단 재사용 종결 차단, 리콜 효과에 행정 증빙 사용 차단, 조사 기한의 사용자 시간대 및 WorkTask/기존 이력 반영.
+- 접수번호 정정의 추가 이력, 보완 담당/수동 기한/의견 변경 작업, 담당자 역할 검증. 기존 제출본·이벤트와 승인 해시를 보존한다.
+- 내부·CSV 접수일 별도 집계, 비중대 구분, 기한 초과 업무, 확정 보고서 PDF/해시 불변 보존 및 역할별 다운로드. `0019_periodic_pdf_archive`만 추가하고 기존 마이그레이션은 변경하지 않았다.
+- 추적 화면/API와 정기 보고서 화면/API 목록 페이지네이션, 관련 조치 상태/효과 평가 표시와 owner 조회 최적화, 추적 작업의 확인·중복 클릭 차단.
+- 새 회귀 4개 및 기존 보완 제출 테스트 강화. 기존 테스트 삭제·검증 완화 없음. API/HTML 종결 동일 차단, 날짜/시간대, 과거 PDF 보존과 STAFF 다운로드 차단, 정정 재요청·담당자 검증을 포함한다.
+
+## 실제 실행
+
+Python은 프로젝트 `.venv/Scripts/python.exe` 3.12.14, Django는 `.deps`의 5.2.18이다. 가상환경 단독에는 Django가 없어 첫 집중 실행이 실패했고 `PYTHONPATH=$PWD/.deps`로 기존 프로젝트 의존성을 지정한 후 검증했다. 새 패키지나 외부 서비스는 설치/호출하지 않았다.
+
+최종 명령은 `scripts/validate_isolated.py work/request-verified-final --installed-db work/request-baseline18.sqlite3`이다. 격리 SQLite DB·MEDIA_ROOT·STATIC_ROOT를 사용했다. 최종 전체 테스트는 **209개 실행, 203개 통과, PostgreSQL 전용 6개 skip, 130.924초**다. 마지막 변경의 집중 26개도 모두 통과했다. 첫 전체 208개 통과 기록은 마지막 변경 이전 결과이며 최종 결과와 구분한다.
+
+`work/request-verified-final/`의 명령별 로그와 `results.json`을 근거로 check, makemigrations --check --dry-run (변경 없음), showmigrations --plan, 빈 DB migrate --noinput, test --noinput, collectstatic --noinput, compileall -q pms config scripts 및 운영형 환경변수의 check --deploy를 실행했다. `git diff --check`도 실행했다. CRLF 전환 안내는 공백 오류가 아니다.
+
+원본 `db.sqlite3`에는 설치된 PMS 스키마가 없어 최초 전진 검증 시도가 거부됐다. 이를 성공으로 처리하지 않았다. 대신 `0018`까지 적용한 새 격리 DB에 제품·작성자·과거 확정 스냅샷을 추가하고 읽기 전용 backup 사본에 `0019`를 전진 적용했다. 원본 파일 SHA-256과 기존 PMS 테이블 행 수 보존을 검증했다. 운영 DB 전진 적용 실증은 아니다. 0008 두 분기의 실제 0011 병합 의존성 그래프를 그대로 사용했다.
+
+## 실제 브라우저·PDF·모의 테스트 구분
+
+- 실제 IAB 브라우저와 격리 runserver `127.0.0.1:8879`: 예시 RA_QA 로그인, 신호 조사/보류 표시, 확인 대화상자 후 보류 신호 종결의 서버 오류·상태 보존, 확정 정기 보고서의 출처별 통계·PDF 링크를 확인했다. UI 상태 전수 검증이나 부하 시험은 아니다.
+- 실제 한글 ReportLab PDF 생성, pypdf 텍스트·해시·과거 바이트 보존·비공개 다운로드 테스트 통과. 격리 시연 PDF 4페이지를 Poppler로 렌더링하고 첫 페이지 및 전체 축소본을 시각 확인했다. 한글/줄바꿈/페이지 하단을 확인했다. Poppler의 비한글 nameToUnicode 리소스 경로 경고 3건이 있었으나 PNG 생성과 한글 렌더링은 성공했다.
+- 기존 파일 검사·AI 테스트의 모의 응답은 운영 검사기/공급자 실연동 성공이 아니다. 실제 규제기관 제출이나 접수는 수행하지 않았다.
+
+## skip·미검증과 남은 범위
+
+PostgreSQL 전용 6개는 중복 승인 요청, 승인/반려 경쟁, 상태 전이 경쟁, 승인/관련 자료 잠금, 내부 스냅샷 중복, 규칙 재적용 경쟁이다. 사유는 `Requires actual PostgreSQL; SQLite cannot verify row locks`이다. PostgreSQL/Docker 실행 도구를 찾지 못했고 DB 접속 환경이 구성되지 않았다. localhost:5432의 1초 연결 시도도 연결을 확립하지 못했다. SQLite 동시 CAPA 요청·재시도 테스트는 실행했으나 PostgreSQL 행 잠금 통과로 표시하지 않는다.
+
+운영 DB·ClamAV·운영 대량 데이터 성능·모든 역할의 전체 브라우저 흐름은 미검증이다. 미완료 조치 예외 종결은 제공하지 않으며 ADMIN도 우회할 수 없다. 접수번호 이외의 제출 오류는 재승인된 새 버전으로 정정한다. 후속 기한은 사유 있는 수동 입력만 지원한다. 과거 PDF 없는 확정본은 소급 변경하지 않는다. 대량 근거 스냅샷의 세부 조회 최적화와 전용 보완 업무함은 후속이다. 법정 기한·규제 적합성·발생률·인과관계를 확정하지 않는다.
+
+기능별 시작 분류·기존/이번 구현 구분·사용법·PowerShell·새 예시 DB 시연은 [이번 요청 안내](docs/REQUEST_EXTENSION_20261101.md)를 따른다. 기존 미커밋 코드를 되돌린 적 없으며 push·배포·실제 제출·외부 AI 전송을 하지 않았다.
+
+---
+
 <!-- tracking-current-guide -->
 > **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래는 0013·0014 개발 단계의 검증 기록입니다. 과거 테스트 수와 당시 최종 leaf를 현재 결과로 해석하지 마세요.
 

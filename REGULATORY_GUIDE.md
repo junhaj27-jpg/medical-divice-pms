@@ -1,3 +1,5 @@
+> **최신 추가 개발 안내**: [이번 요청 안내](docs/REQUEST_EXTENSION_20261101.md). 접수번호 정정과 보완 담당·수동 기한 변경은 원본 이벤트를 보존하는 추가 이력입니다. 제출 내용 변경은 재승인·새 제출본을 사용합니다. 최신 leaf는 `0019_periodic_pdf_archive`이며 아래 `0018` 안내는 이전 단계 기록입니다.
+
 <!-- tracking-current-guide -->
 > **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 규제보고 판단 상태와 실제 제출 이벤트는 별도로 관리합니다.
 

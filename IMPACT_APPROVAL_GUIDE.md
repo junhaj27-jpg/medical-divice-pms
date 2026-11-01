@@ -1,3 +1,5 @@
+> **최신 추가 개발 안내**: [이번 요청 안내](docs/REQUEST_EXTENSION_20261101.md). 영향 분석 행 입력과 승인 무결성 체계는 그대로 재사용합니다. 접수번호 정정·보완 담당/기한 이벤트는 제출 내용 승인을 변경하지 않습니다. 최신 leaf는 `0019_periodic_pdf_archive`이며 아래 `0018` 안내는 이전 단계 기록입니다.
+
 <!-- tracking-current-guide -->
 > **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 승인 범위에는 CONTENT 증빙과 제출 기관·경로를 포함하며 ADMIN 행정 증빙·제출 후 접수 메타데이터는 제외합니다.
 

@@ -1,3 +1,5 @@
+> **이번 요청 기준 (2026-11-01, 시작 HEAD f0812ed)**: [요구사항별 시작 분류·추가 구현·남은 범위](REQUEST_EXTENSION_20261101.md)를 우선합니다. 최신 leaf는 `0019_periodic_pdf_archive`입니다. 기존 조사/제출/정기 검토/영향 분석은 중복 개발하지 않고 검증 공백과 PDF 보존을 확장했습니다. PostgreSQL 및 운영 파일 검사기 검증은 완료로 표시하지 않습니다. 아래 표는 과거 개발 기록입니다.
+
 <!-- tracking-current-guide -->
 > **2026-11-01 · 6~9순위 현재 안내**: [설계](TRACKING_DESIGN.md), [구현·검증](TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래 계획·구현 표·최신 기록 표시는 각 이전 단계 당시의 기록입니다.
 

@@ -1,10 +1,13 @@
 import uuid
 from django import forms
+from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, render, redirect
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.http import HttpResponse
+import hashlib
 from .models import MedicalDevice, PMSPeriodicReport, DuplicateReview
 from .services import visible_complaints, role
 from .workflow import privileged
@@ -18,6 +21,23 @@ class PeriodForm(forms.Form):
     start=forms.DateField(label='발생일 기준 시작',widget=forms.DateInput(attrs={'type':'date'}))
     end=forms.DateField(label='발생일 기준 종료',widget=forms.DateInput(attrs={'type':'date'}))
     is_example=forms.BooleanField(label='예시 데이터만',required=False)
+
+
+@login_required
+def periodic_pdf(request,pk):
+    privileged(request.user)
+    obj=get_object_or_404(PMSPeriodicReport,pk=pk,stage='FINAL')
+    if not obj.pdf_content:
+        return HttpResponse('이전 확정본에는 보존 PDF가 없습니다. 새 초안을 검토·확정하세요.',status=409)
+    content=bytes(obj.pdf_content)
+    if hashlib.sha256(content).hexdigest()!=obj.pdf_sha256:
+        return HttpResponse('보존 PDF 무결성 오류입니다.',status=409)
+    from .services import audit
+    audit(request.user,'PMS_PERIOD_PDF',obj,after={'hash':obj.pdf_sha256})
+    response=HttpResponse(content,content_type='application/pdf')
+    response['Content-Disposition']=f'attachment; filename="pms-review-{pk}-v{obj.version}.pdf"'
+    response['Cache-Control']='private, no-store'
+    return response
 
 
 class FinalForm(forms.Form):
@@ -35,7 +55,8 @@ def periodic_list(request):
         try: obj=create_periodic(request.user,data)
         except ValidationError as exc: form.add_error(None,exc)
         else: return redirect('periodic-detail',pk=obj.pk)
-    return render(request,'pms/periodic_list.html',dict(form=form,items=PMSPeriodicReport.objects.select_related('device','actor','reviewer').order_by('-pk')[:100]))
+    page=Paginator(PMSPeriodicReport.objects.defer('pdf_content').select_related('device','actor','reviewer').order_by('-pk'),20).get_page(request.GET.get('page'))
+    return render(request,'pms/periodic_list.html',dict(form=form,items=page))
 
 
 @login_required
@@ -55,8 +76,10 @@ def periodic_api(request,pk=None):
     privileged(request.user)
     if pk: get_object_or_404(PMSPeriodicReport,pk=pk)
     if request.method=='GET':
-        qs=PMSPeriodicReport.objects.filter(pk=pk) if pk else PMSPeriodicReport.objects.order_by('-pk')[:100]
-        return Response(list(qs.values()))
+        qs=PMSPeriodicReport.objects.filter(pk=pk) if pk else PMSPeriodicReport.objects.order_by('-pk')
+        page=Paginator(qs.order_by('-pk'),20).get_page(request.query_params.get('page'))
+        fields=[f.name for f in PMSPeriodicReport._meta.fields if f.name != 'pdf_content']
+        return Response(list(page.object_list.values(*fields)),headers={'X-Total-Count':str(page.paginator.count),'X-Page':str(page.number)})
     result=finalize_periodic(request.user,pk,dict(request.data)) if pk else create_periodic(request.user,dict(request.data))
     return Response({'id':result.pk,'version':result.version,'stage':result.stage})
 

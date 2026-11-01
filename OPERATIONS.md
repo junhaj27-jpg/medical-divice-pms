@@ -1,3 +1,5 @@
+> **최신 추가 개발 안내**: [이번 요청 사용·검증·격리 시연](docs/REQUEST_EXTENSION_20261101.md). 최신 leaf는 `0019_periodic_pdf_archive`이며 확정 정기 보고서 PDF/해시는 DB 백업에 포함됩니다. 아래 `0018`과 과거 실행 기록은 이전 단계 안내입니다. 이번 개발은 원본 DB에 적용하지 않았습니다.
+
 <!-- tracking-current-guide -->
 > **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래의 과거 실행·검증 기록은 해당 단계의 기록입니다.
 

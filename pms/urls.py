@@ -97,6 +97,7 @@ urlpatterns += [
 from . import review_views as reviews
 urlpatterns += [
  path('pms-reviews/',reviews.periodic_list,name='periodic-list'),
+ path('pms-reviews/<int:pk>/pdf/',reviews.periodic_pdf,name='periodic-pdf'),
  path('pms-reviews/<int:pk>/',reviews.periodic_detail,name='periodic-detail'),
  path('api/pms-reviews/',reviews.periodic_api),
  path('api/pms-reviews/<int:pk>/',reviews.periodic_api),

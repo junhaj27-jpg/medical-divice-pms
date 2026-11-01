@@ -1,6 +1,6 @@
 from .tracking_guard import guarded
 import uuid
-from datetime import date
+from datetime import date, datetime, time
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -64,8 +64,11 @@ def closure_check(signal):
     latest_effect = signal.tracking.filter(kind='EFFECT').order_by('-pk').first()
     if recalls.exists() and (not latest_effect or latest_effect.data.get('verdict') != 'PASS' or not set(recalls.values_list('pk',flat=True)).issubset(set(latest_effect.data.get('recall_ids',[])))):
         raise ValidationError('리콜 조치의 효과 확인일·결과·증빙을 먼저 기록하세요.')
-    if not capas.exists() and not recalls.exists() and not signal.tracking.filter(kind='NO_ACTION').exists():
-        raise ValidationError('조치 불필요 사유 검토가 필요합니다.')
+    decision = signal.tracking.exclude(kind='CLOSE').order_by('-pk').first()
+    if not capas.exists() and not recalls.exists() and (not decision or decision.kind != 'NO_ACTION'):
+        raise ValidationError('최신 조사·재검토 이후 조치 불필요 사유 검토가 필요합니다.')
+    if decision and decision.kind in ('HOLD', 'ACTION_REQUIRED', 'REOPEN'):
+        raise ValidationError('판단 보류·조치 필요·재검토 상태에서는 종결할 수 없습니다.')
 
 
 @guarded
@@ -81,7 +84,7 @@ def track_signal(user, pk, data):
     old = replay(SignalTracking, key, fingerprint, signal_id=pk, actor_id=user.pk)
     if old: return old
     kind = data.get('kind')
-    allowed = {'INVESTIGATE','NO_ACTION','LINK','DRAFT_CAPA','DRAFT_RECALL','CLOSE','REOPEN','EFFECT'}
+    allowed = {'INVESTIGATE','NO_ACTION','ACTION_REQUIRED','HOLD','LINK','DRAFT_CAPA','DRAFT_RECALL','CLOSE','REOPEN','EFFECT'}
     if kind not in allowed: raise ValidationError('허용되지 않은 작업입니다.')
     if signal.status == 'CLOSED' and kind not in ('REOPEN','EFFECT'): raise ValidationError('종결 신호는 재검토로 전환하세요.')
     note = data.get('note','')
@@ -138,11 +141,19 @@ def track_signal(user, pk, data):
             if checked>timezone.localdate() or data.get('verdict') not in ('PASS','FAIL'): raise ValidationError('효과 확인일·판정이 올바르지 않습니다.')
             files = evidence(user,data.get('evidence',[]),ids)
             if not files: raise ValidationError('효과 확인 증빙이 필요합니다.')
+            if Attachment.objects.filter(pk__in=[f['id'] for f in files],purpose='ADMIN').exists():
+                raise ValidationError('행정 증빙은 조치 효과성 근거로 사용할 수 없습니다.')
             payload.update(evaluated_on=str(checked),verdict=data['verdict'],evidence=files,recall_ids=list(recalls.values_list('pk',flat=True)))
         status = 'REVIEW' if payload['verdict']=='FAIL' else 'CLOSED' if signal.status=='CLOSED' else 'ACTION'
     if kind == 'CLOSE': closure_check(signal); status='CLOSED'
     if kind == 'REOPEN' and signal.status != 'CLOSED': raise ValidationError('종결 상태만 재검토할 수 있습니다.')
     record = SignalTracking.objects.create(signal=signal,actor=user,request_key=key,request_hash=fingerprint,kind=kind,data=payload,source_case_id=payload.get("complaint"),capa=capa,recall=recall,evaluation=evaluation)
     review_signal(user,pk,status,assignee,note,capa.pk if capa else None,recall.pk if recall else None,_tracking=True)
+    if kind == 'INVESTIGATE' and signal.task_id:
+        from .workflow import save_task
+        task=signal.task
+        task.refresh_from_db()
+        task.due_at=timezone.make_aware(datetime.combine(day(payload['due_on']),time(23,59,59)),timezone.get_current_timezone())
+        save_task(task,user)
     audit(user,'SIGNAL_TRACK',record,after={'kind':kind,'signal':pk})
     return record

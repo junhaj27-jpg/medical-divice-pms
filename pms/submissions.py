@@ -89,9 +89,28 @@ def record_submission(user, pk, data):
     last = obj.events.order_by('-pk').first()
     state = last.state if last else 'PREPARED'
     target = data.get('state')
-    if target not in STATES[state]: raise ValidationError('허용되지 않은 제출 상태 전이입니다.')
+    correction = target == 'CORRECT_METADATA'
+    followup = target == 'UPDATE_FOLLOWUP'
+    if followup:
+        if state != 'SUPPLEMENT_REQUESTED' or not str(data.get('note','')).strip() or not data.get('assignee') or not data.get('due_at'):
+            raise ValidationError('보완 요청 상태에서 담당자·수동 기한·처리 의견을 입력하세요.')
+        target = state
+    elif correction:
+        if state == 'PREPARED' or not str(data.get('note','')).strip():
+            raise ValidationError('제출 이후 정정 사유를 입력하세요.')
+        # Preserve workflow state and all historical values. Content corrections require a new approved version.
+        if any(k in data for k in ('submitted_at','submitter','authority','channel','replacement','artifact','report_kind')):
+            raise ValidationError('제출 내용 정정은 재승인된 새 제출본으로 기록하세요.')
+        if not str(data.get('receipt_number','')).strip():
+            raise ValidationError('정정할 접수번호를 입력하세요.')
+        target = state
+    elif target not in STATES[state]: raise ValidationError('허용되지 않은 제출 상태 전이입니다.')
     payload = dict(note=str(data.get('note',''))[:10000])
-    if target in ('SUBMITTED','SUPPLEMENT_SUBMITTED'):
+    if followup:
+        payload.update(operation='UPDATE_FOLLOWUP',updates_event=last.pk)
+    if correction:
+        payload.update(operation='CORRECT_METADATA',corrects_event=last.pk,receipt_number=str(data['receipt_number'])[:200])
+    if not correction and target in ('SUBMITTED','SUPPLEMENT_SUBMITTED'):
         if data.get('confirm') is not True: raise ValidationError('사용자의 명시적 제출 완료 확인이 필요합니다.')
         if not approval_is_current(case): raise ValidationError('내용 변경 시 재승인 후 새 제출본을 준비하세요.')
         submitted = obj
@@ -110,11 +129,18 @@ def record_submission(user, pk, data):
         if not at or not timezone.is_aware(at) or at>timezone.now(): raise ValidationError('제출 일시와 시간대를 확인하세요.')
         if not data.get('submitter'): raise ValidationError('실제 제출자를 입력하세요.')
         payload.update(submitted_at=at.isoformat(),submitter=str(data['submitter'])[:200],authority=submitted.snapshot['authority'],channel=submitted.snapshot['channel'])
-    if target in ('ACKNOWLEDGED','SUPPLEMENT_REQUESTED'):
+    if not correction and not followup and target in ('ACKNOWLEDGED','SUPPLEMENT_REQUESTED'):
         files = evidence(user,data.get('evidence',[]),[case.pk])
         if not files: raise ValidationError('접수 확인서 또는 보완 요청 증빙을 연결하세요.')
         if Attachment.objects.filter(pk__in=[f['id'] for f in files]).exclude(purpose='ADMIN').exists(): raise ValidationError('제출 후 행정 증빙 용도로 등록한 자료를 선택하세요.')
         payload.update(evidence=files,receipt_number=str(data.get('receipt_number',''))[:200])
+    if data.get('assignee'):
+        from django.contrib.auth import get_user_model
+        from .services import role
+        assignee = get_user_model().objects.filter(pk=data['assignee'],is_active=True).first()
+        if not assignee or role(assignee) not in ('RA_QA','ADMIN'):
+            raise ValidationError('보완 담당자는 활성 RA/QA 또는 관리자여야 합니다.')
+        payload['assignee_id'] = assignee.pk
     if data.get('due_at'):
         # Manual-only deadlines are deliberately supported; no unapproved inference.
         try: due = parse_datetime(str(data['due_at']))
@@ -122,7 +148,7 @@ def record_submission(user, pk, data):
         if not due or not timezone.is_aware(due) or not str(data.get('due_reason','')).strip(): raise ValidationError('후속 기한은 시간대와 수동 설정 사유가 필요합니다.')
         payload.update(due_at=due.isoformat(),due_reason=str(data['due_reason'])[:2000],deadline_source='MANUAL')
     event = SubmissionEvent.objects.create(submission=obj,state=target,data=payload,actor=user,request_key=key,request_hash=fingerprint)
-    if target=='SUPPLEMENT_SUBMITTED':
+    if not correction and target=='SUPPLEMENT_SUBMITTED':
         import uuid
         SubmissionEvent.objects.create(submission=submitted,state='SUBMITTED',data=dict(payload,parent_submission=obj.pk),actor=user,request_key=uuid.uuid5(key,'supplement-submitted'),request_hash=fingerprint)
     audit(user,'SUBMISSION_EVENT',event,after={'submission':pk,'state':target})

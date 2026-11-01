@@ -70,6 +70,8 @@ class SubmissionEvent(FrozenRecord):
 
 
 class PMSPeriodicReport(FrozenRecord):
+    pdf_content = models.BinaryField(null=True, editable=False)
+    pdf_sha256 = models.CharField(max_length=64, blank=True)
     stage=models.CharField(max_length=8,default="DRAFT",choices=[("DRAFT","작성 초안"),("FINAL","확정")])
     source=models.ForeignKey("self",null=True,on_delete=models.PROTECT)
     device = models.ForeignKey('MedicalDevice', on_delete=models.PROTECT)

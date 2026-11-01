@@ -1,6 +1,7 @@
 from .tracking_guard import guarded
 """Internal product review snapshots; never claims statutory PSUR/PMS compliance."""
 import json
+import hashlib
 from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -37,14 +38,22 @@ def build_snapshot(user, device, start, end, example):
     previous=list(base.filter(occurred_on__range=(previous_start,previous_end)).exclude(pk__in=excluded).order_by('pk'))
     metric('내부 사건 / 기간 내 발생 불만',current,'case')
     metric('내부 사건 / 동일 길이 직전 기간 발생 불만',previous,'case')
+    metric('내부 사건 / 기간 내 접수 불만',base.filter(reported_on__range=(start,end)).exclude(pk__in=excluded),'case')
+    metric('내부 사건 / 직전 기간 접수 불만',base.filter(reported_on__range=(previous_start,previous_end)).exclude(pk__in=excluded),'case')
     metric('내부 사건 / 기간 내 발생 이상사례', [c for c in current if hasattr(c,'adverse_event')],'case')
+    metric('내부 사건 / 기간 내 접수 이상사례',base.filter(reported_on__range=(start,end),adverse_event__isnull=False).exclude(pk__in=excluded),'case')
     metric('내부 사건 / 중대성 확인 미상', [c for c in current if internal_payload(c)['seriousness']=='UNKNOWN'],'case')
     metric('내부 사건 / 중대성 확인 중대', [c for c in current if internal_payload(c)['seriousness']=='SERIOUS'],'case')
+    metric('내부 사건 / 중대성 확인 비중대', [c for c in current if internal_payload(c)['seriousness']=='NON_SERIOUS'],'case')
     metric('내부 사건 / 중복 확정으로 향후 집계 제외',base.filter(occurred_on__range=(start,end),pk__in=excluded),'case')
     external=AnalysisRecord.objects.filter(batch__is_example=example,is_current=True,origin='CSV',
         manufacturer=device.manufacturer.name,device=device.name,model=device.model_number)
     metric('CSV 별도 코호트 / 기간 내 발생 (내부 사건과 합산하지 않음)',external.filter(occurred_on__range=(start,end)),'analysis')
     metric('CSV 별도 코호트 / 직전 기간 발생',external.filter(occurred_on__range=(previous_start,previous_end)),'analysis')
+    metric('CSV 별도 코호트 / 기간 내 접수',external.filter(reported_on__range=(start,end)),'analysis')
+    metric('CSV 별도 코호트 / 직전 기간 접수',external.filter(reported_on__range=(previous_start,previous_end)),'analysis')
+    metric('CSV 별도 코호트 / 기간 내 중대',external.filter(occurred_on__range=(start,end),seriousness='SERIOUS'),'analysis')
+    metric('CSV 별도 코호트 / 기간 내 비중대',external.filter(occurred_on__range=(start,end),seriousness='NON_SERIOUS'),'analysis')
     metric('CSV 별도 코호트 / 기간 내 중대성 미상',external.filter(occurred_on__range=(start,end),seriousness='UNKNOWN'),'analysis')
     metric('CSV 별도 코호트 / 발생일 누락으로 기간 통계 제외',external.filter(occurred_on__isnull=True),'analysis')
     internal=AnalysisRecord.objects.filter(source_case__in=base,batch__is_example=example,
@@ -61,6 +70,7 @@ def build_snapshot(user, device, start, end, example):
     metric('기준일 현재 / 안전 신호 및 조사·조치',signals,'signal',lambda s:dict(status=s.status,tracking=list(s.tracking.values('kind','data','created_at'))))
     metric('기준일 현재 / CAPA 효과성 평가',CAPA.objects.filter(complaint__in=base),'capa',lambda c:dict(status=c.status,evaluations=list(c.evaluations.values('id','evaluated_on','verdict','rationale'))))
     metric('기준일 현재 / 미완료 업무',WorkTask.objects.filter(complaint__in=base).exclude(status='DONE'),'task',lambda t:dict(status=t.status,due_at=t.due_at))
+    metric('기준일 현재 / 기한 초과 업무',WorkTask.objects.filter(complaint__in=base,due_at__lt=timezone.now()).exclude(status='DONE'),'task',lambda t:dict(status=t.status,due_at=t.due_at))
     metric('기준일 현재 / 리콜 대상·회수·미회수',Recall.objects.filter(complaint__in=base),'recall',lambda r:dict(status=r.progress_status,ledger=recall_totals(r),legacy_target=r.target_quantity,legacy_recovered=r.recovered_quantity,legacy_note='기존 수기 집계 · 원장과 합산하지 않음',recipients=list(r.recipients.values('id','unit','target_quantity','recovered_total','unrecovered_reason'))))
     metric('기준일 현재 / 규제보고 제출·보완',RegulatoryReport.objects.filter(complaint__in=base),'report',lambda r:dict(versions=[dict(id=v.pk,version=v.version,kind=v.report_kind,events=list(v.events.values('state','created_at','data'))) for v in r.submissions.all()]))
     result=dict(title='내부 PMS 정기 검토 보고서',device=dict(id=device.pk,name=device.name,model=device.model_number,manufacturer=device.manufacturer.name,udis=list(device.udis.values_list('device_identifier',flat=True))),
@@ -108,7 +118,9 @@ def finalize_periodic(user,pk,data):
     if data.get('confirm') is not True or not str(data.get('review_note','')).strip(): raise ValidationError('검토 의견과 명시적 확정이 필요합니다.')
     if digest(source.snapshot)!=source.content_hash: raise ValidationError('초안 스냅샷 무결성 오류입니다.')
     latest=PMSPeriodicReport.objects.filter(device=source.device,start=source.start,end=source.end,is_example=source.is_example).order_by('-version').first()
-    obj=PMSPeriodicReport.objects.create(device=source.device,start=source.start,end=source.end,is_example=source.is_example,version=latest.version+1,
+    from .periodic_pdf import render_periodic
+    pdf=render_periodic(source.snapshot,latest.version+1,user.pk,data['review_note'])
+    obj=PMSPeriodicReport.objects.create(pdf_content=pdf,pdf_sha256=hashlib.sha256(pdf).hexdigest(),device=source.device,start=source.start,end=source.end,is_example=source.is_example,version=latest.version+1,
         stage='FINAL',source=source,snapshot=source.snapshot,content_hash=source.content_hash,actor=user,reviewer=user,review_note=data['review_note'],request_key=key,request_hash=fingerprint)
     audit(user,'PMS_PERIOD_FINAL',obj,after={'version':obj.version,'source':pk,'hash':obj.content_hash})
     return obj

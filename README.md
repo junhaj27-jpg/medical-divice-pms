@@ -1,3 +1,5 @@
+> **이번 요청 추가 개발 (2026-11-01)**: [기능별 사용법·현재 분류·PowerShell 격리 시연](docs/REQUEST_EXTENSION_20261101.md)을 확인하세요. 최신 leaf는 `0019_periodic_pdf_archive`입니다. 신호 최신 판단 종결 검증, 필요/보류 판단, 업무 기한 이력, 접수번호 정정·보완 담당/기한 변경 이력, 접수일 별도 통계와 확정 정기 보고서 PDF를 추가했습니다. [검증 보고서](VALIDATION_REPORT.md)의 이번 요청 절을 우선합니다. 아래 `0018` 안내는 이전 단계 기록입니다.
+
 <!-- tracking-current-guide -->
 > **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 이전 단계 설명과 테스트 수는 아래에 보존했습니다.
 
