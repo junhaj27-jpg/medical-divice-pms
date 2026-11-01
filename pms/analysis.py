@@ -122,7 +122,8 @@ def default_filters():
 
 
 def analyze(data):
-    qs = AnalysisRecord.objects.filter(batch__is_example=data['example'] == 'sample').filter(Q(origin='CSV') | Q(is_current=True))
+    from .duplicates import excluded_ids
+    qs = AnalysisRecord.objects.filter(batch__is_example=data['example'] == 'sample').filter(Q(origin='CSV') | Q(is_current=True)).exclude(source_case_id__in=excluded_ids(example=data['example']=='sample'))
     for field in ('device', 'manufacturer', 'model', 'event_type', 'source'):
         if data.get(field): qs = qs.filter(**{field + '__icontains': data[field]})
     if data.get('seriousness'): qs = qs.filter(seriousness=data['seriousness'])

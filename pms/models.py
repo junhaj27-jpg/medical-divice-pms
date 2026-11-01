@@ -95,10 +95,25 @@ class Recall(TimeStamped):
 class RecallTarget(TimeStamped):
     recall=models.ForeignKey(Recall,on_delete=models.CASCADE,related_name="targets"); lot=models.ForeignKey(ProductLot,on_delete=models.PROTECT); serial_number=models.CharField(max_length=100,blank=True); target_quantity=models.PositiveIntegerField()
 class RegulatoryReport(TimeStamped):
+    def save(self,*args,**kwargs):
+        if self.status=="SUBMITTED" and (not self.pk or type(self).objects.filter(pk=self.pk).exclude(status="SUBMITTED").exists()):
+            raise ValidationError("제출 완료는 제출 추적에서 명시적으로 확인하세요.")
+        return super().save(*args,**kwargs)
+    submission_authority=models.CharField("제출 기관",max_length=200,blank=True)
+    submission_channel=models.CharField("제출 경로",max_length=200,blank=True)
     class Status(models.TextChoices): DRAFT="DRAFT","작성"; REVIEW="REVIEW","검토"; APPROVED="APPROVED","승인"; SUBMITTED="SUBMITTED","제출"; REJECTED="REJECTED","반려"
     complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="reports"); document_number=models.CharField(max_length=50,unique=True); required=models.BooleanField(default=False); checklist=models.JSONField(default=dict,blank=True); investigation_result=models.TextField(blank=True); status=models.CharField(max_length=12,choices=Status.choices,default=Status.DRAFT); author=models.ForeignKey(User,on_delete=models.PROTECT,related_name="authored_reports"); reviewer=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="reviewed_reports"); approved_by=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="approved_reports"); approved_at=models.DateTimeField(null=True,blank=True)
 def upload_to(instance,filename): return f"attachments/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 class Attachment(TimeStamped):
+    purpose=models.CharField(max_length=12,default="CONTENT",choices=[("CONTENT","사건 근거"),("ADMIN","제출 후 행정 증빙")])
+    def save(self,*args,**kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exclude(purpose=self.purpose).exists(): raise ValidationError("증빙 용도는 변경할 수 없습니다.")
+        if self.pk:
+            referenced=attachment_is_preserved(self.pk)
+            if referenced:
+                old=type(self).objects.get(pk=self.pk)
+                if any(getattr(old,k)!=getattr(self,k) for k in ('file','sha256','complaint_id','purpose','scan_status','detected_type')): raise ValidationError("제출 보존 증빙은 변경할 수 없습니다. 새 증빙을 등록하세요.")
+        return super().save(*args,**kwargs)
     complaint=models.ForeignKey(CustomerComplaint,on_delete=models.CASCADE,related_name="attachments"); file=models.FileField(upload_to=upload_to,validators=[FileExtensionValidator(["pdf","png","jpg","jpeg","txt","csv"])]); original_name=models.CharField(max_length=255,blank=True); uploaded_by=models.ForeignKey(User,on_delete=models.PROTECT)
     scan_status=models.CharField(max_length=12,choices=[("PENDING","검사 대기"),("PASSED","통과"),("QUARANTINED","격리"),("FAILED","검사 실패")],default="PENDING",db_index=True)
     sha256=models.CharField(max_length=64,blank=True)
@@ -452,6 +467,7 @@ from django.dispatch import receiver
 
 @receiver(pre_delete)
 def lock_approval_input_delete(sender,instance,using,**kwargs):
+    if sender==Attachment and attachment_is_preserved(instance.pk): raise ValidationError("보존 이력에 연결된 증빙은 삭제할 수 없습니다.")
     if sender not in (RiskAssessment,AdverseEvent,CAPA,RegulatoryReport,Recall,Attachment,RecallTarget,RecallRecipient,CAPAEvaluation): return
     case_id=getattr(instance,'complaint_id',None)
     if sender in (RecallTarget,RecallRecipient): case_id=instance.recall.complaint_id
@@ -463,3 +479,12 @@ def lock_evaluation_evidence(sender,instance,action,reverse,using,**kwargs):
     if not action.startswith('pre_'): return
     ids=[instance.complaint_id] if reverse else [instance.capa.complaint_id]
     for case_id in ids: CustomerComplaint.objects.using(using).select_for_update().get(pk=case_id)
+
+from .tracking_models import SignalTracking, SubmissionVersion, SubmissionEvent, PMSPeriodicReport, DuplicateReview
+
+
+def attachment_is_preserved(pk):
+    for model,field,key in ((SubmissionVersion,'snapshot','attachments'),(SubmissionEvent,'data','evidence'),(SignalTracking,'data','evidence')):
+        for payload in model.objects.values_list(field,flat=True):
+            if any((x.get('id') if isinstance(x,dict) else x)==pk for x in payload.get(key,[])): return True
+    return False

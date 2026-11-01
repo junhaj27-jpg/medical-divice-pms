@@ -1,3 +1,6 @@
+<!-- tracking-current-guide -->
+> **2026-11-01 · 6~9순위 현재 안내**: [설계](TRACKING_DESIGN.md), [구현·검증](TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래 계획·구현 표·최신 기록 표시는 각 이전 단계 당시의 기록입니다.
+
 # 2026-11-01 구현 현황 갱신
 
 지정 폴더 아래 work/medical-divice-pms 저장소를 확인했다. 시작 HEAD는 14f4390이며 README·모델·서비스·workflow·테스트와 0011/0012 등 기존 미커밋 변경을 보존했다. 별도 feature/pms-analysis-snapshots-20261101 브랜치에서 확장한다. AGENTS.md는 확인한 저장소·작업 상위 경로에서 발견되지 않았다.

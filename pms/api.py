@@ -32,7 +32,14 @@ class ComplaintViewSet(AuditedViewSet):
     def get_queryset(self):
         if getattr(self,"swagger_fake_view",False): return CustomerComplaint.objects.none()
         return visible_complaints(self.request.user)
-    def perform_create(self,s): obj=s.save(reporter=self.request.user); audit(self.request.user,"CREATE",obj,after=s.data)
+    def perform_create(self,s): obj=s.save(reporter=self.request.user); audit(self.request.user,"CREATE",obj,after={"case_id":obj.pk})
+    def create(self,request,*args,**kwargs):
+        response=super().create(request,*args,**kwargs)
+        from .duplicates import candidates
+        case=visible_complaints(request.user).get(pk=response.data["id"])
+        response.data["duplicate_candidates"]=candidates(request.user,case)
+        response.data["duplicate_review_url"]=f"/complaints/{case.pk}/duplicates/"
+        return response
     @action(detail=True,methods=["post"],permission_classes=[IsRAQAOrAdmin])
     def request_approval(self,request,pk=None):
         from .services import request_complaint_approval
@@ -82,7 +89,7 @@ class AttachmentViewSet(AuditedViewSet):
     def perform_create(self,s):
         complaint=s.validated_data["complaint"]
         if not visible_complaints(self.request.user).filter(pk=complaint.pk).exists(): raise DRFPermissionDenied("접근할 수 없는 사건입니다.")
-        obj=s.save(uploaded_by=self.request.user,original_name=normalized_name(s.validated_data["file"].name)); scan_attachment(obj,self.request.user); audit(self.request.user,"CREATE",obj,after={"original_name":obj.original_name})
+        obj=s.save(uploaded_by=self.request.user,original_name=normalized_name(s.validated_data["file"].name)); scan_attachment(obj,self.request.user); audit(self.request.user,"CREATE",obj,after={"evidence_id":obj.pk,"purpose":obj.purpose})
     def perform_update(self,s):
         if not visible_complaints(self.request.user).filter(pk=s.validated_data.get("complaint",s.instance.complaint).pk).exists(): raise DRFPermissionDenied
         if "file" in s.validated_data or "complaint" in s.validated_data: raise DRFPermissionDenied("증빙은 덮어쓰지 않고 새로 업로드하세요.")

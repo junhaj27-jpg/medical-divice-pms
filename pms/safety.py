@@ -50,7 +50,8 @@ def scope_for(user):
 
 def cohort(user, data):
     scope_for(user)
-    qs = visible_complaints(user).filter(is_example=data["example"] == "sample")
+    from .duplicates import excluded_ids
+    qs = visible_complaints(user).filter(is_example=data["example"] == "sample").exclude(pk__in=excluded_ids(user,data["example"] == "sample"))
     for field in ("device","lot","complaint_type"):
         if data.get(field): qs = qs.filter(**{field:data[field]})
     if data.get("risk"): qs = qs.filter(risk_assessment__level=data["risk"])
@@ -126,9 +127,17 @@ def detect(user, data):
 
 
 @transaction.atomic
-def review_signal(user, signal_id, status, assignee_id, note, capa_id=None, recall_id=None):
+def review_signal(user, signal_id, status, assignee_id, note, capa_id=None, recall_id=None, _tracking=False):
     if role(user) not in ("RA_QA","ADMIN"): raise PermissionDenied
+    initial = signals_for(user).get(pk=signal_id)
+    list(visible_complaints(user).select_for_update().filter(pk__in=[c["pk"] for c in initial.snapshot["evidence"]]).order_by("pk"))
     signal = signals_for(user).select_for_update(of=("self",)).get(pk=signal_id)
+    if signal.status == "CLOSED" and not _tracking: raise ValidationError("재검토 절차를 사용하세요.")
+    if status == "NEW" and signal.status != "NEW": raise ValidationError("신규 상태로 되돌릴 수 없습니다.")
+    if status == "CLOSED":
+        if capa_id or recall_id: raise ValidationError("조치 연결 후 별도로 종결을 검토하세요.")
+        from .signal_tracking import closure_check
+        closure_check(signal)
     if status not in dict(SafetySignal._meta.get_field("status").choices) or not note.strip() or len(note)>10000:
         raise ValidationError("상태와 검토 의견·사유가 필요합니다.")
     try:
@@ -145,8 +154,9 @@ def review_signal(user, signal_id, status, assignee_id, note, capa_id=None, reca
         if pk:
             obj = model.objects.filter(pk=pk,complaint_id__in=ids).first()
             if not obj: raise ValidationError("신호의 연결 사건에 속한 기존 조치만 연결하세요.")
+            if obj.complaint.device_id != signal.snapshot["group"]["device_id"] or (key == "recall" and obj.device_id != obj.complaint.device_id): raise ValidationError("제품이 일치하지 않습니다.")
             links[key] = obj.pk
-    if status == "ACTION" and not links: raise ValidationError("조치 연결에는 기존 CAPA 또는 리콜이 필요합니다.")
+    if status == "ACTION" and not links and not _tracking: raise ValidationError("조치 연결에는 기존 CAPA 또는 리콜이 필요합니다.")
     SafetyReview.objects.create(signal=signal,actor=user,assignee=assignee,before=signal.status,after=status,note=note,links=links)
     before = signal.status
     previous_assignee = signal.assignee_id

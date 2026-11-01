@@ -1,0 +1,10 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{ title }}</h1>
+<p>안전 신호는 조사·검토 대상이며 인과관계 확정이 아닙니다. 제출·접수 기록은 기관 승인이나 법적 적합성을 뜻하지 않습니다. 자동 제출은 수행하지 않습니다.</p>
+{% if mode == 'prepare' %}<p><a href="{% url 'artifact-list' item.complaint_id %}">비공개 PDF 버전 목록·생성</a> · <a href="{% url 'complaint-workspace' item.complaint_id %}">사건·비공개 증빙 등록</a></p>{% endif %}
+{% if mode == 'event' %}<p>보고 구분 {{ item.get_report_kind_display }} · 고정 내용 해시 {{ item.content_hash }} · <a href="{% url 'artifact-download' item.artifact_id %}">제출본 PDF</a> · <a href="{% url 'artifact-bundle' item.artifact_id %}">고정 증빙 보관본</a></p><p>{{ item.snapshot }}</p><a href="{% url 'report-tracking' item.report_id %}">새 제출본 버전 준비</a>{% endif %}
+{% if mode == 'signal' %}<p><a href="{% url 'safety-signal' item.pk %}">탐지 근거·기존 검토 이력</a> · 현재 상태 {{ item.get_status_display }}</p>{% endif %}
+{% if plan_form %}<h2>제출 계획</h2><p>기관·경로 변경은 승인 대상 변경입니다. 저장 후 사건에서 재승인하고 PDF를 다시 생성하세요. 기존 제출본은 보존됩니다.</p><form method="post">{% csrf_token %}<input type="hidden" name="operation" value="plan">{{ plan_form.as_p }}<button>제출 계획 저장</button></form><h2>승인된 제출본 준비</h2>{% endif %}<form method="post">{% csrf_token %}{{ form.as_p }}<button>기록 보존</button></form>
+<h2>보존 이력</h2>
+{% for r in records %}<article><p>#{{ r.pk }} · {{ r.created_at }} · {{ r.actor }} · {{ r.kind }} {{ r.state }} {{ r.get_report_kind_display }}</p><p>{{ r.data }} {{ r.snapshot }}</p>{% for e in r.data.evidence %}<a href="/attachments/{{ e.id|default:e }}/download/">비공개 증빙 #{{ e.id|default:e }}</a> {% endfor %}{% if mode == 'prepare' %}<a href="{% url 'submission-tracking' r.pk %}">v{{ r.version }} 제출·보완 이력</a>{% endif %}{% if r.capa_id %}<a href="{% url 'capa-detail' r.capa_id %}">CAPA #{{ r.capa_id }}</a>{% endif %}{% if r.recall_id %}<a href="{% url 'recall-detail' r.recall_id %}">리콜 #{{ r.recall_id }}</a>{% endif %}</article>{% empty %}<p>기록 없음</p>{% endfor %}
+{% endblock %}

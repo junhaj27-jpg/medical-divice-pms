@@ -1,3 +1,6 @@
+<!-- tracking-current-guide -->
+> **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래의 과거 실행·검증 기록은 해당 단계의 기록입니다.
+
 # 운영 및 복구 절차
 
 규정 개정 영향 분석과 승인 무결성의 운영 절차는 [개정 영향·승인 안내](IMPACT_APPROVAL_GUIDE.md)를 따른다. 0008 적용 전 백업하고 `python manage.py migrate`를 실행한다. 기존 사건 상태·기한·승인 snapshot·파일 상대경로는 보존한다. 검증 가능한 내용 해시가 없는 레거시 승인은 다음 최종 조치·종료 전에 재승인한다. 중복 대기 승인에는 대체 표시만 추가한다. PostgreSQL 독립 연결 동시성 검증은 CI의 postgres 작업 및 해당 안내의 재현 명령을 사용한다.
@@ -177,3 +180,16 @@ PDF는 기존 사건 보고서와 동일한 비공개 MEDIA_ROOT 아래 analysis
 한글 TTF 미설정·파일 불일치 오류는 안내하고 분석 조회를 유지한다. SHA-256은 DB 안 내용 비교 수단이며 전자서명·DB 관리자 변조 방지·외부 불변 보증이 아니다. 보관 파일과 DB는 함께 백업한다. STATIC_ROOT를 별도로 지정할 수 있으며 검증 시 공개 정적 파일 경로까지 격리한다.
 
 설치·실행·운영형 check --deploy·PostgreSQL 전용 검증 명령은 [격리 시연 안내](docs/analysis-extensions-demo.md), 실제 실행 범위는 [VALIDATION_REPORT.md](VALIDATION_REPORT.md)를 따른다. CI 파일 존재를 실행 성공으로 기록하지 않는다.
+
+
+## 6~9순위 화면·적용 절차
+
+백업 후 `python manage.py migrate --plan`으로 0015~0018 의존성을 확인하고, 운영 승인된 절차에서 `python manage.py migrate`를 실행한다. 이번 개발·검증 작업에서는 운영 DB에 적용하지 않았다.
+
+- `/safety/signals/{id}/tracking/`: 조사·기존 조치 연결·명시적 신규 초안·효과 확인·종결.
+- `/reports/{id}/tracking/`: 승인 대상 제출 계획 저장, 재승인 후 현재 PDF로 제출본 준비.
+- `/submissions/{id}/`: 실제 수동 제출 완료 확인, 접수·보완·처리 이력. 기존 `RegulatoryReport.status`는 판단 단계이고 실제 제출 상태는 이 이벤트에서 확인한다.
+- `/pms-reviews/`: 내부 PMS 정기 검토 초안과 확정 버전. 내부 가져오기 활성 집계에는 ADMIN 제외를 적용하고, 전체 보존 스냅샷 수는 제외·정정 전 버전까지 포함하는 보관 현황으로 별도 표시한다.
+- `/complaints/{id}/duplicates/`: 권한 내 후보 및 판단 이력. 자동 병합·삭제·접수 차단은 없다.
+
+보존 기록은 정상 화면/API와 일반 ORM의 save/delete/update/bulk_update/충돌 갱신 bulk_create에서 덮어쓰거나 삭제할 수 없게 보호한다. 직접 SQL·DB 관리자·외부 파일 조작을 차단하는 전자서명 또는 외부 불변 저장소는 구현하지 않았다. SHA-256만으로 그 보장을 주장하지 않는다.

@@ -1,5 +1,5 @@
 {% extends 'pms/base.html' %}{% block content %}
-<h1>안전 신호 #{{ signal.pk }} · {{ signal.get_status_display }}</h1>
+<p><a href="{% url 'signal-tracking' signal.pk %}">조사·조치·효과 추적</a></p><h1>안전 신호 #{{ signal.pk }} · {{ signal.get_status_display }}</h1>
 <p>확정 판단이 아닌 검토 대상 · 탐지 근거는 저장 후 덮어쓰지 않습니다.</p>
 <p>{{ error }}</p>
 <p>담당자 {{ signal.assignee }} · 생성 {{ signal.created_at }} · 규칙 {{ signal.snapshot.rules }}</p>

@@ -79,13 +79,23 @@ def evaluate_capa(capa,user,data,evidence=()):
     if data["verdict"] not in ("PASS","FAIL"): raise ValidationError("올바른 판정을 선택하세요.")
     if data["evaluated_on"]>timezone.localdate(): raise ValidationError("평가일은 미래일 수 없습니다.")
     files=list(evidence)
-    if any(f.complaint_id!=capa.complaint_id or f.scan_status!="PASSED" for f in files): raise ValidationError("동일 사건의 검사 통과 증빙만 연결할 수 있습니다.")
+    if any(f.complaint_id!=capa.complaint_id or f.scan_status!="PASSED" or f.purpose!="CONTENT" for f in files): raise ValidationError("동일 사건의 검사 통과 증빙만 연결할 수 있습니다.")
     ev=CAPAEvaluation(capa=capa,evaluator=user,**{k:data[k] for k in required}); ev.full_clean(); ev.save(); ev.evidence.set(files)
     capa.action_result=data["action_result"]; capa.evaluation_criteria=data["criteria"]; capa.evaluation_due=data["scheduled_on"]; capa.status="EFFECTIVENESS"; capa.save()
     if ev.verdict=="FAIL":
         owner=capa.owner if role(capa.owner)!="STAFF" or capa.complaint.reporter_id==capa.owner_id else user
         task=WorkTask(complaint=capa.complaint,capa=capa,assignee=owner,title=f"CAPA 재조치: {capa.title}"[:200],description=f"효과성 평가 #{ev.pk} 미흡. 재조치 및 재평가 필요",priority="HIGH",due_at=timezone.now()+timedelta(days=settings.TASK_DUE_SOON_DAYS))
         save_task(task,user); ev.followup=task; ev.save(update_fields=["followup"])
+    if ev.verdict=="FAIL":
+        from .signal_tracking import linked_actions
+        from .safety import signals_for, review_signal
+        from .models import SignalTracking
+        from .approval_integrity import digest
+        import uuid
+        for signal in signals_for(user).order_by("pk"):
+            if linked_actions(signal)[0].filter(pk=capa.pk).exists():
+                SignalTracking.objects.create(signal=signal,kind="EFFECT",evaluation=ev,capa=capa,actor=user,request_key=uuid.uuid4(),request_hash=digest(["CAPA_FAIL",ev.pk]),data={"verdict":"FAIL","evaluated_on":str(ev.evaluated_on),"evaluation":ev.pk})
+                review_signal(user,signal.pk,"REVIEW",signal.assignee_id,"기존 CAPA 효과성 평가 미흡: 재검토",_tracking=True)
     audit(user,"CAPA_EVALUATE",ev,after={"capa":capa.pk,"verdict":ev.verdict,"evidence_ids":[f.pk for f in files]})
     return ev
 

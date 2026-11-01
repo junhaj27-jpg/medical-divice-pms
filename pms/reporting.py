@@ -95,6 +95,8 @@ def generate_report(complaint,user):
     privileged(user)
     c=CustomerComplaint.objects.select_for_update().get(pk=complaint.pk)
     snapshot=snapshot_case(c); evidence=[]
+    from .approval_integrity import approval_snapshot
+    snapshot["approval_content_hash"]=approval_snapshot(c)["hash"]
     for attachment in c.attachments.filter(scan_status="PASSED"):
         evidence.append((f"{attachment.pk}-{normalized_name(attachment.original_name)}",attachment.detected_type,safe_attachment_bytes(attachment)))
     version=(c.artifacts.order_by("-version").values_list("version",flat=True).first() or 0)+1

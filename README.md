@@ -1,3 +1,6 @@
+<!-- tracking-current-guide -->
+> **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 이전 단계 설명과 테스트 수는 아래에 보존했습니다.
+
 # 2026-11-01 분석·규정 영향 입력 확장
 
 - `/rules/impacts/`: 사건별 행 입력, 관할·오프셋 포함 기준 시각·확인 사유, 검색·필터·20건 페이지, 명시적 공통 값 적용 확인과 중복 제출 방지. 분석만으로 기한은 바뀌지 않습니다.

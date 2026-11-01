@@ -32,7 +32,13 @@ def complaint_list(request):
 @login_required
 def complaint_create(request):
     form=ComplaintForm(request.POST or None)
-    if form.is_valid(): obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"title":obj.title}); return redirect("complaint-workspace",obj.pk)
+    if form.is_valid():
+        obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"case_id":obj.pk})
+        from .duplicates import candidates
+        if candidates(request.user,obj):
+            messages.info(request,"접수 완료: 중복 의심 후보를 확인하세요. 자동 제외하지 않습니다.")
+            return redirect("duplicate-review",obj.pk)
+        return redirect("complaint-workspace",obj.pk)
     return render(request,"pms/form.html",{"form":form,"title":"고객 불만 접수"})
 @login_required
 def complaint_detail(request,pk):
@@ -233,4 +239,6 @@ def attachment_upload(request,pk):
     complaint=get_object_or_404(visible_complaints(request.user),pk=pk); form=AttachmentForm(request.POST,request.FILES)
     if not form.is_valid():
         messages.error(request,form.errors.as_text()); return redirect("complaint-workspace",pk)
-    obj=form.save(commit=False); obj.complaint=complaint; obj.uploaded_by=request.user; obj.original_name=normalized_name(obj.file.name); obj.full_clean(); obj.save(); scan_attachment(obj,request.user); audit(request.user,"CREATE",obj,after={"original_name":obj.original_name}); return redirect("complaint-workspace",pk)
+    obj=form.save(commit=False); obj.purpose=obj.purpose or "CONTENT";
+    if obj.purpose=="ADMIN" and role(request.user)=="STAFF": raise PermissionDenied
+    obj.complaint=complaint; obj.uploaded_by=request.user; obj.original_name=normalized_name(obj.file.name); obj.full_clean(); obj.save(); scan_attachment(obj,request.user); audit(request.user,"CREATE",obj,after={"evidence_id":obj.pk,"purpose":obj.purpose}); return redirect("complaint-workspace",pk)

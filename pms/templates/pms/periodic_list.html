@@ -1,0 +1,4 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>내부 PMS 정기 검토 보고서</h1>
+<p>제품과 발생 기간을 선택해 초안을 저장하고, 스냅샷을 검토한 뒤 확정하세요. 법정 PSUR/PMS 적합성을 자동 보장하지 않습니다. 수정은 새 버전으로 작성합니다.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>새 버전 초안 작성</button></form>
+{% for x in items %}<p><a href="{% url 'periodic-detail' x.pk %}">{{ x.device }} · {{ x.start }}~{{ x.end }} · v{{ x.version }} · {{ x.get_stage_display }}</a> · {% if x.is_example %}예시{% else %}실제{% endif %} · 작성 {{ x.actor }} / 검토 {{ x.reviewer|default:'미확정' }}</p>{% endfor %}{% endblock %}

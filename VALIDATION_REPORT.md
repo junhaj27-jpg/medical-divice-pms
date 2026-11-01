@@ -1,3 +1,6 @@
+<!-- tracking-current-guide -->
+> **2026-11-01 · 6~9순위 현재 안내**: [설계](docs/TRACKING_DESIGN.md), [구현·검증](docs/TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](docs/TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래는 0013·0014 개발 단계의 검증 기록입니다. 과거 테스트 수와 당시 최종 leaf를 현재 결과로 해석하지 마세요.
+
 # MedWatch PMS 실제 검증 보고서
 
 검증일: 2026-11-01 (Asia/Seoul). 이 파일은 시작 시 존재하지 않아 이번 실행 로그로 새로 작성했다. 규제 적합성·법정 기한·의료적 인과관계·성능을 추정하거나 보증하지 않는다. 별도 독립 검증 에이전트는 사용하지 않았다.
@@ -26,7 +29,7 @@
 
 ## 마이그레이션 그래프 및 데이터 보존
 
-0008 두 파일은 같은 번호의 서로 다른 분기다. analysis 분기 → 0009 → 0010, impact 분기는 기존 미커밋 0011 merge에서 합류하고 0012로 이어진다. 이번 추가는 0013_analysis_snapshots_artifacts_impact_submission 및 0014_impact_submission_key다. 최종 pms leaf는 0014_impact_submission_key 하나다. 기존 migration 파일 이름·의존성은 변경하지 않았다.
+0008 두 파일은 같은 번호의 서로 다른 분기다. analysis 분기 → 0009 → 0010, impact 분기는 기존 미커밋 0011 merge에서 합류하고 0012로 이어진다. 이번 추가는 0013_analysis_snapshots_artifacts_impact_submission 및 0014_impact_submission_key다. 당시 단계의 최종 pms leaf는 0014_impact_submission_key 하나였다. 현재 6~9순위 leaf는 0018_duplicate_review이며 최신 안내를 따른다. 기존 migration 파일 이름·의존성은 변경하지 않았다.
 
 - 빈 DB: work/validation-final/fresh.sqlite3에서 전체 migrate 실행.
 - 저장소의 기본 db.sqlite3는 시작 시 0바이트였다. 이를 설치 DB 전진 적용 성공 근거로 사용하지 않았다.

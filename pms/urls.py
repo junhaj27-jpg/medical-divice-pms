@@ -83,3 +83,23 @@ urlpatterns += [
  path('analysis/artifacts/generate/',analysis_ext.generate_pdf,name='analysis-pdf-generate'),
  path('analysis/artifacts/<int:pk>/',analysis_ext.artifact_download,name='analysis-artifact'),
 ]
+
+from . import tracking_views as tracking
+urlpatterns += [
+ path('safety/signals/<int:pk>/tracking/',tracking.tracking_page,{'mode':'signal'},name='signal-tracking'),
+ path('reports/<int:pk>/tracking/',tracking.tracking_page,{'mode':'prepare'},name='report-tracking'),
+ path('submissions/<int:pk>/',tracking.tracking_page,{'mode':'event'},name='submission-tracking'),
+ path('api/safety/signals/<int:pk>/tracking/',tracking.tracking_api,{'mode':'signal'}),
+ path('api/reports/<int:pk>/tracking/',tracking.tracking_api,{'mode':'prepare'}),
+ path('api/submissions/<int:pk>/tracking/',tracking.tracking_api,{'mode':'event'}),
+]
+
+from . import review_views as reviews
+urlpatterns += [
+ path('pms-reviews/',reviews.periodic_list,name='periodic-list'),
+ path('pms-reviews/<int:pk>/',reviews.periodic_detail,name='periodic-detail'),
+ path('api/pms-reviews/',reviews.periodic_api),
+ path('api/pms-reviews/<int:pk>/',reviews.periodic_api),
+ path('complaints/<int:pk>/duplicates/',reviews.duplicate_page,name='duplicate-review'),
+ path('api/complaints/<int:pk>/duplicates/',reviews.duplicate_api),
+]
