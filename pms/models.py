@@ -26,6 +26,10 @@ class TimeStamped(models.Model):
 class Profile(models.Model):
     class Role(models.TextChoices): STAFF="STAFF","직원"; RA_QA="RA_QA","RA/QA"; ADMIN="ADMIN","관리자"
     user=models.OneToOneField(User,on_delete=models.CASCADE,related_name="profile"); role=models.CharField(max_length=10,choices=Role.choices,default=Role.STAFF)
+    department=models.CharField("부서",max_length=120,blank=True)
+    position=models.CharField("직책",max_length=120,blank=True)
+    must_change_password=models.BooleanField(default=False)
+    temporary_password_expires_at=models.DateTimeField(null=True,blank=True)
     timezone_name=models.CharField("시간대",max_length=64,default="Asia/Seoul")
     def __str__(self): return f"{self.user.username} ({self.role})"
 

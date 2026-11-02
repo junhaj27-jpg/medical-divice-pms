@@ -819,3 +819,36 @@ python scripts/verify_safety_sample.py D:/pms-verify/new-safety-example
 일반 리콜 API는 승인 상태 입력과 CLOSED 전환을 거부한다. ADMIN 전용 리콜 처리 화면에서 승인/반려 및 승인·종료 보고서를 전제로 종결한다. 이상사례 API의 사건·익명 환자 참조는 사용자 범위와 동일 사건 조건을 검사한다. 서비스 검증 오류는 API의 일반 400 JSON 오류로 반환한다.
 
 PostgreSQL의 동시 승인·동시 상태 변경은 실제 PostgreSQL 환경에서 별도 확인해야 한다. SQLite 테스트와 잠금 코드 검토만으로 동시성 안전성을 통과 처리하지 않는다. AI 모의 응답/합성 어댑터 검증도 실제 공급자 연결 성공으로 기록하지 않는다.
+
+
+## MedWatch PMS 계정 로그인·발급·초기화
+
+로그인 화면은 ALPLED의 좌우 소개/로그인 구성을 참고한 PMS 자체 화면입니다. 외부 CDN, SSO, 사용자 DB·세션 공유는 없습니다. Django 기본 User와 기존 username, 비밀번호 해시, 사건/감사 연결은 유지됩니다. `staff`, `raqa`, `admin` 등 기존 아이디와 비밀번호로 계속 로그인할 수 있으며 기존 계정은 비밀번호 변경 강제 대상이 아닙니다.
+
+- ADMIN은 **계정 발급 · 관리**(`/users/`)에서 사원번호, 이름, 부서, 직책, 역할, 활성 여부를 입력합니다. 신규 사원번호는 숫자로 이루어진 문자열로 저장되며 `001007`의 앞자리 0을 유지합니다. 공개 회원가입은 없습니다.
+- 발급 직후 해당 응답에서만 계정별 무작위 임시 비밀번호가 표시됩니다. 24시간 이내에 안전한 별도 경로로 전달하세요. 서버는 평문 비밀번호를 DB·세션·감사 로그에 저장하지 않습니다. 화면을 닫으면 조회할 수 없으며 필요하면 다시 초기화합니다.
+- 신규/초기화 계정은 로그인 후 비밀번호 변경을 완료해야 업무를 이용할 수 있습니다. HTML, Django 관리자, 세션/Basic API 모두 제한됩니다. API 오류 코드는 `password_change_required`, 만료 시 `temporary_password_expired`입니다. 만료되면 관리자에게 재초기화를 요청하세요.
+- 사용자 본인은 메뉴의 **비밀번호 변경**에서 현재 비밀번호 확인과 Django 비밀번호 검증을 거쳐 변경합니다. 변경 시 다른 기존 세션은 무효화됩니다.
+- ADMIN은 계정 관리에서 **초기화 사유**를 입력해 다른 계정을 초기화합니다. 사유에는 비밀번호·토큰 등 비밀을 넣지 마세요. 비밀번호 조회 기능은 없습니다. 초기화 직후 이전 세션은 다음 요청에서 무효화됩니다. ADMIN 본인은 자기 비밀번호 변경 메뉴를 사용합니다.
+- 자기 잠금과 마지막 활성 ADMIN 제거를 차단합니다. 역할/활성 변경, 발급, 초기화, 본인 변경은 감사 기록을 남깁니다. Django 관리자에서 User·Group·Profile 편집은 제공하지 않으며 PMS 계정 관리 화면을 사용합니다.
+- 로그아웃은 CSRF 토큰이 있는 POST만 허용합니다. 로그인 GET은 기존 세션을 종료하지 않습니다. 외부 `next`는 무시하며 인증/민감한 응답은 캐시를 막습니다.
+
+마이그레이션 `0020_account_lifecycle`은 Profile에 부서·직책·변경 필요 플래그·임시 만료 시각만 추가합니다. 기존 사용자의 기본값은 `False`/`NULL`입니다. 운영 DB 적용은 별도로 백업 후 수행하세요. 이번 검증은 `work/account-validation.sqlite3`와 Django 테스트 DB에서 수행했습니다.
+
+Windows PowerShell 검증 명령(저장소 루트에서):
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms'
+$env:PYTHONPATH = (Resolve-Path '.deps').Path
+$env:SQLITE_PATH = Join-Path (Resolve-Path 'work').Path 'account-validation.sqlite3'
+$env:PDF_KOREAN_FONT = 'C:/Windows/Fonts/malgun.ttf'
+$env:PYTHONIOENCODING = 'utf-8'
+$py = '.\.venv\Scripts\python.exe'
+& $py manage.py check
+& $py manage.py makemigrations --check --dry-run
+& $py manage.py migrate --noinput
+& $py manage.py test --noinput
+git diff --check
+```
+
+일반 설치 환경에서는 `python`으로 동일 명령을 실행할 수 있습니다. 이 체크아웃은 의존성이 `.deps`에 있어 `PYTHONPATH` 설정을 사용합니다. 자동 배포와 git push는 수행하지 않습니다.

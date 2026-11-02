@@ -16,7 +16,7 @@ def custom_exception_handler(exc,context):
     if isinstance(exc,ValidationError): exc=APIValidationError(exc.message_dict if hasattr(exc,"message_dict") else exc.messages)
     if isinstance(exc,PermissionDenied): exc=APIPermissionDenied(str(exc))
     response=exception_handler(exc,context)
-    if response is not None: response.data={"success":False,"error":{"code":getattr(exc,"default_code","error"),"detail":response.data}}
+    if response is not None: response.data={"success":False,"error":{"code":(exc.get_codes() if hasattr(exc,"get_codes") and isinstance(exc.get_codes(),str) else getattr(exc,"default_code","error")),"detail":response.data}}
     return response
 class AuditedViewSet(viewsets.ModelViewSet):
     def perform_create(self,s): obj=s.save(); audit(self.request.user,"CREATE",obj,after=s.data,ip=self.request.META.get("REMOTE_ADDR"))

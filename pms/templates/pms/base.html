@@ -34,7 +34,7 @@
     </nav>
     <div class="user">
       <span>{{ user.username }}</span>
-      <form action="{% url 'logout' %}" method="post">
+      <a href="{% url 'password-change' %}">비밀번호 변경</a><form action="{% url 'logout' %}" method="post">
         {% csrf_token %}
         <button>로그아웃</button>
       </form>

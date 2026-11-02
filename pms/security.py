@@ -31,7 +31,9 @@ class LoginRateLimitMiddleware:
                     LoginBucket.objects.filter(pk=bucket.pk).update(count=F("count")+1)
                 blocked=LoginBucket.objects.filter(key__in=keys,count__gt=settings.LOGIN_ATTEMPT_LIMIT).exists()
             if blocked:
+                from django.utils.cache import add_never_cache_headers
                 response=HttpResponse("로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.",status=429)
+                add_never_cache_headers(response)
                 response["Retry-After"]=str(math.ceil(window-now.timestamp()%window)); return response
         return self.get_response(request)
 

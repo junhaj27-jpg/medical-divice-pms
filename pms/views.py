@@ -197,23 +197,6 @@ def audit_logs(request):
     if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
     return render(request,"pms/audits.html",{"items":AuditLog.objects.select_related("actor")[:200]})
 @login_required
-def users(request):
-    if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
-    return render(request,"pms/users.html",{"items":Profile.objects.select_related("user")})
-@login_required
-@require_POST
-def user_update(request,pk):
-    if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
-    profile=get_object_or_404(Profile.objects.select_related("user"),pk=pk); before={"role":profile.role,"active":profile.user.is_active}; requested=request.POST.get("role")
-    if requested not in Profile.Role.values: messages.error(request,"올바르지 않은 역할입니다."); return redirect("user-list")
-    if profile.user_id==request.user.id and (requested!=Profile.Role.ADMIN or request.POST.get("is_active")!="on"): messages.error(request,"현재 관리자 자신의 ADMIN 권한이나 활성 상태는 해제할 수 없습니다."); return redirect("user-list")
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-    timezone_name=request.POST.get("timezone_name",profile.timezone_name)
-    try: ZoneInfo(timezone_name)
-    except (ZoneInfoNotFoundError,ValueError): messages.error(request,"유효한 IANA 시간대를 입력하세요."); return redirect("user-list")
-    before["timezone_name"]=profile.timezone_name
-    profile.role=requested; profile.timezone_name=timezone_name; profile.save(update_fields=["role","timezone_name"]); profile.user.is_active=request.POST.get("is_active")=="on"; profile.user.save(update_fields=["is_active"]); audit(request.user,"UPDATE",profile,before,{"role":profile.role,"active":profile.user.is_active,"timezone_name":profile.timezone_name}); messages.success(request,"사용자 권한을 변경했습니다."); return redirect("user-list")
-@login_required
 def assistant_chat(request):
     conversation=AssistantConversation.objects.filter(user=request.user,is_active=True).first()
     if not conversation: conversation=AssistantConversation.objects.create(user=request.user)
