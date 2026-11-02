@@ -67,3 +67,51 @@ class ApprovalConcurrencyTests(TransactionTestCase):
                 decide_approval(approval,self.admin,'APPROVED')
             future.result(timeout=10)
         self.assertRaises(ValidationError,transition_complaint,self.case,'ACTION_COMPLETE',self.admin)
+
+    def test_internal_snapshot_concurrent_duplicate(self):
+        from .internal_cohort import internal_payload, import_internal
+        from .analysis import digest
+        from .analysis_models import AnalysisRecord
+        expected={str(self.case.pk):digest(internal_payload(self.case))}
+        barrier=Barrier(2)
+        def run(_):
+            try:
+                connections['default'].ensure_connection()
+                with connections['default'].cursor() as cursor:
+                    cursor.execute('SELECT pg_backend_pid()');pid=cursor.fetchone()[0]
+                barrier.wait(timeout=10)
+                return pid,import_internal(self.admin,expected)
+            finally: connections.close_all()
+        with ThreadPoolExecutor(max_workers=2) as pool: results=list(pool.map(run,range(2)))
+        self.assertNotEqual(results[0][0],results[1][0])
+        self.assertEqual(sorted(len(r[1]) for r in results),[0,1])
+        self.assertEqual(AnalysisRecord.objects.filter(source_case=self.case).count(),1)
+
+    def test_same_case_concurrent_rule_reapplication(self):
+        import tempfile, shutil
+        from pathlib import Path
+        from . import test_regulatory as fixtures
+        from .models import Profile
+        from .regulatory import revise_rule, save_draft, transition_rule, preview_rule, apply_regulated_rule
+        from .impact import case_token, rule_token
+        self.raqa=User.objects.create_user('TEST-concurrent-ra')
+        Profile.objects.create(user=self.raqa,role='RA_QA')
+        self.c=self.case;self.c.complaint_type='TEST_EVENT';self.c.save()
+        root=Path('.test-media');root.mkdir(exist_ok=True)
+        import uuid
+        self.root=root/uuid.uuid4().hex;self.root.mkdir();self.addCleanup(shutil.rmtree,self.root)
+        media=override_settings(MEDIA_ROOT=self.root/'media');media.enable();self.addCleanup(media.disable)
+        self.document=lambda *a,**k:fixtures.RegulatoryTests.document(self,*a,**k)
+        self.draft=lambda *a,**k:fixtures.RegulatoryTests.draft(self,*a,**k)
+        self.cite_all=lambda *a,**k:fixtures.RegulatoryTests.cite_all(self,*a,**k)
+        self.publish=lambda *a,**k:fixtures.RegulatoryTests.publish(self,*a,**k)
+        old=self.publish(self.cite_all(self.draft()))
+        first=fixtures.RegulatoryTests.apply(self,old)
+        new=revise_rule(old,self.raqa,'TEST revision');new.days=1
+        new=save_draft(new,self.raqa,'TEST shorter',expected_revision=new.revision)
+        transition_rule(old,self.admin,'retire','TEST replacement');new=self.publish(new)
+        self.c.refresh_from_db()
+        preview=preview_rule(new,self.raqa,f'{self.c.reported_on}T10:00:00+09:00')
+        due=str(self.c.due_date or '');token=case_token(self.c);rtoken=rule_token(new)
+        self.race(lambda _:apply_regulated_rule(self.c,new,self.raqa,preview,'TEST explicit reapply',first.pk,due,token,rtoken))
+        self.assertEqual(self.c.rule_applications.filter(rule=new).count(),1)

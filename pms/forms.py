@@ -17,9 +17,10 @@ class ReportForm(StyledForm):
     health_deterioration=forms.BooleanField(required=False,label="중대한 건강 악화")
     recurrence_possible=forms.BooleanField(required=False,label="재발 가능성")
     deadline_reviewed=forms.BooleanField(required=True,label="보고 기한 검토 완료")
-    class Meta: model=RegulatoryReport; fields=("required","investigation_result")
+    class Meta: model=RegulatoryReport; fields=("required","investigation_result","submission_authority","submission_channel")
 class AttachmentForm(StyledForm):
-    class Meta: model=Attachment; fields=("file",)
+    purpose=forms.ChoiceField(choices=Attachment._meta.get_field("purpose").choices,required=False,initial="CONTENT")
+    class Meta: model=Attachment; fields=("file","purpose")
 class DeviceForm(StyledForm):
     class Meta: model=MedicalDevice; fields=("manufacturer","name","model_number","risk_class","active")
 class LotForm(StyledForm):

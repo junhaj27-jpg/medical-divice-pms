@@ -28,6 +28,7 @@ class ContactForm(StyledForm):
         widgets={"contacted_at":forms.DateTimeInput(attrs={"type":"datetime-local"})}
 
 class RecoveryForm(forms.Form):
+    submission_key=forms.UUIDField(widget=forms.HiddenInput)
     quantity=forms.IntegerField(label="회수 수량",min_value=1)
     recovered_on=forms.DateField(label="회수 일자",widget=forms.DateInput(attrs={"type":"date"}))
 

@@ -1,0 +1,9 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>내부 PMS 정기 검토 보고서 · v{{ item.version }} · {{ item.get_stage_display }}</h1>
+<p>{{ item.snapshot.device.name }} / 모델 {{ item.snapshot.device.model }} / UDI {{ item.snapshot.device.udis|join:', ' }} · {% if item.is_example %}예시 데이터{% else %}실제 데이터{% endif %}</p>
+<p>발생 기간 {{ item.start }}~{{ item.end }} · 직전 동일 길이 기간 {{ item.snapshot.previous_start }}~{{ item.snapshot.previous_end }}</p>
+<p>현재 상태 기준 시각 {{ item.snapshot.as_of }} · 작성자 ID {{ item.snapshot.author_id }} · 검토자 {{ item.reviewer|default:'미확정' }} · 확정/작성 시각 {{ item.created_at }} · 검토 의견 {{ item.review_note }}</p>
+<p>보존 내용 SHA-256 {{ item.content_hash }} · <a href="{% url 'periodic-list' %}">새 수정 버전 작성·버전 목록</a></p>
+{% if item.pdf_sha256 %}<p><a href="{% url 'periodic-pdf' item.pk %}">확정 PDF 비공개 다운로드</a> · SHA-256 {{ item.pdf_sha256 }}</p>{% endif %}
+{% for row in item.snapshot.metrics %}<section><h2>{{ row.label }}: {{ row.count }} {{ row.count_unit|default:'건' }}</h2>{% if row.inclusion %}<p>{{ row.inclusion }}</p>{% endif %}<details><summary>산출 근거 목록 ({{ row.count }})</summary>{% for e in row.evidence %}<p><a href="{{ e.url }}">{{ e.label }}</a> {{ e.detail }}</p>{% empty %}<p>해당 근거 없음</p>{% endfor %}</details></section>{% endfor %}
+<h2>누락·제외·중복 처리·해석 한계</h2>{% for limit in item.snapshot.limits %}<p>{{ limit }}</p>{% endfor %}
+{% if item.stage == 'DRAFT' %}<h2>검토·확정</h2><form method="post">{% csrf_token %}{{ form.as_p }}<button>이 스냅샷 확정</button></form>{% endif %}{% endblock %}

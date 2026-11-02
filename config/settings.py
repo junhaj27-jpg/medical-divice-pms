@@ -15,7 +15,7 @@ if os.getenv("DB_ENGINE") == "postgresql":
 else: DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3","NAME":os.getenv("SQLITE_PATH",str(BASE_DIR/"db.sqlite3"))}}
 AUTH_PASSWORD_VALIDATORS=[{"NAME":"django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},{"NAME":"django.contrib.auth.password_validation.MinimumLengthValidator"},{"NAME":"django.contrib.auth.password_validation.CommonPasswordValidator"}]
 LANGUAGE_CODE="ko-kr"; TIME_ZONE="Asia/Seoul"; USE_I18N=True; USE_TZ=True
-STATIC_URL="static/"; STATIC_ROOT=BASE_DIR/"staticfiles"; STATICFILES_DIRS=[BASE_DIR/"static"]
+STATIC_URL="static/"; STATIC_ROOT=Path(os.getenv("STATIC_ROOT",str(BASE_DIR/"staticfiles"))); STATICFILES_DIRS=[BASE_DIR/"static"]
 MEDIA_URL="media/"; MEDIA_ROOT=BASE_DIR/"media"; DEFAULT_AUTO_FIELD="django.db.models.BigAutoField"
 LOGIN_REDIRECT_URL="dashboard"; LOGOUT_REDIRECT_URL="login"
 SESSION_COOKIE_SECURE=os.getenv("SECURE_COOKIES","False").lower()=="true"; CSRF_COOKIE_SECURE=SESSION_COOKIE_SECURE
@@ -24,7 +24,7 @@ SECURE_HSTS_SECONDS=int(os.getenv("SECURE_HSTS_SECONDS","0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS=SECURE_HSTS_SECONDS>0
 SECURE_HSTS_PRELOAD=os.getenv("SECURE_HSTS_PRELOAD","False").lower()=="true"
 DATA_UPLOAD_MAX_MEMORY_SIZE=int(os.getenv("MAX_UPLOAD_BYTES","5242880")); FILE_UPLOAD_MAX_MEMORY_SIZE=DATA_UPLOAD_MAX_MEMORY_SIZE
-REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES":["rest_framework.authentication.SessionAuthentication","rest_framework.authentication.BasicAuthentication"],"DEFAULT_PERMISSION_CLASSES":["rest_framework.permissions.IsAuthenticated"],"DEFAULT_PAGINATION_CLASS":"rest_framework.pagination.PageNumberPagination","PAGE_SIZE":20,"DEFAULT_FILTER_BACKENDS":["django_filters.rest_framework.DjangoFilterBackend","rest_framework.filters.SearchFilter","rest_framework.filters.OrderingFilter"],"DEFAULT_SCHEMA_CLASS":"drf_spectacular.openapi.AutoSchema","EXCEPTION_HANDLER":"pms.api.custom_exception_handler"}
+REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES":["pms.account_authentication.GatedSessionAuthentication","pms.account_authentication.GatedBasicAuthentication"],"DEFAULT_PERMISSION_CLASSES":["rest_framework.permissions.IsAuthenticated"],"DEFAULT_PAGINATION_CLASS":"rest_framework.pagination.PageNumberPagination","PAGE_SIZE":20,"DEFAULT_FILTER_BACKENDS":["django_filters.rest_framework.DjangoFilterBackend","rest_framework.filters.SearchFilter","rest_framework.filters.OrderingFilter"],"DEFAULT_SCHEMA_CLASS":"drf_spectacular.openapi.AutoSchema","EXCEPTION_HANDLER":"pms.api.custom_exception_handler"}
 SPECTACULAR_SETTINGS={"TITLE":"의료기기 PMS·리콜 API","DESCRIPTION":"포트폴리오용 데모 API","VERSION":"1.0.0"}
 PMS_RULES={"LOT_WINDOW_DAYS":int(os.getenv("LOT_WINDOW_DAYS","30")),"LOT_THRESHOLD":int(os.getenv("LOT_THRESHOLD","3")),"DEVICE_WINDOW_DAYS":int(os.getenv("DEVICE_WINDOW_DAYS","90")),"DEVICE_THRESHOLD":int(os.getenv("DEVICE_THRESHOLD","5"))}
 
@@ -57,3 +57,5 @@ SAFETY_RULES=dict(VERSION="internal-v1", COUNT=int(os.getenv("SIGNAL_COUNT","5")
 RA_AI_TIMEOUT_SECONDS=float(os.getenv("RA_AI_TIMEOUT_SECONDS","20"))
 RA_AI_MAX_INPUT_BYTES=int(os.getenv("RA_AI_MAX_INPUT_BYTES","64000"))
 RA_AI_MAX_OUTPUT_BYTES=int(os.getenv("RA_AI_MAX_OUTPUT_BYTES","16000"))
+
+MIDDLEWARE.insert(MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware")+1,"pms.accounts.AccountGateMiddleware")

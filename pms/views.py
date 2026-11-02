@@ -32,22 +32,23 @@ def complaint_list(request):
 @login_required
 def complaint_create(request):
     form=ComplaintForm(request.POST or None)
-    if form.is_valid(): obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"title":obj.title}); return redirect("complaint-workspace",obj.pk)
+    if form.is_valid():
+        obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"case_id":obj.pk})
+        from .duplicates import candidates
+        if candidates(request.user,obj):
+            messages.info(request,"접수 완료: 중복 의심 후보를 확인하세요. 자동 제외하지 않습니다.")
+            return redirect("duplicate-review",obj.pk)
+        return redirect("complaint-workspace",obj.pk)
     return render(request,"pms/form.html",{"form":form,"title":"고객 불만 접수"})
 @login_required
 def complaint_detail(request,pk):
     obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
     approval=Approval.objects.filter(content_type="CustomerComplaint",object_id=obj.pk).order_by("-created_at").first()
-<<<<<<< HEAD
     context={"item":obj,"warnings":recurrent_warning(obj,user=request.user),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
-    context["approval_current"]=approval_is_current(obj) if approval else False
-=======
-    context={"item":obj,"warnings":recurrent_warning(obj),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
     from .approval_integrity import approval_invalid_reason
     context['approval_warning']=approval_invalid_reason(approval,obj) if approval else ''
     context['can_request_approval']=privileged and obj.status in ('APPROVAL','ACTION_COMPLETE') and (not approval or approval.decision=='REJECTED' or bool(context['approval_warning']))
     context['approval_history']=Approval.objects.filter(content_type='CustomerComplaint',object_id=obj.pk).order_by('-pk')
->>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
     return render(request,"pms/complaint_detail.html",context)
 @login_required
 @require_POST
@@ -196,23 +197,6 @@ def audit_logs(request):
     if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
     return render(request,"pms/audits.html",{"items":AuditLog.objects.select_related("actor")[:200]})
 @login_required
-def users(request):
-    if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
-    return render(request,"pms/users.html",{"items":Profile.objects.select_related("user")})
-@login_required
-@require_POST
-def user_update(request,pk):
-    if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
-    profile=get_object_or_404(Profile.objects.select_related("user"),pk=pk); before={"role":profile.role,"active":profile.user.is_active}; requested=request.POST.get("role")
-    if requested not in Profile.Role.values: messages.error(request,"올바르지 않은 역할입니다."); return redirect("user-list")
-    if profile.user_id==request.user.id and (requested!=Profile.Role.ADMIN or request.POST.get("is_active")!="on"): messages.error(request,"현재 관리자 자신의 ADMIN 권한이나 활성 상태는 해제할 수 없습니다."); return redirect("user-list")
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-    timezone_name=request.POST.get("timezone_name",profile.timezone_name)
-    try: ZoneInfo(timezone_name)
-    except (ZoneInfoNotFoundError,ValueError): messages.error(request,"유효한 IANA 시간대를 입력하세요."); return redirect("user-list")
-    before["timezone_name"]=profile.timezone_name
-    profile.role=requested; profile.timezone_name=timezone_name; profile.save(update_fields=["role","timezone_name"]); profile.user.is_active=request.POST.get("is_active")=="on"; profile.user.save(update_fields=["is_active"]); audit(request.user,"UPDATE",profile,before,{"role":profile.role,"active":profile.user.is_active,"timezone_name":profile.timezone_name}); messages.success(request,"사용자 권한을 변경했습니다."); return redirect("user-list")
-@login_required
 def assistant_chat(request):
     conversation=AssistantConversation.objects.filter(user=request.user,is_active=True).first()
     if not conversation: conversation=AssistantConversation.objects.create(user=request.user)
@@ -238,4 +222,6 @@ def attachment_upload(request,pk):
     complaint=get_object_or_404(visible_complaints(request.user),pk=pk); form=AttachmentForm(request.POST,request.FILES)
     if not form.is_valid():
         messages.error(request,form.errors.as_text()); return redirect("complaint-workspace",pk)
-    obj=form.save(commit=False); obj.complaint=complaint; obj.uploaded_by=request.user; obj.original_name=normalized_name(obj.file.name); obj.full_clean(); obj.save(); scan_attachment(obj,request.user); audit(request.user,"CREATE",obj,after={"original_name":obj.original_name}); return redirect("complaint-workspace",pk)
+    obj=form.save(commit=False); obj.purpose=obj.purpose or "CONTENT";
+    if obj.purpose=="ADMIN" and role(request.user)=="STAFF": raise PermissionDenied
+    obj.complaint=complaint; obj.uploaded_by=request.user; obj.original_name=normalized_name(obj.file.name); obj.full_clean(); obj.save(); scan_attachment(obj,request.user); audit(request.user,"CREATE",obj,after={"evidence_id":obj.pk,"purpose":obj.purpose}); return redirect("complaint-workspace",pk)

@@ -15,7 +15,7 @@ FIELDS = {
     'risk_assessment': 'id severity probability score level capa_review_required rationale assessed_by_id',
     'adverse_event': 'id event_type outcome serious narrative',
     'capas': 'id title root_cause corrective_action preventive_action owner_id due_date status action_result evaluation_criteria evaluation_due',
-    'reports': 'id document_number required checklist investigation_result status author_id reviewer_id approved_by_id approved_at',
+    'reports': 'id submission_authority submission_channel document_number required checklist investigation_result status author_id reviewer_id approved_by_id approved_at',
     'recalls': 'id title reason risk_level device_id distributed_quantity target_quantity recovered_quantity start_date expected_end_date owner_id approval_status decision_reason progress_status closure_report',
     'attachments': 'id sha256 scan_status detected_type file',
     'rule_applications': 'id rule_id snapshot previous_snapshot due_at',
@@ -36,7 +36,7 @@ def approval_snapshot(case):
             values = row(obj, fields) if obj else None
         else:
             values = []
-            for obj in getattr(case, name).order_by('pk'):
+            for obj in (getattr(case, name).filter(purpose='CONTENT') if name == 'attachments' else getattr(case,name)).order_by('pk'):
                 value = row(obj, fields)
                 if name == 'attachments':
                     value['file'] = str(value['file'])
@@ -50,6 +50,8 @@ def approval_snapshot(case):
                     value['recipients'] = list(obj.recipients.order_by('pk').values('id', 'lot_id', 'partner_id', 'unit', 'target_quantity', 'recovered_total', 'reply_status', 'unrecovered_reason', 'notified_on', 'replied_on'))
                 values.append(value)
         scopes[name] = digest(values)
+    confirmations = list(case.seriousness_confirmations.order_by('pk').values('id','value','reason','actor_id','created_at'))
+    if confirmations: scopes['seriousness_confirmation'] = digest(confirmations)
     return {'schema': 1, 'version': case.version, 'device': str(case.device),
             'scopes': scopes, 'hash': digest(scopes)}
 

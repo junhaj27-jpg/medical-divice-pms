@@ -1,5 +1,9 @@
 {% extends 'pms/base.html' %}
 {% block content %}
+<p><a href="{% url 'analysis-internal' %}">내부 사건 선택·미리보기·중대성 확인</a></p>
+{% if result %}<form method="post" action="{% url 'analysis-pdf-generate' %}">{% csrf_token %}{% for field in form %}<input type="hidden" name="{{field.name}}" value="{{field.value|default_if_none:''}}">{% endfor %}<button>현재 필터의 서버 PDF 새 버전 보관</button></form>{% endif %}
+<details><summary>비공개 분석 PDF 버전</summary>{% for a in artifacts %}<p><a href="{% url 'analysis-artifact' a.pk %}">{{a.report.number}} v{{a.version}}</a> · {{a.generated_by}} · {{a.created_at}}</p>{% empty %}<p>보관 버전이 없습니다.</p>{% endfor %}</details>
+
 <h1>PMS 보고 건수 분석</h1>
 <p>검토가 필요한 신호를 찾는 분석 도구입니다. 발생률·인과관계·규제기관 제출 적합성을 자동 보증하지 않습니다. 기존 사건 관리와 별도 수집한 분석 코호트입니다.</p>
 {% if not report %}

@@ -18,7 +18,7 @@
     <nav>
       <a href="/">대시보드</a>
       <a href="/complaints/">불만</a>
-      <a href="/adverse-events/">이상사례</a><a href="/analysis/">PMS 분석</a>
+      <a href="/adverse-events/">이상사례</a><a href="/pms-reviews/">내부 PMS 정기 검토</a><a href="/analysis/">PMS 분석</a>
       <a href="/devices/">제품</a>
       <a href="/lots/">UDI·LOT</a><a href="/safety/">안전 신호 분석</a><a href="/assistant/evidence/">규정 근거 도우미</a>
       <a href="/capas/">CAPA</a>
@@ -34,7 +34,7 @@
     </nav>
     <div class="user">
       <span>{{ user.username }}</span>
-      <form action="{% url 'logout' %}" method="post">
+      <a href="{% url 'password-change' %}">비밀번호 변경</a><form action="{% url 'logout' %}" method="post">
         {% csrf_token %}
         <button>로그아웃</button>
       </form>

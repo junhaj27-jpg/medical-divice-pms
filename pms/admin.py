@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import *
-for model in [Profile,Manufacturer,MedicalDevice,UDI,ProductLot,AdverseEvent,PatientAnonymousInfo,RiskAssessment,CAPA,Recall,RecallTarget,RegulatoryReport,AuditLog,Notification,AssistantConversation,AssistantMessage]: admin.site.register(model)
+for model in [Manufacturer,MedicalDevice,UDI,ProductLot,AdverseEvent,PatientAnonymousInfo,RiskAssessment,CAPA,Recall,RecallTarget,RegulatoryReport,AuditLog,Notification,AssistantConversation,AssistantMessage]: admin.site.register(model)
 
 @admin.register(CustomerComplaint)
 class ComplaintAdmin(admin.ModelAdmin):
@@ -18,3 +18,8 @@ class AttachmentAdmin(admin.ModelAdmin):
     def has_change_permission(self,request,obj=None): return False
     def has_delete_permission(self,request,obj=None): return False
     def has_add_permission(self,request): return False
+
+# Account mutations go through the audited PMS account lifecycle only.
+from django.contrib.auth.models import User, Group
+for account_model in (User, Group):
+    if admin.site.is_registered(account_model): admin.site.unregister(account_model)

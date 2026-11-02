@@ -59,6 +59,9 @@ class RecallSerializer(serializers.ModelSerializer):
         if data.get("recovered_quantity",getattr(self.instance,"recovered_quantity",0))>data.get("target_quantity",getattr(self.instance,"target_quantity",0)): raise serializers.ValidationError("실제 회수 수량은 목표 수량을 초과할 수 없습니다.")
         return data
 class ReportSerializer(serializers.ModelSerializer):
+    def validate_status(self,value):
+        if value=="SUBMITTED": raise serializers.ValidationError("제출 추적에서 명시적 확인을 기록하세요.")
+        return value
     class Meta: model=RegulatoryReport; fields="__all__"; read_only_fields=("author","approved_by","approved_at")
 class ApprovalSerializer(serializers.ModelSerializer):
     class Meta: model=Approval; fields="__all__"; read_only_fields=("decided_by","decided_at")
@@ -67,6 +70,11 @@ class NotificationSerializer(serializers.ModelSerializer):
 class AuditSerializer(serializers.ModelSerializer):
     class Meta: model=AuditLog; fields="__all__"
 class AttachmentSerializer(serializers.ModelSerializer):
+    def validate(self,attrs):
+        if attrs.get("purpose")=="ADMIN":
+            from .services import role
+            if role(self.context["request"].user)=="STAFF": raise serializers.ValidationError("RA/QA 또는 관리자 권한이 필요합니다.")
+        return attrs
     uploaded_by=serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta: model=Attachment; fields="__all__"; read_only_fields=("original_name","scan_status","sha256","detected_type","scanned_at")
     def validate_file(self,value):

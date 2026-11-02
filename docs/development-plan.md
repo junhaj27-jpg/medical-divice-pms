@@ -1,3 +1,63 @@
+> **이번 요청 기준 (2026-11-01, 시작 HEAD f0812ed)**: [요구사항별 시작 분류·추가 구현·남은 범위](REQUEST_EXTENSION_20261101.md)를 우선합니다. 최신 leaf는 `0019_periodic_pdf_archive`입니다. 기존 조사/제출/정기 검토/영향 분석은 중복 개발하지 않고 검증 공백과 PDF 보존을 확장했습니다. PostgreSQL 및 운영 파일 검사기 검증은 완료로 표시하지 않습니다. 아래 표는 과거 개발 기록입니다.
+
+<!-- tracking-current-guide -->
+> **2026-11-01 · 6~9순위 현재 안내**: [설계](TRACKING_DESIGN.md), [구현·검증](TRACKING_VALIDATION.md), [문서 비교 후 수정·검증 범위](TRACKING_REVIEW_FIXES.md)를 우선 확인하세요. 현재 마이그레이션 leaf는 `0018_duplicate_review`입니다. 아래 계획·구현 표·최신 기록 표시는 각 이전 단계 당시의 기록입니다.
+
+# 2026-11-01 구현 현황 갱신
+
+지정 폴더 아래 work/medical-divice-pms 저장소를 확인했다. 시작 HEAD는 14f4390이며 README·모델·서비스·workflow·테스트와 0011/0012 등 기존 미커밋 변경을 보존했다. 별도 feature/pms-analysis-snapshots-20261101 브랜치에서 확장한다. AGENTS.md는 확인한 저장소·작업 상위 경로에서 발견되지 않았다.
+
+| 항목 | 결과 | 구현 |
+|---|---|---|
+| AI 프로세스 격리 | 기존 구현 유지 | ai_boundary.py가 ai_worker 프로세스 종료·timeout·입출력 제한 적용 |
+| 영향 분석 서비스·승인 무결성 | 기존 구현 유지·확장 | 오래된 분석 차단, 적용/제외 사유, 연결 업무·알림 dedupe, 승인 내용 해시 |
+| 영향 분석 행 입력 | 추가 | impact_views.py, impact_list.html: 검색·필터·20건 페이지·행 검증·공통 값 명시 확인·UTC 저장·제출키 |
+| 내부 사건 코호트 | 추가 | internal_cohort.py: 미리보기 해시 검증, 원본 사건 잠금, 출처 분리, 최소 필드·확인 중대성·정정 체인·최신 집계 |
+| 분석 PDF 버전 보관 | 추가 | analysis_archive.py: 기존 사건 PDF의 비공개 FileField·내용 snapshot·행 잠금 버전·감사 패턴 사용 |
+| 마이그레이션 | 추가만 | 두 0008 분기는 기존 0011에서 병합, 0012 뒤 0013·0014 추가. 기존 파일 이름·의존성 변경 없음 |
+| 회귀·동시성 | 확장 | test_analysis_extensions.py, test_impact_rows.py, test_concurrency.py. 실행 결과는 ../VALIDATION_REPORT.md |
+| 재현 가능한 검증·시연 | 추가 | scripts/validate_isolated.py, demo_analysis_extensions.py, analysis-extensions-demo.md |
+
+남은 범위: 실제 PostgreSQL 동시성 실행, 대용량 비동기 작업, 운영 ClamAV·TLS·백업복원 실증, 승인된 외부 AI 공급자 연동 검증. 전자서명·외부 불변 저장소는 미구현이며 이번 범위 제외. 법정 기한·인과관계·규제 적합성을 확정하지 않는다.
+
+아래는 당시 작업 기록이며 최신 테스트 수와 구현 상태는 위 표 및 VALIDATION_REPORT.md를 우선한다.
+
+---
+
+# 현황 분석 및 추가 개발 계획 (2026-10-30)
+
+## 작업 경계와 역할
+저장소를 새 작업 폴더에 clone했으며 시작 시 git status는 깨끗했다. 저장소와 상위 작업 경로에 AGENTS.md는 발견되지 않았다. 원격 push·배포·서비스 내부 LLM 에이전트 서버 추가는 하지 않는다. 기존 DB·미디어는 가져오거나 수정하지 않는다. 총괄은 병합 충돌 해소·보고서·문서, 개발 에이전트는 workflow 모델·서비스·화면·회귀 테스트, 독립 검증 에이전트는 별도 테스트·실행 검사·검증 보고서를 소유한다.
+
+## 현황 (기존 코드 확인 기준)
+| 항목 | 판단 | 실제 경로와 근거 |
+|---|---|---|
+| 의료기기·이상사례 등록 및 조회 | 구현됨 | pms/models.py MedicalDevice/CustomerComplaint/AdverseEvent, pms/forms.py, pms/views.py, pms/api.py, pms/urls.py의 목록·상세·등록 경로 |
+| 업로드·입력 검증·중복 판별 | 구현됨 | pms/file_security.py 실제 파일 형식·크기·검사·비공개 읽기; pms/analysis.py CSV 행 검증 및 출처 ID/해시 중복; pms/serializers.py 모델 연결 검증 |
+| 기간별·기기별 통계·위험 신호 | 구현됨 | pms/analysis.py 비교 기간 통계, pms/safety.py 신호 규칙, pms/safety_views.py 권한별 검토; 분모 없는 발생률은 제공하지 않음 |
+| 규정 근거·보고 규칙 버전 | 구현됨 | pms/regulatory.py 초안·검토·승인·시행·폐기/명시 재적용, pms/regulation_documents.py 원문 chunk, pms/impact.py 개정 영향, RuleApplication.snapshot 과거 계산 보존 |
+| 담당 업무·기한 | 부분 구현 | pms/workflow.py save_task/notify_tasks, pms/workflow_views.py 내 업무·임박·초과 필터, WorkTask/TaskHistory; 완료일 필드 누락 → 이번 추가 |
+| CAPA·효과성 평가 | 구현됨 | CAPA/CAPAEvaluation, pms/workflow.py evaluate_capa/close_capa: 미흡 시 재조치 업무, 평가/증빙/미완료 업무 종료 차단 |
+| 리콜 통보·회신·회수 이력 | 부분 구현 | RecallRecipient/RecoveryEntry/RecallContact, pms/workflow.py; 수량 제약·원장 존재, stale 객체 counter 덮어쓰기 및 재전송 누락 → 이번 보완 |
+| AI 분석·원문 근거 | 구현됨 | pms/rule_ai.py, pms/ra_assistant.py, pms/ai_boundary.py; 인용 검증·선택형 어댑터. 별도 LLM 서버 추가는 적용 불필요 |
+| 보고서 출력 | 부분 구현 | pms/reporting.py 비공개 PDF/ZIP·버전 스냅샷, pms/analysis_views.py CSV BOM/수식 방어; 완료일·원인/조치·검토 이력·조건 연결 보완 |
+| 인증·권한·감사 | 부분 구현 | pms/services.py visible_complaints/audit, pms/permissions.py, pms/security.py, 다운로드 접근 검사. 승인 로직 병합 충돌로 실행 불가 → P0 수정 |
+| 테스트·CI | 부분 구현 | pms/test_*.py, pms/tests.py, .github/workflows/ci.yml SQLite·PostgreSQL 검사. 7개 파일 충돌 표시와 두 migration leaf로 실행 차단 → P0 통합 |
+
+## 구현 우선순위와 결과
+1. P0: pms/api.py, models.py, regulatory.py, services.py, urls.py, views.py, templates/pms/complaint_detail.html의 커밋된 충돌을 통합한다. 기존 안전 신호·분석과 개정 영향 기능을 함께 보존하고 승인 스냅샷은 pms/approval_integrity.py의 버전형 구현을 일원화한다. API/HTML 이름 충돌 회피와 권한 예외 처리를 유지한다. 재승인 변경 사유와 승인 단계 복귀·순차 진행을 서버에서 검증하고 요청 사유를 스냅샷/감사 이력에 보존한다. 0011 merge로 기존 migration 파일은 수정하지 않는다.
+2. P1: WorkTask.completed_at은 서버에서 완료/재개 시 처리하고 TaskHistory에 보존한다. 과거 DONE의 실제 완료 시각은 추측하지 않고 NULL로 둔다. 리콜 metadata 수정은 DB의 최신 recovered_total을 유지한다. 통보/회신 날짜와 미회수 사유, 미래 회수/연락 입력을 검증한다. 새 회수 화면은 UUID 요청키로 재전송 중복을 막고 기존 원장에는 NULL을 유지한다. 0012는 추가 필드만 적용한다.
+3. P2: 기존 PDF 생성기를 확장해 사건 조회 조건·생성시각, 업무 완료일, CAPA 원인/시정/예방 조치, 규칙 개정 검토 및 관리자 결정 이력을 보존한다. 규칙 법정 기한이나 공휴일은 새로 만들지 않는다. 공식 근거 확인은 별도 담당자 검토로 남긴다.
+
+## 검증 및 한계
+최종 전체 테스트 171개 중 167개 통과, PostgreSQL 전용 4개 skip. 실제 명령과 결과는 docs/verification-report.md가 최신 기록이다. 기존 문서의 테스트 개수는 과거 기록이다. PostgreSQL 동시성·PDF 시각 검증 등 실행하지 않은 항목을 통과로 간주하지 않는다. 테스트 성공은 규제 적합성 검증과 다르다. 외부 메시지·실제 규정 자동 수집·새 프레임워크는 추가하지 않는다.
+
+## 후속 우선순위
+PostgreSQL에서 동시 회수/승인 잠금 재검증, 장문 PDF의 시각 회귀, 운영 파일 검사기·HTTPS·비밀키 설정, 관할별 공식 규정과 휴일의 책임자 검토를 우선한다. 과거 완료일 보완은 검증된 자료에 의한 별도 이관 절차가 필요하다.
+
+---
+## 이전 개발 기록 (당시 기록 보존)
+
 # PMS 분석 추가 개발 계획
 
 2026-10-28. 기존 목적은 의료기기 PMS·리콜 포트폴리오 데모. Django 5.2 / DRF / SQLite(PostgreSQL 선택), 서버 템플릿을 유지한다. 작업 시작 git status는 깨끗함. 저장소와 상위 작업 폴더에 AGENTS.md 없음.
@@ -25,7 +85,7 @@
 스키마는 추가 마이그레이션만 적용. 적용 전 DB/미디어 백업, migrate 후 기존 사건 수 확인. 롤백은 분석 테이블 데이터 손실을 수반하므로 백업 복원 우선. 데모 seed는 실제 DB에 자동 실행하지 않는다.
 
 ## 후속 범위
-기존 사건을 분석 코호트로 연결하는 권한 보존 ETL, 대용량 비동기 수집, 분석 PDF의 서버 보관·서명, 운영 개인정보 정책과 기관별 규제 검증은 후속. 기존 AI 어댑터는 운영자가 네트워크 timeout을 구현해야 하며 프로세스 격리 timeout은 후속이다. 기본 분석은 AI를 호출하지 않는다.
+내부 사건 선택 스냅샷과 분석 PDF 서버 버전 보관은 2026-11-01에 추가했다. 대용량 비동기 수집, 운영 개인정보 정책과 기관별 규제 검증은 후속이며 전자서명은 이번 범위에서 제외한다. 기존 AI 어댑터는 운영자가 네트워크 timeout을 구현해야 하며 프로세스 격리 timeout은 pms/ai_boundary.py와 pms/ai_worker.py에 이미 구현되어 있다. 기본 분석은 AI를 호출하지 않는다.
 
 ## 구현 완료 및 검증 기록
 - `pms/analysis_models.py`와 마이그레이션 0008: 원본 수집/정제 레코드/신호 검토/변경 이력 테이블 추가. 기존 사건·중대성 값은 불변.
@@ -41,4 +101,4 @@
 
 로컬 DB는 별도 작업 폴더에 sqlite backup을 만든 뒤 0008 적용 완료. 기존 PMS 테이블 37개의 행 수 일치, CustomerComplaint 5건 보존. 분석 샘플은 라이브 DB에 넣지 않고 테스트 DB에서 검증함.
 
-우선 후속: (1) 기존 사건의 과거 기본 중대성 False를 재확인하는 이관 정책과 권한 보존 ETL, (2) 대용량 수집 비동기 처리·목록 페이지네이션, (3) AI 어댑터 프로세스 격리 timeout 및 실제 승인된 공급자별 연동 검증, (4) 분석 PDF 보관/서명 및 운영 권한·HTTPS·비밀키 설정. 규제 규칙 확정과 인과관계 판단은 담당자 검토 범위.
+갱신된 후속: (1) 명시적 중대성 확인·선택 스냅샷은 구현됨, 기관별 이관 정책 검토는 후속, (2) 영향 입력·내부 사건 선택 페이지네이션은 구현됨, 대용량 비동기 수집은 후속, (3) 이미 구현된 프로세스 격리를 유지한 실제 승인 공급자별 연동 검증, (4) 분석 PDF 보관은 구현됨, 전자서명은 이번 범위 제외, 운영 권한·HTTPS·비밀키 설정 실증은 후속. 규제 규칙 확정과 인과관계 판단은 담당자 검토 범위.

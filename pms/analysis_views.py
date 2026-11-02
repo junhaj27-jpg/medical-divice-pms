@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from .analysis import HEADERS, AnalysisFilter, analyze, csv_cell, default_filters, ingest, require_analyst, save_review
-from .analysis_models import AnalysisImport, AnalysisReview
+from .analysis_models import AnalysisImport, AnalysisReview, AnalysisArtifact
 from .analysis_reporting import analysis_pdf
 
 
@@ -33,12 +33,15 @@ def dashboard(request):
     if request.GET.get('format') == 'pdf':
         if not result: return HttpResponseBadRequest('필터 오류: 내보내기를 중단했습니다.')
         try:
-            content = analysis_pdf(form.cleaned_data, result)
+            from .analysis_archive import generate_analysis_report, analysis_artifact_bytes
+            artifact = generate_analysis_report(request.user, form.cleaned_data)
+            content = analysis_artifact_bytes(request.user, artifact)
         except ValidationError as exc:
             messages.error(request, '; '.join(exc.messages))
         else:
             response = HttpResponse(content, content_type='application/pdf')
-            response['Content-Disposition'] = 'attachment; filename="pms-analysis.pdf"'
+            response['Content-Disposition'] = f'attachment; filename="{artifact.report.number}-v{artifact.version}.pdf"'
+            response['Cache-Control'] = 'private, no-store'
             return response
     if request.GET.get('format') == 'csv':
         if not result: return HttpResponseBadRequest('필터 오류: 내보내기를 중단했습니다.')
@@ -55,6 +58,7 @@ def dashboard(request):
         'users': User.objects.filter(is_active=True).filter(Q(is_superuser=True) | Q(profile__role__in=['RA_QA', 'ADMIN'])),
         'statuses': AnalysisReview._meta.get_field('status').choices,
         'query': request.GET.urlencode(), 'batches': AnalysisImport.objects.order_by('-pk')[:10],
+        'artifacts': AnalysisArtifact.objects.select_related('report','generated_by').order_by('-pk')[:30],
         'report': request.GET.get('format') == 'report',
         'saved_reviews': AnalysisReview.objects.select_related('assignee').order_by('-updated_at')[:20],
     })

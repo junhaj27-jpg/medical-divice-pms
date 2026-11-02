@@ -1,4 +1,9 @@
 {% extends 'pms/base.html' %}{% block content %}
-<h1>개정 영향 분석</h1><div class="notice">검토 후보는 실제 적용 대상 확정이 아닙니다. 분석만으로 사건 기한·규칙은 변경되지 않습니다. 관할·시각은 담당자가 확인해 입력하세요.</div>
-<section class="panel"><h2>명시적 버전 비교·새 분석</h2><form method="post">{% csrf_token %}{{form.as_p}}<button class="btn primary">분석 저장</button></form></section>
-<section class="panel"><h2>분석 목록</h2>{% for x in items %}<p><a href="{% url 'impact-detail' x.pk %}">분석 #{{x.pk}} · {{x.old_rule}} → {{x.new_rule}}</a> · {{x.created_at}}</p>{% empty %}<p>분석이 없습니다.</p>{% endfor %}</section>{% endblock %}
+<h1>개정 영향 분석</h1><div class="notice">입력·분석 저장으로 기한이 바뀌지 않습니다. 실제 적용은 분석 상세의 명시적 재적용 절차를 거칩니다. 관할·인지 시각은 기존 날짜에서 추정하지 않습니다.</div>
+<p>사용자 표시 시간대: {{user_timezone}}. 입력은 UTC 오프셋 필수, 저장 기준: UTC. 규칙의 시간대로 날짜 경계를 검증합니다.</p>
+<form method="get"><label>사건 검색 <input name="q" value="{{q}}" placeholder="CMP-번호, 제목, 제품"></label><label>상태 <select name="status"><option value="">전체</option>{% for v,l in statuses %}<option value="{{v}}" {% if request.GET.status == v %}selected{% endif %}>{{l}}</option>{% endfor %}</select></label><select name="example"><option value="">실제·샘플 전체</option><option value="0" {% if request.GET.example == '0' %}selected{% endif %}>실제</option><option value="1" {% if request.GET.example == '1' %}selected{% endif %}>샘플</option></select><button>조회</button></form>
+<form method="post">{% csrf_token %}{{form.as_p}}{{formset.management_form}}{{formset.non_form_errors}}
+<p>현재 페이지에서 선택한 사건만 분석합니다. 페이지 이동 전 제출하세요. 공통 값은 선택한 행에만 적용되며 확인 체크가 필요합니다.</p>
+{% for case,row,previous in rows %}<section class="panel"><h3>CMP-{{case.pk}} · {{case.title}} · {{case.device}}</h3><p>{{case.get_status_display}} · {% if case.is_example %}샘플{% else %}실제{% endif %} · 기존 적용 규칙: {{previous.rule|default:'없음'}} · 현재 기한: {{previous.due_at|default:case.due_date|default:'없음'}}</p>{{row.as_p}}</section>{% empty %}<p>검색 결과가 없습니다.</p>{% endfor %}<button class="btn primary">선택 사건 분석 저장</button></form>
+<p>{% if page.has_previous %}<a href="?{{filter_query}}&page={{page.previous_page_number}}">이전</a>{% endif %} {{page.number}} / {{page.paginator.num_pages}} {% if page.has_next %}<a href="?{{filter_query}}&page={{page.next_page_number}}">다음</a>{% endif %}</p>
+<section class="panel"><h2>최근 분석</h2>{% for x in items %}<p><a href="{% url 'impact-detail' x.pk %}">분석 #{{x.pk}} · {{x.old_rule}} → {{x.new_rule}}</a></p>{% empty %}<p>분석이 없습니다.</p>{% endfor %}</section>{% endblock %}

@@ -1,5 +1,6 @@
 from datetime import timedelta
 import hashlib
+import uuid
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -90,7 +91,9 @@ def recall_ledger(request,pk):
 @login_required
 def recovery_create(request,pk):
     privileged(request.user); obj=get_object_or_404(RecallRecipient,pk=pk)
-    form=RecoveryForm(request.POST or None,initial={"recovered_on":timezone.localdate()})
+    # Keep the token when redisplaying validation errors; a new GET starts a
+    # distinct physical recovery, while retries of the same POST are idempotent.
+    form=RecoveryForm(request.POST or None,initial={"recovered_on":timezone.localdate(),"submission_key":uuid.uuid4()})
     if request.method=="POST" and form.is_valid():
         try: record_recovery(obj,request.user,**form.cleaned_data); return redirect("recall-ledger",obj.recall_id)
         except ValidationError as exc: form.add_error(None,exc)
@@ -101,7 +104,8 @@ def contact_create(request,pk):
     privileged(request.user); obj=get_object_or_404(RecallRecipient,pk=pk); form=ContactForm(request.POST or None,initial={"contacted_at":timezone.localtime()})
     if request.method=="POST" and form.is_valid():
         contact=form.save(commit=False); contact.recipient=obj
-        record_contact(contact,request.user); return redirect("recall-ledger",obj.recall_id)
+        try: record_contact(contact,request.user); return redirect("recall-ledger",obj.recall_id)
+        except ValidationError as exc: form.add_error(None,exc)
     return form_page(request,form,"거래처 후속 연락 이력 등록")
 
 @login_required
