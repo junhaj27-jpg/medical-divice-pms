@@ -1,0 +1,95 @@
+[
+  {
+    "label": "check",
+    "command": [
+      "manage.py",
+      "check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "makemigrations",
+    "command": [
+      "manage.py",
+      "makemigrations",
+      "--check",
+      "--dry-run"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "plan",
+    "command": [
+      "manage.py",
+      "showmigrations",
+      "--plan"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "fresh-migrate",
+    "command": [
+      "manage.py",
+      "migrate",
+      "--noinput"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "test",
+    "command": [
+      "manage.py",
+      "test",
+      "--noinput"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "collectstatic",
+    "command": [
+      "manage.py",
+      "collectstatic",
+      "--noinput"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "compile",
+    "command": [
+      "-m",
+      "compileall",
+      "-q",
+      "pms",
+      "config",
+      "scripts"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "deploy",
+    "command": [
+      "manage.py",
+      "check",
+      "--deploy"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "forward-plan",
+    "command": [
+      "manage.py",
+      "showmigrations",
+      "--plan"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "forward-migrate",
+    "command": [
+      "manage.py",
+      "migrate",
+      "--noinput"
+    ],
+    "exit_code": 0
+  }
+]

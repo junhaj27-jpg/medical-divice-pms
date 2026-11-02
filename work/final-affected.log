@@ -1,0 +1,92 @@
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+Found 41 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: django_filters, drf_spectacular, messages, rest_framework, staticfiles
+  Apply all migrations: admin, auth, contenttypes, pms, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying pms.0001_initial... OK
+  Applying pms.0002_approval_snapshot_recall_complaint... OK
+  Applying pms.0003_recall_decision_reason... OK
+  Applying pms.0004_assistantconversation_assistantmessage... OK
+  Applying pms.0005_businesspartner_loginbucket_attachment_detected_type_and_more... OK
+  Applying pms.0006_alter_reportingrule_conditions... OK
+  Applying pms.0007_regulationchunk_regulationdocument_rulechange_and_more... OK
+  Applying pms.0008_analysisimport_analysisrecord_analysisreview_and_more... OK
+  Applying pms.0009_safetysignal_safetyreview... OK
+  Applying pms.0010_customercomplaint_complaint_period_product_and_more... OK
+  Applying pms.0008_impactreview_regulatoryimpact_approval_superseded_and_more... OK
+  Applying pms.0011_merge_workflow_branches... OK
+  Applying pms.0012_workflow_completion_recovery_key... OK
+  Applying pms.0013_analysis_snapshots_artifacts_impact_submission... OK
+  Applying pms.0014_impact_submission_key... OK
+test_csv_bom_formula_and_invalid_export (pms.test_analysis.AnalysisTests.test_csv_bom_formula_and_invalid_export) ... ok
+test_deduplication_source_id_and_no_id (pms.test_analysis.AnalysisTests.test_deduplication_source_id_and_no_id) ... ok
+test_empty_data_and_no_signals (pms.test_analysis.AnalysisTests.test_empty_data_and_no_signals) ... ok
+test_http_flow_report_and_csrf_permissions (pms.test_analysis.AnalysisTests.test_http_flow_report_and_csrf_permissions) ... ok
+test_invalid_date_missing_required_and_types (pms.test_analysis.AnalysisTests.test_invalid_date_missing_required_and_types) ... ok
+test_invalid_filter_and_missing_occurrence (pms.test_analysis.AnalysisTests.test_invalid_filter_and_missing_occurrence) ... ok
+test_normal_raw_unknown_and_original (pms.test_analysis.AnalysisTests.test_normal_raw_unknown_and_original) ... ok
+test_pdf_and_archived_review_snapshot (pms.test_analysis.AnalysisTests.test_pdf_and_archived_review_snapshot) ... ok
+test_repository_sample_quality_results (pms.test_analysis.AnalysisTests.test_repository_sample_quality_results) ... ok
+test_review_persistence_history_and_permissions (pms.test_analysis.AnalysisTests.test_review_persistence_history_and_permissions) ... ok
+test_rules_boundaries_and_filters (pms.test_analysis.AnalysisTests.test_rules_boundaries_and_filters) ... ok
+test_upload_limits_and_utf8 (pms.test_analysis.AnalysisTests.test_upload_limits_and_utf8) ... ok
+test_zero_comparison_and_basis_separation (pms.test_analysis.AnalysisTests.test_zero_comparison_and_basis_separation) ... ok
+test_changed_preview_rejected (pms.test_analysis_extensions.InternalCohortTests.test_changed_preview_rejected) ... ok
+test_confirmation_and_approval_integrity (pms.test_analysis_extensions.InternalCohortTests.test_confirmation_and_approval_integrity) ... ok
+test_confirmation_reason_and_stale (pms.test_analysis_extensions.InternalCohortTests.test_confirmation_reason_and_stale) ... ok
+test_correction_keeps_review_and_excludes_previous (pms.test_analysis_extensions.InternalCohortTests.test_correction_keeps_review_and_excludes_previous) ... ok
+test_missing_font_leaves_analysis_available (pms.test_analysis_extensions.InternalCohortTests.test_missing_font_leaves_analysis_available) ... ok
+test_pdf_version_private_download_and_frozen_review (pms.test_analysis_extensions.InternalCohortTests.test_pdf_version_private_download_and_frozen_review) ... ok
+test_sample_separation_and_csv_namespace (pms.test_analysis_extensions.InternalCohortTests.test_sample_separation_and_csv_namespace) ... ok
+test_staff_denied_and_preview_required (pms.test_analysis_extensions.InternalCohortTests.test_staff_denied_and_preview_required) ... ok
+test_unknown_minimal_snapshot_and_idempotence (pms.test_analysis_extensions.InternalCohortTests.test_unknown_minimal_snapshot_and_idempotence) ... ok
+test_case_and_rule_staleness (pms.test_impact.ImpactTests.test_case_and_rule_staleness) ... ok
+test_closed_cases_excluded_by_default (pms.test_impact.ImpactTests.test_closed_cases_excluded_by_default) ... ok
+test_explicit_application_reuses_real_service (pms.test_impact.ImpactTests.test_explicit_application_reuses_real_service) ... ok
+test_missing_jurisdiction_and_basis_not_inferred (pms.test_impact.ImpactTests.test_missing_jurisdiction_and_basis_not_inferred) ... ok
+test_new_scope_and_no_case_mutation (pms.test_impact.ImpactTests.test_new_scope_and_no_case_mutation) ... ok
+test_old_application_distinguished_and_shortening (pms.test_impact.ImpactTests.test_old_application_distinguished_and_shortening) ... ok
+test_period_and_holiday_errors (pms.test_impact.ImpactTests.test_period_and_holiday_errors) ... ok
+test_review_reason_dedupe_and_completed_history (pms.test_impact.ImpactTests.test_review_reason_dedupe_and_completed_history) ... ok
+test_staff_and_private_draft_access (pms.test_impact.ImpactTests.test_staff_and_private_draft_access) ... ok
+test_bulk_requires_selection_and_confirmation (pms.test_impact_rows.ImpactRowTests.test_bulk_requires_selection_and_confirmation) ... ok
+test_missing_offset_reason_and_disallowed_case (pms.test_impact_rows.ImpactRowTests.test_missing_offset_reason_and_disallowed_case) ... ok
+test_row_submission_utc_boundary_duplicate_and_stale (pms.test_impact_rows.ImpactRowTests.test_row_submission_utc_boundary_duplicate_and_stale) ... ok
+test_search_filters_pagination_and_staff (pms.test_impact_rows.ImpactRowTests.test_search_filters_pagination_and_staff) ... ok
+test_duplicate_request_is_serialized (pms.test_concurrency.ApprovalConcurrencyTests.test_duplicate_request_is_serialized) ... skipped 'Requires actual PostgreSQL; SQLite cannot verify row locks'
+test_first_approval_or_rejection_wins (pms.test_concurrency.ApprovalConcurrencyTests.test_first_approval_or_rejection_wins) ... skipped 'Requires actual PostgreSQL; SQLite cannot verify row locks'
+test_internal_snapshot_concurrent_duplicate (pms.test_concurrency.ApprovalConcurrencyTests.test_internal_snapshot_concurrent_duplicate) ... skipped 'Requires actual PostgreSQL; SQLite cannot verify row locks'
+test_related_writer_cannot_cross_approval_lock (pms.test_concurrency.ApprovalConcurrencyTests.test_related_writer_cannot_cross_approval_lock) ... skipped 'Requires actual PostgreSQL; SQLite cannot verify row locks'
+test_same_case_concurrent_rule_reapplication (pms.test_concurrency.ApprovalConcurrencyTests.test_same_case_concurrent_rule_reapplication) ... skipped 'Requires actual PostgreSQL; SQLite cannot verify row locks'
+test_transition_only_once (pms.test_concurrency.ApprovalConcurrencyTests.test_transition_only_once) ... skipped 'Requires actual PostgreSQL; SQLite cannot verify row locks'
+
+----------------------------------------------------------------------
+Ran 41 tests in 11.660s
+
+OK (skipped=6)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+
+  Applying sessions.0001_initial... OK
+System check identified no issues (0 silenced).

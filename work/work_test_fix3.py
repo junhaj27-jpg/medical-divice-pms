@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('pms/test_analysis_extensions.py');s=p.read_text(encoding='utf-8').replace("        with tempfile.TemporaryDirectory(dir='.test-media') as root, override_settings(MEDIA_ROOT=root):", "        import uuid, shutil\n        root=Path('.test-media')/uuid.uuid4().hex;root.mkdir()\n        self.addCleanup(shutil.rmtree,root)\n        with override_settings(MEDIA_ROOT=root):");p.write_text(s,encoding='utf-8')
+p=Path('pms/test_concurrency.py');s=p.read_text(encoding='utf-8').replace("        self.root=Path(tempfile.mkdtemp(dir=root));self.addCleanup(shutil.rmtree,self.root)","        import uuid\n        self.root=root/uuid.uuid4().hex;self.root.mkdir();self.addCleanup(shutil.rmtree,self.root)");p.write_text(s,encoding='utf-8')

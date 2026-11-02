@@ -1,0 +1,5 @@
+Operations to perform:
+  Apply all migrations: admin, auth, contenttypes, pms, sessions
+Running migrations:
+  Applying pms.0013_analysis_snapshots_artifacts_impact_submission... OK
+  Applying pms.0014_impact_submission_key... OK

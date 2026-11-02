@@ -1,0 +1,10 @@
+System check identified some issues:
+
+WARNINGS:
+?: (drf_spectacular.W001) Warning: operationId "pms_reviews_create" has collisions [('/api/pms-reviews/', 'post'), ('/api/pms-reviews/{id}/', 'post')]. resolving with numeral suffixes.
+?: (drf_spectacular.W001) Warning: operationId "pms_reviews_retrieve" has collisions [('/api/pms-reviews/', 'get'), ('/api/pms-reviews/{id}/', 'get')]. resolving with numeral suffixes.
+?: (drf_spectacular.W002) C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms\pms\review_views.py: Error [duplicate_api]: unable to guess serializer. This is graceful fallback handling for APIViews. Consider using GenericAPIView as view base class, if view is under your control. Either way you may want to add a serializer_class (or method). Ignoring view for now.
+?: (drf_spectacular.W002) C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms\pms\review_views.py: Error [periodic_api]: unable to guess serializer. This is graceful fallback handling for APIViews. Consider using GenericAPIView as view base class, if view is under your control. Either way you may want to add a serializer_class (or method). Ignoring view for now.
+?: (drf_spectacular.W002) C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms\pms\tracking_views.py: Error [tracking_api]: unable to guess serializer. This is graceful fallback handling for APIViews. Consider using GenericAPIView as view base class, if view is under your control. Either way you may want to add a serializer_class (or method). Ignoring view for now.
+
+System check identified 5 issues (0 silenced).

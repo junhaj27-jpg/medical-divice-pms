@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms\scripts\demo_analysis_extensions.py", line 4, in <module>
+    state=runpy.run_path(str(Path(__file__).with_name('verify_impact.py')),run_name='__main__')
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms\scripts\verify_impact.py", line 78, in <module>
+    approved=request_complaint_approval(case,author);decide_approval(approved,admin,'APPROVED')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\정준하\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\contextlib.py", line 81, in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\정준하\Documents\Codex\2026-10-30\https-github-com-junhaj27-jpg-medical\work\medical-divice-pms\pms\services.py", line 92, in request_complaint_approval
+    raise ValidationError("재승인 요청에는 변경·재검토 사유가 필요합니다.")
+django.core.exceptions.ValidationError: ['재승인 요청에는 변경·재검토 사유가 필요합니다.']

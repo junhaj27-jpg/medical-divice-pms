@@ -1,0 +1,29 @@
+{
+  "synthetic_only": true,
+  "mock_scanner_only": true,
+  "case_id": 1,
+  "analysis_id": 1,
+  "old_rule_id": 1,
+  "new_rule_id": 2,
+  "shortened": true,
+  "pending_change_blocked": true,
+  "approved_change_blocked": true,
+  "final_status": "CLOSED",
+  "approval_history_count": 3,
+  "ui": [
+    "/rules/impacts/",
+    "/rules/impacts/1/",
+    "/complaints/1/"
+  ],
+  "steps": [
+    "규정 개정",
+    "영향 분석",
+    "담당자 검토",
+    "기한 비교",
+    "명시적 재적용",
+    "승인 요청",
+    "자료 변경 차단",
+    "재승인",
+    "최종 조치·종료"
+  ]
+}

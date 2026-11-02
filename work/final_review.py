@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('pms/analysis.py');s=p.read_text(encoding='utf-8').replace(", content_hashes=[digest([r.pk,r.raw,r.seriousness,r.source_hash]) for r in current + previous if key(r)==device]",'');p.write_text(s,encoding='utf-8')
+p=Path('scripts/validate_isolated.py');s=p.read_text(encoding='utf-8').replace("    old=counts();forward=base.copy();forward['SQLITE_PATH']=str(target)","    old=counts()\n    if not old: raise SystemExit('설치 스키마가 없습니다. 0바이트 파일은 전진 적용 근거가 아닙니다. 설치된 DB를 지정하세요.')\n    forward=base.copy();forward['SQLITE_PATH']=str(target)");p.write_text(s,encoding='utf-8')

@@ -1,0 +1,19 @@
+@media (min-width: 480px) {
+  body { padding-left: 236px; }
+  body > header { position: fixed; inset: 0 auto 0 0; z-index: 30; width: 236px; height: 100vh; padding: 25px 16px 18px; display: flex; flex-direction: column; align-items: stretch; gap: 20px; background: linear-gradient(180deg, #082f49 0%, #07354d 65%, #06293d 100%); box-shadow: 8px 0 28px #082f4912; }
+  body > header .brand { padding: 0 10px 20px; border-bottom: 1px solid #ffffff1c; }
+  body > header .nav-toggle { display: none; }
+  body > header nav { position: static; display: flex; flex: 1; flex-direction: column; flex-wrap: nowrap; gap: 3px; padding: 0; background: transparent; overflow-y: auto; }
+  body > header nav a { display: block; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+  body > header nav a:hover, body > header nav .assistant-nav { background: #ffffff12; color: white; }
+  body > header nav .assistant-nav { margin: 7px 0; border: 1px solid #62d3d733; color: #86e0e3; font-weight: 800; }
+  body > header .user { margin-left: 0; padding: 14px 10px 0; border-top: 1px solid #ffffff1c; justify-content: space-between; }
+  body > header .user button { padding: 0; }
+  body > .container { max-width: 1440px; }
+  body > .assistant-launcher { left: 18px; right: auto; bottom: 78px; width: 200px; justify-content: center; }
+  body > .assistant-drawer { left: 252px; right: auto; bottom: 24px; }
+}
+
+@media (max-width: 479px) {
+  body > header nav { max-height: calc(100vh - 66px); overflow-y: auto; }
+}
