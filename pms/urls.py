@@ -75,3 +75,30 @@ urlpatterns += [
  path("assistant/cases/<int:pk>/",safety_views.case_summary,name="ra-summary"),
  path("rules/<int:pk>/impact/",safety_views.rule_impact,name="rule-impact"),
 ]
+
+
+from . import ra_views
+urlpatterns += [
+ path('ra/',ra_views.dashboard,name='ra-dashboard'),
+ path('ra/profiles/<int:profile_id>/evidence/new/',ra_views.evidence_upload,name='ra-evidence-upload'),
+ path('ra/evidence/<int:pk>/',ra_views.evidence_download,name='ra-evidence'),
+ path('ra/api/<str:kind>/',ra_views.api_collection,name='ra-api-list'),
+ path('ra/api/<str:kind>/<int:pk>/',ra_views.api_collection,name='ra-api-detail'),
+ path('ra/<str:kind>/',ra_views.listing,name='ra-list'),
+ path('ra/<str:kind>/new/',ra_views.edit,name='ra-create'),
+ path('ra/<str:kind>/<int:pk>/',ra_views.detail,name='ra-detail'),
+ path('ra/<str:kind>/<int:pk>/edit/',ra_views.edit,name='ra-edit'),
+ path('ra/<str:kind>/<int:pk>/action/',ra_views.action,name='ra-action'),
+]
+
+urlpatterns += [
+ path('my-training/',ra_views.my_training,name='my-training'),
+ path('my-training/<int:pk>/',ra_views.my_training,name='my-training-detail'),
+ path('ra/management-reviews/<int:pk>/export/',ra_views.management_export,name='ra-management-export'),
+]
+
+urlpatterns += [path('ra/<str:kind>/<int:pk>/package/',ra_views.package_download,name='ra-package-download')]
+
+urlpatterns += [path('ra/<str:kind>/<int:pk>/dhf-export/',ra_views.dhf_export,name='ra-dhf-export')]
+
+urlpatterns += [path('ra/quality-records/summary/',ra_views.quality_summary,name='ra-quality-summary')]

@@ -18,6 +18,7 @@ class TimeStamped(models.Model):
     def save(self,*args,**kwargs):
         # Writers of approval inputs share the case lock used by approval and transitions.
         with transaction.atomic():
+            if getattr(self,"ra_profile_id",None): RegulatoryProfile.objects.select_for_update().get(pk=self.ra_profile_id)
             case_id=self.pk if type(self).__name__=='CustomerComplaint' else getattr(self,'complaint_id',None)
             if not case_id and type(self).__name__ in ('RecallTarget','RecallRecipient') and self.recall_id:
                 case_id=Recall.objects.values_list('complaint_id',flat=True).get(pk=self.recall_id)
@@ -148,7 +149,8 @@ class RegulatoryReport(TimeStamped):
 def upload_to(instance,filename): return f"attachments/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 
 class Attachment(TimeStamped):
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="attachments"); file=models.FileField(upload_to=upload_to,validators=[FileExtensionValidator(["pdf","png","jpg","jpeg","txt","csv"])]); original_name=models.CharField(max_length=255,blank=True); uploaded_by=models.ForeignKey(User,on_delete=models.PROTECT)
+    ra_profile=models.ForeignKey("pms.RegulatoryProfile",on_delete=models.PROTECT,null=True,blank=True,related_name="ra_evidence")
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,null=True,blank=True,related_name="attachments"); file=models.FileField(upload_to=upload_to,validators=[FileExtensionValidator(["pdf","png","jpg","jpeg","txt","csv"])]); original_name=models.CharField(max_length=255,blank=True); uploaded_by=models.ForeignKey(User,on_delete=models.PROTECT)
     scan_status=models.CharField(max_length=12,choices=[("PENDING","검사 대기"),("PASSED","통과"),("QUARANTINED","격리"),("FAILED","검사 실패")],default="PENDING",db_index=True)
     sha256=models.CharField(max_length=64,blank=True)
     detected_type=models.CharField(max_length=20,blank=True)
@@ -158,6 +160,9 @@ class Attachment(TimeStamped):
         if self.file:
             from .file_security import validate_upload
             validate_upload(self.file)
+    class Meta:
+        constraints=[models.CheckConstraint(condition=(models.Q(complaint__isnull=False,ra_profile__isnull=True)|models.Q(complaint__isnull=True,ra_profile__isnull=False)),name="attachment_one_context")]
+
 class Approval(TimeStamped):
     superseded=models.BooleanField(default=False)
     class Meta:
@@ -185,7 +190,8 @@ class WorkTask(TimeStamped):
         IN_PROGRESS="IN_PROGRESS","진행 중"
         REVIEW="REVIEW","검토 중"
         DONE="DONE","완료"
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="tasks",verbose_name="사건")
+    ra_profile=models.ForeignKey("pms.RegulatoryProfile",on_delete=models.PROTECT,null=True,blank=True,related_name="work_tasks")
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,null=True,blank=True,related_name="tasks",verbose_name="사건")
     capa=models.ForeignKey(CAPA,on_delete=models.PROTECT,null=True,blank=True,related_name="tasks",verbose_name="CAPA")
     recall=models.ForeignKey(Recall,on_delete=models.PROTECT,null=True,blank=True,related_name="tasks",verbose_name="리콜")
     assignee=models.ForeignKey(User,on_delete=models.PROTECT,related_name="work_tasks",verbose_name="담당자")
@@ -195,7 +201,7 @@ class WorkTask(TimeStamped):
     due_at=models.DateTimeField("마감일")
     status=models.CharField("상태",max_length=16,choices=Status.choices,default=Status.WAITING)
     class Meta:
-        constraints=[models.CheckConstraint(condition=models.Q(capa__isnull=True)|models.Q(recall__isnull=True),name="task_one_action_parent"),models.CheckConstraint(condition=models.Q(status__in=['WAITING', 'IN_PROGRESS', 'REVIEW', 'DONE']),name="worktask_status_valid")]
+        constraints=[models.CheckConstraint(condition=(models.Q(complaint__isnull=False,ra_profile__isnull=True)|models.Q(complaint__isnull=True,ra_profile__isnull=False)),name="worktask_one_context"),models.CheckConstraint(condition=models.Q(capa__isnull=True)|models.Q(recall__isnull=True),name="task_one_action_parent"),models.CheckConstraint(condition=models.Q(status__in=['WAITING', 'IN_PROGRESS', 'REVIEW', 'DONE']),name="worktask_status_valid")]
         indexes=[models.Index(fields=["assignee","status","due_at"])]
         ordering=["due_at","pk"]
     def clean(self):
@@ -564,3 +570,13 @@ class RegulatoryReportHistory(ImmutableHistory):
 def preserve_history_rows(sender,instance,**kwargs):
     if sender in (RiskAssessmentHistory,RegulatoryReportHistory,RecoveryEntry,CAPAEvaluation,TaskHistory,AnalysisReviewHistory,SafetyReview,RuleChange,RuleApplication,ReportArtifact,AuditLog,RecallContact,RulePreview):
         raise ValidationError('평가·보고 이력은 삭제할 수 없습니다.')
+
+
+from .ra_models import RegulatoryProfile, RARequirement, MarketingAuthorization, AuthorizationEvent, SubmissionPackage
+
+from .ra_models import ProductRevision, ControlledDocument, ProductChange, LabelVersion
+
+from .ra_models import RiskCriteria, ProductRisk, SafetyInformation, FieldSafetyAction, FieldActionRecipient, FieldActionContact, FieldActionEvaluation, SupplierRecord, SupplierMaterial
+
+from .ra_models import TrainingRequirement, TrainingAssignment, AuditPlan, AuditFinding, AuditPackage, ManagementReview, ManagementDecision, RetentionPolicy
+from . import ra_operations_models

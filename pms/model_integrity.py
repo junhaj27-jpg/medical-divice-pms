@@ -47,11 +47,19 @@ def validate_relations(obj):
     if name == 'ImpactReview':
         if obj.task_id and obj.task.complaint_id!=obj.complaint_id: fail('영향 검토와 업무의 사건이 일치하지 않습니다.')
         if obj.application_id and (obj.application.complaint_id!=obj.complaint_id or obj.application.rule_id!=obj.analysis.new_rule_id): fail('영향 검토의 적용 사건·규칙이 일치하지 않습니다.')
+    if name in ('WorkTask','Attachment'):
+        if bool(obj.complaint_id)==bool(obj.ra_profile_id): fail('사건 또는 RA 규제 프로필 중 하나만 지정하세요.')
+        if obj.pk:
+            old=type(obj).objects.get(pk=obj.pk)
+            if old.ra_profile_id or obj.ra_profile_id:
+                if old.ra_profile_id!=obj.ra_profile_id or old.complaint_id!=obj.complaint_id: fail('RA 업무·증빙의 원래 범위를 변경할 수 없습니다.')
+                if name=='Attachment' and (str(old.file)!=str(obj.file) or old.uploaded_by_id!=obj.uploaded_by_id or old.original_name!=obj.original_name): fail('RA 증빙은 새 파일로 등록하고 이전 파일을 보존하세요.')
     if name == 'WorkTask':
         if obj.capa_id and obj.recall_id: fail('CAPA 또는 리콜 중 하나만 연결하세요.')
         for parent in ('capa', 'recall'):
             if getattr(obj, parent + '_id') and getattr(obj, parent).complaint_id != obj.complaint_id: fail('업무와 조치의 사건이 일치하지 않습니다.')
         if obj.assignee_id and obj.complaint_id: validate_assignee(obj.assignee, obj.complaint)
+        if obj.assignee_id and not obj.assignee.is_active: fail('활성 담당자가 필요합니다.')
     if name in ('UDI', 'ProductLot') and obj.pk:
         old = type(obj).objects.get(pk=obj.pk)
         keys = ('device_id',) if name == 'UDI' else ('device_id', 'udi_id')

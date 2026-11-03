@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 from .models import (WorkTask, TaskHistory, CAPA, CAPAEvaluation, Recall, RecallRecipient,
                      RecoveryEntry, RecallContact, ReportingRule, RuleApplication,
@@ -19,24 +19,27 @@ def tasks_for(user):
     qs=WorkTask.objects.select_related("complaint","assignee","capa","recall")
     if role(user)=="STAFF":
         # An assignment never grants access to somebody else's case.
-        qs=qs.filter(assignee=user,complaint__in=visible_complaints(user))
+        qs=qs.filter(Q(complaint__in=visible_complaints(user))|Q(ra_profile__isnull=False),assignee=user)
     return qs
 
 
 def task_state(obj):
-    return {"assignee_id":obj.assignee_id,"due_at":obj.due_at.isoformat(),"status":obj.status,
+    return {"complaint_id":obj.complaint_id,"ra_profile_id":obj.ra_profile_id,"assignee_id":obj.assignee_id,"due_at":obj.due_at.isoformat(),"status":obj.status,
             "title":obj.title,"description":obj.description,"priority":obj.priority}
 
 
 @transaction.atomic
 def save_task(obj,user):
+    if obj.ra_profile_id:
+        from .ra_models import RegulatoryProfile
+        RegulatoryProfile.objects.select_for_update().get(pk=obj.ra_profile_id)
     old=WorkTask.objects.select_for_update().get(pk=obj.pk) if obj.pk else None
     if role(user)=="STAFF":
         if not old or not tasks_for(user).filter(pk=old.pk).exists(): raise PermissionDenied
-        if any(getattr(old,k)!=getattr(obj,k) for k in ("assignee_id","due_at","title","description","priority","complaint_id","capa_id","recall_id")):
+        if any(getattr(old,k)!=getattr(obj,k) for k in ("assignee_id","due_at","title","description","priority","complaint_id","ra_profile_id","capa_id","recall_id")):
             raise PermissionDenied("담당 직원은 상태만 변경할 수 있습니다.")
     else: privileged(user)
-    if role(obj.assignee)=="STAFF" and obj.complaint.reporter_id != obj.assignee_id:
+    if obj.complaint_id and role(obj.assignee)=="STAFF" and obj.complaint.reporter_id != obj.assignee_id:
         raise ValidationError("STAFF 담당자는 본인 접수 사건만 배정할 수 있습니다.")
     before=task_state(old) if old else {}
     if not timezone.is_aware(obj.due_at): raise ValidationError("마감 시각에는 시간대가 필요합니다.")

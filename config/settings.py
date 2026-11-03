@@ -15,7 +15,7 @@ if os.getenv("DB_ENGINE") == "postgresql":
 else: DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3","NAME":os.getenv("SQLITE_PATH",str(BASE_DIR/"db.sqlite3"))}}
 AUTH_PASSWORD_VALIDATORS=[{"NAME":"django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},{"NAME":"django.contrib.auth.password_validation.MinimumLengthValidator"},{"NAME":"django.contrib.auth.password_validation.CommonPasswordValidator"}]
 LANGUAGE_CODE="ko-kr"; TIME_ZONE="Asia/Seoul"; USE_I18N=True; USE_TZ=True
-STATIC_URL="static/"; STATIC_ROOT=BASE_DIR/"staticfiles"; STATICFILES_DIRS=[BASE_DIR/"static"]
+STATIC_URL="static/"; STATIC_ROOT=Path(os.getenv("PMS_STATIC_ROOT",str(BASE_DIR/"staticfiles"))); STATICFILES_DIRS=[BASE_DIR/"static"]
 MEDIA_URL="media/"; MEDIA_ROOT=BASE_DIR/"media"; DEFAULT_AUTO_FIELD="django.db.models.BigAutoField"
 LOGIN_REDIRECT_URL="dashboard"; LOGOUT_REDIRECT_URL="login"
 SESSION_COOKIE_SECURE=os.getenv("SECURE_COOKIES","False").lower()=="true"; CSRF_COOKIE_SECURE=SESSION_COOKIE_SECURE

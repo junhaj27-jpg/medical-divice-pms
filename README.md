@@ -774,3 +774,15 @@ PostgreSQL의 동시 승인·동시 상태 변경은 실제 PostgreSQL 환경에
 - [영역별 ERD](docs/erd.md)
 - [데이터 사전](docs/data-dictionary.md)
 - [무결성·이력·마이그레이션 및 검증](docs/data-integrity.md)
+
+## RA 업무 추적
+
+`/ra/`에서 제품별 규제 범위·요구사항·인허가부터 변경·문서·표시·위험·현장 조치·공급자·교육·감사·경영 검토를 기록합니다. 이 기능은 RA 업무와 검토를 지원하며 담당자의 최종 판단과 기관 확인을 대체하지 않습니다.
+
+- [요구사항·구현 및 미구현 현황](docs/ra-requirements-matrix.md)
+- [한국어 사용·시연·PowerShell 실행](docs/ra-user-guide.md)
+- [RA 무결성·API·격리 검증](docs/ra-verification.md)
+
+## RA 실무 추적
+
+RA 업무 메뉴에서 GMP 양식·기록, 품질시스템 밸리데이션, 회의록 후보·DHF, 소프트웨어 변경심사, 사이버보안 검토를 사용할 수 있습니다. [가상 뇌파 제품으로 시연하기](docs/ra-operational-guide.md)

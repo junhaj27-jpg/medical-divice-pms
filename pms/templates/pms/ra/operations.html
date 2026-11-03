@@ -1,0 +1,63 @@
+{% if kind == 'meeting-sources' or kind == 'meeting-candidates' or kind == 'dhf-baselines' or kind == 'security-inventories' or kind == 'quality-documents' %}
+<section class="panel">
+  <h2>자료 처리</h2>
+  <form method="post" action="{% url 'ra-action' kind item.pk %}">
+    {% csrf_token %}
+    <label>사유 <input name="reason" required></label>
+    {% if kind == 'meeting-sources' %}<button name="action" value="extract">회의록에서 후보 추출</button>{% endif %}
+    {% if kind == 'meeting-candidates' %}
+      <a href="/ra/evidence/{{ item.meeting.minutes_id }}/">원문 파일 · {{ item.line_number }}행</a>
+      {% if item.confirmed_trace_id %}<a href="/ra/design-traces/{{ item.confirmed_trace_id }}/">확인한 DHF 행</a>{% endif %}
+      <button name="action" value="confirm">승인 후보를 DHF에 연결</button>
+    {% endif %}
+    {% if kind == 'dhf-baselines' %}<button name="action" value="baseline">현재 매트릭스 캡처</button>{% endif %}
+    {% if kind == 'security-inventories' %}<button name="action" value="sbom">검사된 SBOM CSV 가져오기</button>{% endif %}
+    {% if kind == 'quality-documents' and item.template_approved %}
+      <label>새 문서번호 <input name="confirmation" maxlength="80" required></label>
+      <button name="action" value="template">템플릿으로 초안 작성</button>
+    {% endif %}
+  </form>
+</section>
+{% endif %}
+{% if kind == 'dhf-projects' or kind == 'dhf-baselines' %}
+<p><a href="{% url 'ra-dhf-export' kind item.pk %}?format=csv">DHF CSV</a> · <a href="{% url 'ra-dhf-export' kind item.pk %}?format=pdf">DHF PDF</a></p>
+{% for row in operational.matrix.rows %}
+<section class="panel">
+  <h3><a href="/ra/design-traces/{{ row.id }}/">{{ row.title }}</a></h3>
+  <p>연결 누락 {{ row.missing|join:", "|default:"없음" }} · 검토 필요 {{ row.needs_review|join:", "|default:"없음" }} · 구버전 {{ row.obsolete|join:", "|default:"없음" }}</p>
+  {% for relation, target in row.links.items %}{% if target %}
+  <p>{{ relation }} <a href="{{ target.url }}">{{ target.title }}</a>
+    {% for evidence in target.evidence %}<a href="/ra/evidence/{{ evidence.id }}/">증빙 {{ evidence.id }}</a>{% endfor %}
+  </p>{% endif %}{% endfor %}
+</section>
+{% endfor %}
+{% endif %}
+{% if kind == 'software-reviews' %}
+<section class="panel"><h2>기술문서 준비 및 심사 답변</h2>
+{% if operational.not_ready %}<p>미충족 항목 {{ operational.not_ready|join:", " }}</p>{% endif %}
+{% for row in operational.sections %}<p><a href="/ra/technical-sections/{{ row.pk }}/">{{ row.section }}</a> · {{ row.get_readiness_display }} · {{ row.owner }}</p>{% empty %}<p>등록된 목차가 없습니다.</p>{% endfor %}
+{% for row in operational.responses %}<p><a href="/ra/review-responses/{{ row.pk }}/">{{ row.title }}</a> · {{ row.get_state_display }}</p>{% endfor %}
+</section>
+{% endif %}
+{% if kind == 'quality-records' %}
+<p>필수 항목 누락 {{ operational.missing_fields|join:", "|default:"없음" }}</p>
+{% if operational.duplicate_hint %}<p>같은 양식·LOT·변경의 기존 기록이 있습니다. 중복 여부를 검토하세요.</p>{% endif %}
+{% endif %}
+{% if kind == 'quality-validation' %}
+<section class="panel"><h2>요구사항별 시험</h2>
+{% for requirement, case, runs in operational.validation_rows %}
+<p><a href="/ra/validation-requirements/{{ requirement.pk }}/">{{ requirement.title }}</a>
+{% if case %} → <a href="/ra/validation-cases/{{ case.pk }}/">{{ case.title }} v{{ case.version }}</a>{% else %} · 시험 미등록{% endif %}</p>
+{% if case %}{% for run in runs %}<p><a href="/ra/validation-runs/{{ run.pk }}/">{{ run.get_outcome_display }} · {{ run.get_state_display }}</a> {{ run.deviation }}</p>{% empty %}<p>미실행</p>{% endfor %}{% endif %}
+{% endfor %}
+</section>
+{% endif %}
+{% if kind == 'security-reviews' %}
+<section class="panel"><h2>취약점·조치 검토</h2>
+{% for finding in operational.security_findings %}<p><a href="/ra/security-findings/{{ finding.pk }}/">{{ finding.identifier }}</a> · {{ finding.get_state_display }} · {{ finding.due_on|default:"기한 미지정" }}</p>{% endfor %}
+</section>
+{% endif %}
+
+{% if operational.source_candidate %}
+<p><a href="/ra/meeting-candidates/{{ operational.source_candidate.pk }}/">원문 발췌와 확인 이력</a> · <a href="/ra/evidence/{{ operational.source_candidate.meeting.minutes_id }}/">회의록 원문</a></p>
+{% endif %}

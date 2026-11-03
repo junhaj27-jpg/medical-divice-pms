@@ -1,0 +1,37 @@
+{% extends 'pms/base.html' %}
+{% block content %}
+<h1>{{ label }}</h1>
+<a class="btn" href="/ra/">RA 업무</a>
+{% if kind == 'quality-records' or kind == 'quality-documents' %}<a class="btn" href="{% url 'ra-quality-summary' %}">GMP 누락·기한 현황</a>{% endif %}
+<a class="btn primary" href="/ra/{{ kind }}/new/">등록</a>
+<form method="get" class="panel">
+  <label>제목 검색 <input name="q" value="{{ q }}"></label>
+  {% if request.GET.profile %}<input type="hidden" name="profile" value="{{ request.GET.profile }}">{% endif %}
+  <label>자료 구분 <select name="sample">
+    <option value="">전체</option><option value="real" {% if sample == 'real' %}selected{% endif %}>실제</option><option value="sample" {% if sample == 'sample' %}selected{% endif %}>예시</option>
+  </select></label>
+  <button>조회</button>
+</form>
+<section class="panel">
+<table>
+  <thead><tr>
+    <th>기록</th><th>담당자</th><th>검토·승인 상태</th><th>수정 버전</th><th>자료 구분</th>
+    {% if kind == 'requirements' %}<th>내부 ID</th><th>적용 판단</th><th>충족 상태</th><th>기한·다음 검토</th>{% endif %}
+    {% if kind == 'authorizations' %}<th>허가 상태</th><th>만료</th><th>갱신 준비</th>{% endif %}
+    {% if kind == 'documents' %}<th>문서번호·버전</th><th>시행·정기 검토일</th>{% endif %}
+    {% if kind == 'training' %}<th>대상자·시도</th><th>교육 상태</th><th>기한</th>{% endif %}
+    {% if kind == 'audit-findings' %}<th>분류</th><th>답변 기한</th><th>효과</th>{% endif %}
+  </tr></thead>
+  <tbody>{% for item in items %}<tr>
+    <td><a href="/ra/{{ kind }}/{{ item.pk }}/">{{ item.title }}</a></td><td>{{ item.owner }}</td>
+    <td>{{ item.get_state_display }}</td><td>{{ item.revision }}</td><td>{% if item.is_example %}예시{% else %}실제{% endif %}</td>
+    {% if kind == 'requirements' %}<td>{{ item.internal_id }}</td><td>{{ item.get_applicability_display }}</td><td>{{ item.get_fulfillment_display }}</td><td>{{ item.due_on|default:'미지정' }} / {{ item.next_review_on|default:'미지정' }}</td>{% endif %}
+    {% if kind == 'authorizations' %}<td>{{ item.get_status_display }}</td><td>{{ item.expires_on|default:'미지정' }}</td><td>{{ item.renewal_prepare_on|default:'미지정' }}</td>{% endif %}
+    {% if kind == 'documents' %}<td>{{ item.number }} v{{ item.version }}</td><td>{{ item.effective_on|default:'미지정' }} / {{ item.next_review_on|default:'미지정' }}</td>{% endif %}
+    {% if kind == 'training' %}<td>{{ item.trainee }} · {{ item.attempt }}</td><td>{{ item.get_training_status_display }}</td><td>{{ item.due_on|default:'미지정' }}</td>{% endif %}
+    {% if kind == 'audit-findings' %}<td>{{ item.classification }}</td><td>{{ item.due_on|default:'미지정' }}</td><td>{{ item.get_effectiveness_display }}</td>{% endif %}
+  </tr>{% empty %}<tr><td colspan="5">등록된 자료가 없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</section>
+<p>{% if page.has_previous %}<a href="?{{ params }}&amp;page={{ page.previous_page_number }}">이전</a>{% endif %} {{ page.number }} / {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?{{ params }}&amp;page={{ page.next_page_number }}">다음</a>{% endif %}</p>
+{% endblock %}

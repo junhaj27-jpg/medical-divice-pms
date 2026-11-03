@@ -7,7 +7,7 @@ from .models import WorkTask, CAPAEvaluation, RecallRecipient, RecallContact, Re
 class TaskForm(StyledForm):
     class Meta:
         model=WorkTask
-        fields=("complaint","capa","recall","assignee","title","description","priority","due_at","status")
+        fields=("complaint","ra_profile","capa","recall","assignee","title","description","priority","due_at","status")
         widgets={"due_at":forms.DateTimeInput(format="%Y-%m-%dT%H:%M",attrs={"type":"datetime-local"})}
 
 class EvaluationForm(StyledForm):

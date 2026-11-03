@@ -38,7 +38,7 @@ def snapshot_case(c):
     },default=str,ensure_ascii=False))
 
 
-def build_pdf(snapshot,number,version,creator,evidence):
+def build_pdf(snapshot,number,version,creator,evidence,title="의료기기 시판 후 감시 보고서"):
     font=settings.PDF_KOREAN_FONT
     if not font or not Path(font).is_file(): raise ValidationError("PDF_KOREAN_FONT에 한글 TTF 글꼴 경로를 설정하세요.")
     pdfmetrics.registerFont(TTFont("PMSKorean",font))
@@ -48,7 +48,7 @@ def build_pdf(snapshot,number,version,creator,evidence):
     def p(value,style=body): return Paragraph(escape(str(value)).replace("\n","<br/>"),style)
     labels={"id":"번호","title":"제목","description":"설명","status":"상태","device":"제품","lot":"로트","reported_on":"접수일","due_date":"처리 기한","severity":"심각도","probability":"발생 가능성","score":"위험점수","level":"위험등급","rationale":"판정 근거","document_number":"문서번호","required":"보고 필요","checklist":"체크리스트","investigation_result":"조사 결과","assignee__username":"담당자","priority":"우선순위","due_at":"마감 시각","action_result":"조치 결과","evaluations":"평가 이력","criteria":"평가 기준","scheduled_on":"평가 예정일","evaluator":"평가자","evaluated_on":"평가일","verdict":"판정","evidence_ids":"증빙 번호","totals":"단위별 합계","target":"대상 수량","recovered":"회수 수량","remaining":"미회수 수량","legacy_quantity":"기존 수기 집계","note":"비고","recipients":"거래처별 대상","partner":"거래처","unit":"단위","unrecovered_reason":"미회수 사유","notified_on":"통보일","notification_method":"통보 방법","replied_on":"회신일","reply_status":"회신 상태","recoveries":"회수 이력","recovered_on":"회수일","quantity":"수량","contacts":"연락 이력","contacted_at":"연락 일시","method":"방법","snapshot":"적용 규칙 스냅샷","name":"규칙명","version":"버전","conditions":"조건","complaint_type":"불만 유형","risk_level":"위험등급","serious":"중대 여부","basis":"기준 시점","days":"기한 일수","day_type":"달력 기준","holidays":"휴일 달력","is_example":"예시 여부","effective_on":"시행일","basis_date":"계산 기준일","timezone":"시간대","reason":"적용 사유","created_at":"기록 일시","original_name":"원본 파일명","sha256":"SHA-256","scan_status":"검사 상태","detected_type":"실제 형식"}
     values={"RECEIVED":"접수","WAITING":"대기","IN_PROGRESS":"진행 중","REVIEW":"검토 중","DONE":"완료","EFFECTIVENESS":"효과확인","PASS":"적합","FAIL":"미흡","PASSED":"검사 통과","PENDING":"검사 대기","FAILED":"검사 실패","QUARANTINED":"격리","REPORTED":"접수일","OCCURRED":"발생일","CALENDAR":"달력일","BUSINESS":"영업일","NORMAL":"보통","HIGH":"높음","CRITICAL":"매우 높음"}
-    story=[p("의료기기 시판 후 감시 보고서",heading),p(f"{number} / 버전 {version} / 생성자 {creator} / {timezone.localtime():%Y-%m-%d %H:%M %Z}"),p("포트폴리오용 · 규제 제출 또는 의료 판단을 대신하지 않습니다.")]
+    story=[p(title,heading),p(f"{number} / 버전 {version} / 생성자 {creator} / {timezone.localtime():%Y-%m-%d %H:%M %Z}"),p("포트폴리오용 · 규제 제출 또는 의료 판단을 대신하지 않습니다.")]
     def section(title,value):
         story.append(p(title,heading))
         def flatten(v,prefix=""):

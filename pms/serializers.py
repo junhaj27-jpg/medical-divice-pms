@@ -76,6 +76,10 @@ class AuditSerializer(serializers.ModelSerializer):
 class AttachmentSerializer(serializers.ModelSerializer):
     uploaded_by=serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta: model=Attachment; fields="__all__"; read_only_fields=("original_name","scan_status","sha256","detected_type","scanned_at")
+    def validate(self,data):
+        if 'ra_profile' in self.initial_data or not data.get('complaint',getattr(self.instance,'complaint',None)):
+            raise serializers.ValidationError('제품 RA 증빙은 RA 전용 업로드 화면을 사용하세요.')
+        return data
     def validate_file(self,value):
         from .file_security import validate_upload
         from django.core.exceptions import ValidationError

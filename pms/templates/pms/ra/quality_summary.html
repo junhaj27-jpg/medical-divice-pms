@@ -1,0 +1,12 @@
+{% extends 'pms/base.html' %}
+{% block content %}
+<h1>GMP 양식·문서 현황</h1>
+<p>{% if example %}예시{% else %}실제{% endif %} 자료의 등록 기록을 집계합니다.</p>
+<a href="?sample=0">실제 자료</a> · <a href="?sample=1">예시 자료</a>
+<p>작성 값이 비어 있는 기록 {{ empty_count }}건, 작성 기한 경과 {{ overdue_count }}건입니다.</p>
+{% for record in overdue %}<p><a href="/ra/quality-records/{{ record.pk }}/">{{ record.title }}</a> · {{ record.owner }} · {{ record.due_on }}</p>{% endfor %}
+<h2>정기 검토 기한 경과 {{ doc_count }}건</h2>
+{% for row in due_documents %}<p><a href="/ra/documents/{{ row.document_id }}/">{{ row.document }}</a> · {{ row.document.next_review_on }}</p>{% endfor %}
+<h2>미승인 문서 정의 {{ unapproved_count }}건</h2>
+{% for row in unapproved %}<p><a href="/ra/quality-documents/{{ row.pk }}/">{{ row.title }}</a> · {{ row.get_state_display }}</p>{% endfor %}
+{% endblock %}
