@@ -6,10 +6,15 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
+from .history import AppendOnlyRecord
 
 class TimeStamped(models.Model):
     created_at=models.DateTimeField(auto_now_add=True); updated_at=models.DateTimeField(auto_now=True)
     class Meta: abstract=True
+    def clean(self):
+        from .model_integrity import validate_relations
+        validate_relations(self)
+
     def save(self,*args,**kwargs):
         # Writers of approval inputs share the case lock used by approval and transitions.
         with transaction.atomic():
@@ -21,7 +26,27 @@ class TimeStamped(models.Model):
                 old_id=type(self).objects.filter(pk=self.pk).values_list('complaint_id',flat=True).first()
                 if old_id: case_ids.add(old_id)
             for locked_id in sorted(case_ids): CustomerComplaint.objects.select_for_update().get(pk=locked_id)
-            return super().save(*args,**kwargs)
+            if type(self).__name__ == 'Recall' and self.pk:
+                Recall.objects.select_for_update().get(pk=self.pk)
+            if type(self).__name__ in ('RecallTarget', 'RecallRecipient'):
+                self.recall=Recall.objects.select_for_update().get(pk=self.recall_id)
+            from .model_integrity import validate_relations
+            validate_relations(self)
+            history_model = {'RiskAssessment': 'RiskAssessmentHistory', 'RegulatoryReport': 'RegulatoryReportHistory'}.get(type(self).__name__)
+            before = type(self).objects.filter(pk=self.pk).values().first() if self.pk and history_model else None
+            result = super().save(*args,**kwargs)
+            if history_model:
+                from django.core.serializers.json import DjangoJSONEncoder
+                import json
+                after = type(self).objects.filter(pk=self.pk).values().get()
+                comparable=lambda row: {k:v for k,v in (row or {}).items() if k not in ('created_at','updated_at')}
+                if comparable(before) != comparable(after):
+                    globals()[history_model].objects.create(parent=self, actor=getattr(self, '_history_actor', None),
+                        reason=getattr(self, '_history_reason', '') or getattr(self, 'rationale', ''),
+                        source='APPLICATION' if getattr(self, '_history_actor', None) else 'DIRECT_MODEL',
+                        before=json.loads(json.dumps(before or {}, cls=DjangoJSONEncoder)),
+                        after=json.loads(json.dumps(after, cls=DjangoJSONEncoder)))
+            return result
 
 class Profile(models.Model):
     class Role(models.TextChoices): STAFF="STAFF","직원"; RA_QA="RA_QA","RA/QA"; ADMIN="ADMIN","관리자"
@@ -43,6 +68,7 @@ class ProductLot(TimeStamped):
     device=models.ForeignKey(MedicalDevice,on_delete=models.CASCADE,related_name="lots"); udi=models.ForeignKey(UDI,on_delete=models.PROTECT,related_name="lots"); lot_number=models.CharField(max_length=100); serial_number=models.CharField(max_length=100,blank=True); manufactured_on=models.DateField(null=True,blank=True); expires_on=models.DateField(null=True,blank=True); distributed_quantity=models.PositiveIntegerField(default=0)
     class Meta: unique_together=("udi","lot_number","serial_number")
     def clean(self):
+        super().clean()
         if self.udi_id and self.device_id and self.udi.device_id!=self.device_id: raise ValidationError("UDI는 선택한 의료기기에 속해야 합니다.")
     def __str__(self): return f"{self.lot_number} / {self.serial_number or '-'}"
 
@@ -51,29 +77,38 @@ class CustomerComplaint(TimeStamped):
     class Status(models.TextChoices): RECEIVED="RECEIVED","접수"; REVIEW="REVIEW","RA/QA 검토"; AE_DECISION="AE_DECISION","이상사례 판단"; RISK="RISK","위험평가"; CAPA_DECISION="CAPA_DECISION","CAPA 판단"; REPORT_REVIEW="REPORT_REVIEW","규제보고 검토"; RECALL_REVIEW="RECALL_REVIEW","리콜 검토"; APPROVAL="APPROVAL","관리자 승인"; ACTION_COMPLETE="ACTION_COMPLETE","조치 완료"; CLOSED="CLOSED","종료"
     device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="complaints"); udi=models.ForeignKey(UDI,on_delete=models.PROTECT); lot=models.ForeignKey(ProductLot,on_delete=models.PROTECT,null=True,blank=True,related_name="complaints"); serial_number=models.CharField(max_length=100,blank=True); complaint_type=models.CharField(max_length=50,db_index=True); title=models.CharField(max_length=200); description=models.TextField(); occurred_on=models.DateField(); reported_on=models.DateField(default=timezone.localdate); reporter=models.ForeignKey(User,on_delete=models.PROTECT,related_name="reported_complaints"); assignee=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="assigned_complaints"); status=models.CharField(max_length=20,choices=Status.choices,default=Status.RECEIVED); due_date=models.DateField(null=True,blank=True); version=models.PositiveIntegerField(default=1)
     class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(status__in=['RECEIVED', 'REVIEW', 'AE_DECISION', 'RISK', 'CAPA_DECISION', 'REPORT_REVIEW', 'RECALL_REVIEW', 'APPROVAL', 'ACTION_COMPLETE', 'CLOSED']),name="customercomplaint_status_valid")]
         ordering=["-created_at"]
         indexes=[models.Index(fields=["reported_on","device","lot"],name="complaint_period_product"),models.Index(fields=["reporter","reported_on"],name="complaint_owner_period")]
     def __str__(self): return f"CMP-{self.pk or 'NEW'} {self.title}"
 class PatientAnonymousInfo(TimeStamped):
-    complaint=models.OneToOneField(CustomerComplaint,on_delete=models.CASCADE,related_name="patient_info"); anonymous_code=models.CharField(max_length=64,unique=True); age_band=models.CharField(max_length=20,blank=True); sex=models.CharField(max_length=20,blank=True); notes=models.TextField(blank=True)
+    complaint=models.OneToOneField(CustomerComplaint,on_delete=models.PROTECT,related_name="patient_info"); anonymous_code=models.CharField(max_length=64,unique=True); age_band=models.CharField(max_length=20,blank=True); sex=models.CharField(max_length=20,blank=True); notes=models.TextField(blank=True)
     def clean(self):
+        super().clean()
         forbidden=("name","phone","resident","이름","전화","주민")
         if any(x in self.notes.lower() for x in forbidden): raise ValidationError("직접 식별정보는 저장할 수 없습니다.")
 class AdverseEvent(TimeStamped):
-    complaint=models.OneToOneField(CustomerComplaint,on_delete=models.CASCADE,related_name="adverse_event"); patient=models.ForeignKey(PatientAnonymousInfo,on_delete=models.PROTECT,null=True,blank=True); event_type=models.CharField(max_length=50); outcome=models.CharField(max_length=100); serious=models.BooleanField(default=False); narrative=models.TextField()
+    complaint=models.OneToOneField(CustomerComplaint,on_delete=models.PROTECT,related_name="adverse_event"); patient=models.ForeignKey(PatientAnonymousInfo,on_delete=models.PROTECT,null=True,blank=True); event_type=models.CharField(max_length=50); outcome=models.CharField(max_length=100); serious=models.BooleanField(default=False); narrative=models.TextField()
 class RiskAssessment(TimeStamped):
-    complaint=models.OneToOneField(CustomerComplaint,on_delete=models.CASCADE,related_name="risk_assessment"); severity=models.PositiveSmallIntegerField(validators=[MinValueValidator(1),MaxValueValidator(5)]); probability=models.PositiveSmallIntegerField(validators=[MinValueValidator(1),MaxValueValidator(5)]); score=models.PositiveSmallIntegerField(default=1,editable=False); level=models.CharField(max_length=10,editable=False); capa_review_required=models.BooleanField(default=False,editable=False); rationale=models.TextField(blank=True); assessed_by=models.ForeignKey(User,on_delete=models.PROTECT)
+    complaint=models.OneToOneField(CustomerComplaint,on_delete=models.PROTECT,related_name="risk_assessment"); severity=models.PositiveSmallIntegerField(validators=[MinValueValidator(1),MaxValueValidator(5)]); probability=models.PositiveSmallIntegerField(validators=[MinValueValidator(1),MaxValueValidator(5)]); score=models.PositiveSmallIntegerField(default=1,editable=False); level=models.CharField(max_length=10,editable=False); capa_review_required=models.BooleanField(default=False,editable=False); rationale=models.TextField(blank=True); assessed_by=models.ForeignKey(User,on_delete=models.PROTECT)
     def save(self,*a,**kw):
         self.score=self.severity*self.probability
         self.level="LOW" if self.score<=4 else "MEDIUM" if self.score<=9 else "HIGH" if self.score<=16 else "CRITICAL"
-        self.capa_review_required=self.score>=10; super().save(*a,**kw)
+        self.capa_review_required=self.score>=10
+        if kw.get('update_fields') is not None:
+            kw['update_fields']=set(kw['update_fields'])|{'score','level','capa_review_required'}
+        super().save(*a,**kw)
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(severity__range=(1,5),probability__range=(1,5)),name="risk_values_range"),models.CheckConstraint(condition=models.Q(score=models.F("severity")*models.F("probability")),name="risk_score_product")]
+
 class CAPA(TimeStamped):
     class Status(models.TextChoices): OPEN="OPEN","개시"; INVESTIGATION="INVESTIGATION","조사"; IMPLEMENTATION="IMPLEMENTATION","실행"; EFFECTIVENESS="EFFECTIVENESS","효과확인"; CLOSED="CLOSED","종료"
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.CASCADE,related_name="capas"); title=models.CharField(max_length=200); root_cause=models.TextField(blank=True); corrective_action=models.TextField(); preventive_action=models.TextField(blank=True); owner=models.ForeignKey(User,on_delete=models.PROTECT); due_date=models.DateField(); status=models.CharField(max_length=20,choices=Status.choices,default=Status.OPEN)
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="capas"); title=models.CharField(max_length=200); root_cause=models.TextField(blank=True); corrective_action=models.TextField(); preventive_action=models.TextField(blank=True); owner=models.ForeignKey(User,on_delete=models.PROTECT); due_date=models.DateField(); status=models.CharField(max_length=20,choices=Status.choices,default=Status.OPEN)
     action_result=models.TextField("조치 결과",blank=True)
     evaluation_criteria=models.TextField("평가 기준",blank=True)
     evaluation_due=models.DateField("평가 예정일",null=True,blank=True)
     def clean(self):
+        super().clean()
         if self.status == self.Status.CLOSED:
             latest=self.evaluations.order_by("-created_at","-pk").first() if self.pk else None
             if not self.action_result.strip() or not self.evaluation_criteria.strip() or not self.evaluation_due or not latest or latest.verdict != "PASS" or latest.action_result != self.action_result or latest.criteria != self.evaluation_criteria or latest.scheduled_on != self.evaluation_due:
@@ -83,23 +118,37 @@ class CAPA(TimeStamped):
             if self.complaint_id: CustomerComplaint.objects.select_for_update().get(pk=self.complaint_id)
             if self.pk: type(self).objects.select_for_update().get(pk=self.pk)
             self.clean(); return super().save(*args,**kwargs)
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(status__in=['OPEN', 'INVESTIGATION', 'IMPLEMENTATION', 'EFFECTIVENESS', 'CLOSED']),name="capa_status_valid")]
+
 class Recall(TimeStamped):
     class Approval(models.TextChoices): DRAFT="DRAFT","작성"; PENDING="PENDING","승인대기"; APPROVED="APPROVED","승인"; REJECTED="REJECTED","반려"
     class Progress(models.TextChoices): PLANNED="PLANNED","계획"; ACTIVE="ACTIVE","진행"; COMPLETED="COMPLETED","완료"; CLOSED="CLOSED","종료"
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.SET_NULL,null=True,blank=True,related_name="recalls"); title=models.CharField(max_length=200); reason=models.TextField(); risk_level=models.CharField(max_length=10); device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="recalls"); distributed_quantity=models.PositiveIntegerField(); target_quantity=models.PositiveIntegerField(); recovered_quantity=models.PositiveIntegerField(default=0); start_date=models.DateField(); expected_end_date=models.DateField(); owner=models.ForeignKey(User,on_delete=models.PROTECT); approval_status=models.CharField(max_length=10,choices=Approval.choices,default=Approval.DRAFT); decision_reason=models.TextField(blank=True); progress_status=models.CharField(max_length=10,choices=Progress.choices,default=Progress.PLANNED); closure_report=models.TextField(blank=True)
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,null=True,blank=True,related_name="recalls"); title=models.CharField(max_length=200); reason=models.TextField(); risk_level=models.CharField(max_length=10); device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="recalls"); distributed_quantity=models.PositiveIntegerField(); target_quantity=models.PositiveIntegerField(); recovered_quantity=models.PositiveIntegerField(default=0); start_date=models.DateField(); expected_end_date=models.DateField(); owner=models.ForeignKey(User,on_delete=models.PROTECT); approval_status=models.CharField(max_length=10,choices=Approval.choices,default=Approval.DRAFT); decision_reason=models.TextField(blank=True); progress_status=models.CharField(max_length=10,choices=Progress.choices,default=Progress.PLANNED); closure_report=models.TextField(blank=True)
     def clean(self):
+        super().clean()
         if self.target_quantity>self.distributed_quantity: raise ValidationError("회수 목표 수량은 유통 수량을 초과할 수 없습니다.")
         if self.recovered_quantity>self.target_quantity: raise ValidationError("실제 회수 수량은 목표 수량을 초과할 수 없습니다.")
     @property
     def recovery_rate(self): return round(self.recovered_quantity/self.target_quantity*100,1) if self.target_quantity else 0
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(target_quantity__lte=models.F("distributed_quantity"),recovered_quantity__lte=models.F("target_quantity")),name="recall_quantity_bounds"),models.CheckConstraint(condition=models.Q(approval_status__in=['DRAFT', 'PENDING', 'APPROVED', 'REJECTED']),name="recall_approval_status_valid"),models.CheckConstraint(condition=models.Q(progress_status__in=['PLANNED', 'ACTIVE', 'COMPLETED', 'CLOSED']),name="recall_progress_status_valid")]
+
 class RecallTarget(TimeStamped):
-    recall=models.ForeignKey(Recall,on_delete=models.CASCADE,related_name="targets"); lot=models.ForeignKey(ProductLot,on_delete=models.PROTECT); serial_number=models.CharField(max_length=100,blank=True); target_quantity=models.PositiveIntegerField()
+    recall=models.ForeignKey(Recall,on_delete=models.PROTECT,related_name="targets"); lot=models.ForeignKey(ProductLot,on_delete=models.PROTECT); serial_number=models.CharField(max_length=100,blank=True); target_quantity=models.PositiveIntegerField()
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=["recall","lot","serial_number"],name="unique_recall_target"),models.CheckConstraint(condition=models.Q(target_quantity__gte=1),name="positive_recall_target")]
+
 class RegulatoryReport(TimeStamped):
     class Status(models.TextChoices): DRAFT="DRAFT","작성"; REVIEW="REVIEW","검토"; APPROVED="APPROVED","승인"; SUBMITTED="SUBMITTED","제출"; REJECTED="REJECTED","반려"
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="reports"); document_number=models.CharField(max_length=50,unique=True); required=models.BooleanField(default=False); checklist=models.JSONField(default=dict,blank=True); investigation_result=models.TextField(blank=True); status=models.CharField(max_length=12,choices=Status.choices,default=Status.DRAFT); author=models.ForeignKey(User,on_delete=models.PROTECT,related_name="authored_reports"); reviewer=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="reviewed_reports"); approved_by=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="approved_reports"); approved_at=models.DateTimeField(null=True,blank=True)
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="reports"); document_number=models.CharField(max_length=50,unique=True); required=models.BooleanField(default=False); checklist=models.JSONField(default=dict,blank=True); investigation_result=models.TextField(blank=True); status=models.CharField(max_length=12,choices=Status.choices,default=Status.DRAFT); author=models.ForeignKey(User,on_delete=models.PROTECT,related_name="authored_reports"); reviewer=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True,related_name="reviewed_reports"); approved_by=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True,related_name="approved_reports"); approved_at=models.DateTimeField(null=True,blank=True)
+    class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(status__in=['DRAFT', 'REVIEW', 'APPROVED', 'SUBMITTED', 'REJECTED']),name="regulatoryreport_status_valid")]
+
 def upload_to(instance,filename): return f"attachments/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
 class Attachment(TimeStamped):
-    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.CASCADE,related_name="attachments"); file=models.FileField(upload_to=upload_to,validators=[FileExtensionValidator(["pdf","png","jpg","jpeg","txt","csv"])]); original_name=models.CharField(max_length=255,blank=True); uploaded_by=models.ForeignKey(User,on_delete=models.PROTECT)
+    complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="attachments"); file=models.FileField(upload_to=upload_to,validators=[FileExtensionValidator(["pdf","png","jpg","jpeg","txt","csv"])]); original_name=models.CharField(max_length=255,blank=True); uploaded_by=models.ForeignKey(User,on_delete=models.PROTECT)
     scan_status=models.CharField(max_length=12,choices=[("PENDING","검사 대기"),("PASSED","통과"),("QUARANTINED","격리"),("FAILED","검사 실패")],default="PENDING",db_index=True)
     sha256=models.CharField(max_length=64,blank=True)
     detected_type=models.CharField(max_length=20,blank=True)
@@ -112,11 +161,12 @@ class Attachment(TimeStamped):
 class Approval(TimeStamped):
     superseded=models.BooleanField(default=False)
     class Meta:
-        constraints=[models.UniqueConstraint(fields=["content_type","object_id"],condition=models.Q(decision="PENDING",superseded=False,content_type="CustomerComplaint"),name="unique_pending_case_approval")]
+        indexes=[models.Index(fields=["content_type","object_id","-created_at","-id"],name="approval_object_sequence")]
+        constraints=[models.CheckConstraint(condition=models.Q(decision__in=['PENDING', 'APPROVED', 'REJECTED']),name="approval_decision_valid"),models.UniqueConstraint(fields=["content_type","object_id"],condition=models.Q(decision="PENDING",superseded=False,content_type="CustomerComplaint"),name="unique_pending_case_approval")]
     class Decision(models.TextChoices): PENDING="PENDING","대기"; APPROVED="APPROVED","승인"; REJECTED="REJECTED","반려"
-    content_type=models.CharField(max_length=50); object_id=models.PositiveIntegerField(); requested_by=models.ForeignKey(User,on_delete=models.PROTECT,related_name="requested_approvals"); decided_by=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="decided_approvals"); decision=models.CharField(max_length=10,choices=Decision.choices,default=Decision.PENDING); reason=models.TextField(blank=True); snapshot=models.JSONField(default=dict,blank=True); decided_at=models.DateTimeField(null=True,blank=True)
-class AuditLog(models.Model):
-    actor=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True); action=models.CharField(max_length=30); object_type=models.CharField(max_length=80,blank=True); object_id=models.CharField(max_length=80,blank=True); before=models.JSONField(default=dict,blank=True); after=models.JSONField(default=dict,blank=True); ip_address=models.GenericIPAddressField(null=True,blank=True); created_at=models.DateTimeField(auto_now_add=True)
+    content_type=models.CharField(max_length=50); object_id=models.PositiveIntegerField(); requested_by=models.ForeignKey(User,on_delete=models.PROTECT,related_name="requested_approvals"); decided_by=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True,related_name="decided_approvals"); decision=models.CharField(max_length=10,choices=Decision.choices,default=Decision.PENDING); reason=models.TextField(blank=True); snapshot=models.JSONField(default=dict,blank=True); decided_at=models.DateTimeField(null=True,blank=True)
+class AuditLog(AppendOnlyRecord):
+    actor=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True); action=models.CharField(max_length=30); object_type=models.CharField(max_length=80,blank=True); object_id=models.CharField(max_length=80,blank=True); before=models.JSONField(default=dict,blank=True); after=models.JSONField(default=dict,blank=True); ip_address=models.GenericIPAddressField(null=True,blank=True); created_at=models.DateTimeField(auto_now_add=True)
     class Meta: ordering=["-created_at"]
 class Notification(TimeStamped):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name="notifications"); title=models.CharField(max_length=200); message=models.TextField(); level=models.CharField(max_length=10,default="INFO"); due_at=models.DateTimeField(null=True,blank=True); read_at=models.DateTimeField(null=True,blank=True)
@@ -145,15 +195,17 @@ class WorkTask(TimeStamped):
     due_at=models.DateTimeField("마감일")
     status=models.CharField("상태",max_length=16,choices=Status.choices,default=Status.WAITING)
     class Meta:
+        constraints=[models.CheckConstraint(condition=models.Q(capa__isnull=True)|models.Q(recall__isnull=True),name="task_one_action_parent"),models.CheckConstraint(condition=models.Q(status__in=['WAITING', 'IN_PROGRESS', 'REVIEW', 'DONE']),name="worktask_status_valid")]
         indexes=[models.Index(fields=["assignee","status","due_at"])]
         ordering=["due_at","pk"]
     def clean(self):
+        super().clean()
         if self.capa_id and self.capa.complaint_id != self.complaint_id: raise ValidationError("CAPA 사건이 일치하지 않습니다.")
         if self.recall_id and self.recall.complaint_id != self.complaint_id: raise ValidationError("리콜 사건이 일치하지 않습니다.")
         if self.capa_id and self.recall_id: raise ValidationError("CAPA 또는 리콜 중 하나만 연결하세요.")
     def __str__(self): return self.title
 
-class TaskHistory(models.Model):
+class TaskHistory(AppendOnlyRecord):
     task=models.ForeignKey(WorkTask,on_delete=models.PROTECT,related_name="history")
     actor=models.ForeignKey(User,on_delete=models.PROTECT)
     created_at=models.DateTimeField(auto_now_add=True)
@@ -176,6 +228,13 @@ class CAPAEvaluation(models.Model):
     def save(self,*args,**kwargs):
         with transaction.atomic():
             CustomerComplaint.objects.select_for_update().get(pk=self.capa.complaint_id)
+            if self.pk:
+                old=type(self).objects.get(pk=self.pk)
+                if any(getattr(old,f.attname)!=getattr(self,f.attname) for f in self._meta.concrete_fields if f.name not in ('followup',)):
+                    raise ValidationError('효과성 평가 내용은 수정할 수 없습니다. 재평가를 추가하세요.')
+                if old.followup_id and old.followup_id!=self.followup_id: raise ValidationError('후속 업무는 교체할 수 없습니다.')
+            if self.followup_id and (self.followup.complaint_id!=self.capa.complaint_id or self.followup.capa_id!=self.capa_id):
+                raise ValidationError('효과성 평가와 후속 업무의 CAPA·사건이 일치하지 않습니다.')
             return super().save(*args,**kwargs)
 
 class BusinessPartner(TimeStamped):
@@ -207,15 +266,22 @@ class RecallRecipient(TimeStamped):
     def __str__(self): return f"{self.partner} / {self.lot} ({self.unit})"
 
 class RecoveryEntry(models.Model):
+    def save(self,*args,**kwargs):
+        if self.pk or not getattr(self,'_ledger_write',False):
+            raise ValidationError('회수 원장은 record_recovery 서비스로만 추가할 수 있습니다.')
+        return super().save(*args,**kwargs)
+    def delete(self,*args,**kwargs): raise ValidationError('회수 원장은 삭제할 수 없습니다.')
+
+    request_key=models.CharField(max_length=64,null=True,blank=True)
     recipient=models.ForeignKey(RecallRecipient,on_delete=models.PROTECT,related_name="recoveries")
     recovered_on=models.DateField("회수 일자")
     quantity=models.PositiveIntegerField("회수 수량",validators=[MinValueValidator(1)])
     actor=models.ForeignKey(User,on_delete=models.PROTECT)
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta:
-        constraints=[models.CheckConstraint(condition=models.Q(quantity__gte=1),name="positive_recovery_quantity")]
+        constraints=[models.UniqueConstraint(fields=["recipient","request_key"],name="unique_recovery_request"),models.CheckConstraint(condition=models.Q(quantity__gte=1),name="positive_recovery_quantity")]
 
-class RecallContact(models.Model):
+class RecallContact(AppendOnlyRecord):
     recipient=models.ForeignKey(RecallRecipient,on_delete=models.PROTECT,related_name="contacts")
     contacted_at=models.DateTimeField("연락 일시")
     method=models.CharField("연락 방법",max_length=100)
@@ -287,7 +353,7 @@ class ReportingRule(TimeStamped):
         finally: self._workflow_write=False
     def __str__(self): return f"{self.name} v{self.version} · {self.get_state_display()}" + (" (예시·운영 적용 전 검토 필요)" if self.is_example else "")
 
-class RuleApplication(models.Model):
+class RuleApplication(AppendOnlyRecord):
     previous_snapshot=models.JSONField(default=dict,blank=True)
     complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="rule_applications")
     rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT)
@@ -298,7 +364,7 @@ class RuleApplication(models.Model):
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta: ordering=["-created_at","-pk"]
 
-class ReportArtifact(models.Model):
+class ReportArtifact(AppendOnlyRecord):
     complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,related_name="artifacts")
     number=models.CharField(max_length=80)
     version=models.PositiveIntegerField()
@@ -390,7 +456,7 @@ class RuleCitation(models.Model):
     created_by=models.ForeignKey(User,on_delete=models.PROTECT)
     created_at=models.DateTimeField(auto_now_add=True)
 
-class RulePreview(models.Model):
+class RulePreview(AppendOnlyRecord):
     rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT,related_name="previews")
     fingerprint=models.CharField(max_length=64)
     inputs=models.JSONField()
@@ -398,7 +464,7 @@ class RulePreview(models.Model):
     created_by=models.ForeignKey(User,on_delete=models.PROTECT)
     created_at=models.DateTimeField(auto_now_add=True)
 
-class RuleChange(models.Model):
+class RuleChange(AppendOnlyRecord):
     @property
     def action_label(self):
         labels={"RULE_DRAFT_SAVE":"초안 저장","RULE_REVISE":"개정 초안 생성","RULE_CITATION_ADD":"근거 인용 추가","RULE_CITATION_REMOVE":"근거 인용 제거","RULE_HOLIDAY_IMPORT":"휴일 목록 가져오기","RULE_SUBMIT":"검토 요청","RULE_REJECT":"반려","RULE_APPROVE":"승인","RULE_ACTIVATE":"시행 승인","RULE_RETIRE":"폐기"}
@@ -417,10 +483,8 @@ class RuleFamilyLock(models.Model):
     # One lock per existing rule family, shared across all writers/approvers.
     key=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
 
-<<<<<<< HEAD
 from .analysis_models import AnalysisImport, AnalysisRecord, AnalysisReview, AnalysisReviewHistory
 from .safety_models import SafetySignal, SafetyReview
-=======
 
 class RegulatoryImpact(TimeStamped):
     old_rule=models.ForeignKey(ReportingRule,on_delete=models.PROTECT,related_name="old_impacts")
@@ -442,7 +506,7 @@ class ImpactReview(TimeStamped):
     processed_at=models.DateTimeField(null=True,blank=True)
     application=models.OneToOneField(RuleApplication,on_delete=models.PROTECT,null=True,blank=True)
     class Meta:
-        constraints=[models.UniqueConstraint(fields=["analysis","complaint"],name="unique_impact_case")]
+        constraints=[models.CheckConstraint(condition=models.Q(status__in=['WAITING', 'IN_PROGRESS', 'APPLIED', 'EXCLUDED']),name="impactreview_status_valid"),models.UniqueConstraint(fields=["analysis","complaint"],name="unique_impact_case")]
 
 
 # Collector deletions and evidence membership changes also participate in the case lock.
@@ -458,8 +522,45 @@ def lock_approval_input_delete(sender,instance,using,**kwargs):
     if case_id: CustomerComplaint.objects.using(using).select_for_update().get(pk=case_id)
 
 @receiver(m2m_changed,sender=CAPAEvaluation.evidence.through)
-def lock_evaluation_evidence(sender,instance,action,reverse,using,**kwargs):
+def lock_evaluation_evidence(sender,instance,action,reverse,using,pk_set=None,**kwargs):
     if not action.startswith('pre_'): return
+    if action == 'pre_add':
+        if reverse:
+            invalid=CAPAEvaluation.objects.filter(pk__in=pk_set).exclude(capa__complaint_id=instance.complaint_id).exists() or instance.scan_status!='PASSED'
+        else:
+            invalid=Attachment.objects.filter(pk__in=pk_set).exclude(complaint_id=instance.capa.complaint_id,scan_status='PASSED').exists()
+        if invalid: raise ValidationError('동일 사건의 검사 통과 증빙만 연결할 수 있습니다.')
     ids=[instance.complaint_id] if reverse else [instance.capa.complaint_id]
     for case_id in ids: CustomerComplaint.objects.using(using).select_for_update().get(pk=case_id)
->>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
+
+
+class ImmutableHistory(models.Model):
+    actor=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    reason=models.TextField(blank=True)
+    source=models.CharField(max_length=20,choices=[('APPLICATION','Application'),('DIRECT_MODEL','Direct model; actor unknown')])
+    before=models.JSONField(default=dict)
+    after=models.JSONField(default=dict)
+    class Meta: abstract=True
+    def save(self,*args,**kwargs):
+        if self.pk: raise ValidationError('이력은 수정할 수 없습니다.')
+        return super().save(*args,**kwargs)
+    def delete(self,*args,**kwargs): raise ValidationError('이력은 삭제할 수 없습니다.')
+
+class RiskAssessmentHistory(ImmutableHistory):
+    parent=models.ForeignKey(RiskAssessment,on_delete=models.PROTECT,related_name='history')
+    class Meta:
+        ordering=['created_at','pk']
+        indexes=[models.Index(fields=['parent','created_at'],name='risk_history_parent_time')]
+
+class RegulatoryReportHistory(ImmutableHistory):
+    parent=models.ForeignKey(RegulatoryReport,on_delete=models.PROTECT,related_name='history')
+    class Meta:
+        ordering=['created_at','pk']
+        indexes=[models.Index(fields=['parent','created_at'],name='report_history_parent_time')]
+
+
+@receiver(pre_delete)
+def preserve_history_rows(sender,instance,**kwargs):
+    if sender in (RiskAssessmentHistory,RegulatoryReportHistory,RecoveryEntry,CAPAEvaluation,TaskHistory,AnalysisReviewHistory,SafetyReview,RuleChange,RuleApplication,ReportArtifact,AuditLog,RecallContact,RulePreview):
+        raise ValidationError('평가·보고 이력은 삭제할 수 없습니다.')

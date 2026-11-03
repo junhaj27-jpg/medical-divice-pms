@@ -1,3 +1,4 @@
+import uuid
 from django import forms
 from .forms import StyledForm
 from .models import WorkTask, CAPAEvaluation, RecallRecipient, RecallContact, ReportingRule, BusinessPartner
@@ -28,6 +29,7 @@ class ContactForm(StyledForm):
         widgets={"contacted_at":forms.DateTimeInput(attrs={"type":"datetime-local"})}
 
 class RecoveryForm(forms.Form):
+    request_key=forms.UUIDField(initial=uuid.uuid4,widget=forms.HiddenInput)
     quantity=forms.IntegerField(label="회수 수량",min_value=1)
     recovered_on=forms.DateField(label="회수 일자",widget=forms.DateInput(attrs={"type":"date"}))
 

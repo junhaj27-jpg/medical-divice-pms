@@ -18,7 +18,7 @@ class Command(BaseCommand):
         lot,_=ProductLot.objects.get_or_create(device=d,udi=udi,lot_number="LOT-2026-A",serial_number="",defaults={"manufactured_on":timezone.localdate()-timedelta(days=120),"distributed_quantity":500})
         complaints=[]
         for i in range(5):
-            c,_=CustomerComplaint.objects.get_or_create(device=d,udi=udi,lot=lot,title=f"센서 측정 불안정 샘플 {i+1}",defaults={"complaint_type":"SENSOR_ACCURACY","description":"간헐적인 측정값 변동이 보고됨. 데모 데이터입니다.","occurred_on":timezone.localdate()-timedelta(days=i*3),"reported_on":timezone.localdate()-timedelta(days=i*3),"reporter":users["staff"],"assignee":users["raqa"],"due_date":timezone.localdate()+timedelta(days=20-i)})
+            c,_=CustomerComplaint.objects.get_or_create(device=d,udi=udi,lot=lot,title=f"센서 측정 불안정 샘플 {i+1}",defaults={"is_example":True,"complaint_type":"SENSOR_ACCURACY","description":"간헐적인 측정값 변동이 보고됨. 데모 데이터입니다.","occurred_on":timezone.localdate()-timedelta(days=i*3),"reported_on":timezone.localdate()-timedelta(days=i*3),"reporter":users["staff"],"assignee":users["raqa"],"due_date":timezone.localdate()+timedelta(days=20-i)})
             complaints.append(c)
         RiskAssessment.objects.update_or_create(complaint=complaints[0],defaults={"severity":5,"probability":4,"rationale":"데모 위험평가","assessed_by":users["raqa"]})
         CAPA.objects.get_or_create(complaint=complaints[0],title="센서 보정 공정 개선",defaults={"corrective_action":"보정 기준 재검증","preventive_action":"출하 검사 샘플 확대","owner":users["raqa"],"due_date":timezone.localdate()+timedelta(days=30)})

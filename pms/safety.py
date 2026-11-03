@@ -145,6 +145,11 @@ def review_signal(user, signal_id, status, assignee_id, note, capa_id=None, reca
         if pk:
             obj = model.objects.filter(pk=pk,complaint_id__in=ids).first()
             if not obj: raise ValidationError("신호의 연결 사건에 속한 기존 조치만 연결하세요.")
+            group=signal.snapshot['group']
+            case=obj.complaint
+            if case.device_id!=group['device_id'] or case.lot_id!=group['lot_id'] or case.is_example!=(signal.snapshot['filters']['example']=='sample'):
+                raise ValidationError('신호 스냅샷과 현재 사건의 제품·LOT·예시 구분이 일치하지 않습니다.')
+            if key=='recall' and obj.device_id!=case.device_id: raise ValidationError('리콜 제품이 신호 사건과 일치하지 않습니다.')
             links[key] = obj.pk
     if status == "ACTION" and not links: raise ValidationError("조치 연결에는 기존 CAPA 또는 리콜이 필요합니다.")
     SafetyReview.objects.create(signal=signal,actor=user,assignee=assignee,before=signal.status,after=status,note=note,links=links)

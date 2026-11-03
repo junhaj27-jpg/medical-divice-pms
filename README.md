@@ -768,3 +768,9 @@ python scripts/verify_safety_sample.py D:/pms-verify/new-safety-example
 일반 리콜 API는 승인 상태 입력과 CLOSED 전환을 거부한다. ADMIN 전용 리콜 처리 화면에서 승인/반려 및 승인·종료 보고서를 전제로 종결한다. 이상사례 API의 사건·익명 환자 참조는 사용자 범위와 동일 사건 조건을 검사한다. 서비스 검증 오류는 API의 일반 400 JSON 오류로 반환한다.
 
 PostgreSQL의 동시 승인·동시 상태 변경은 실제 PostgreSQL 환경에서 별도 확인해야 한다. SQLite 테스트와 잠금 코드 검토만으로 동시성 안전성을 통과 처리하지 않는다. AI 모의 응답/합성 어댑터 검증도 실제 공급자 연결 성공으로 기록하지 않는다.
+
+## 데이터 모델 문서
+
+- [영역별 ERD](docs/erd.md)
+- [데이터 사전](docs/data-dictionary.md)
+- [무결성·이력·마이그레이션 및 검증](docs/data-integrity.md)

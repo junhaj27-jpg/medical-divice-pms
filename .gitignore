@@ -11,3 +11,4 @@ private_media/
 .test-tmp/
 .test-media/
 tmp*/
+/work/erd-validation/

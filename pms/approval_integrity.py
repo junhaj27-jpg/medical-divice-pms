@@ -27,6 +27,7 @@ def row(obj, fields):
 
 
 def approval_snapshot(case):
+    from .models import RecoveryEntry, RecallContact, RiskAssessmentHistory, RegulatoryReportHistory
     scopes = {'case': digest(row(case, FIELDS['case']))}
     for name, fields in FIELDS.items():
         if name == 'case':
@@ -47,15 +48,19 @@ def approval_snapshot(case):
                                             for ev in obj.evaluations.order_by('pk')]
                 if name == 'recalls':
                     value['targets'] = list(obj.targets.order_by('pk').values('id', 'lot_id', 'serial_number', 'target_quantity'))
+                    value['recoveries'] = list(RecoveryEntry.objects.filter(recipient__recall=obj).order_by('pk').values('id','recipient_id','quantity','recovered_on','actor_id','request_key'))
+                    value['contacts'] = list(RecallContact.objects.filter(recipient__recall=obj).order_by('pk').values('id','recipient_id','contacted_at','method','note','actor_id'))
                     value['recipients'] = list(obj.recipients.order_by('pk').values('id', 'lot_id', 'partner_id', 'unit', 'target_quantity', 'recovered_total', 'reply_status', 'unrecovered_reason', 'notified_on', 'replied_on'))
                 values.append(value)
         scopes[name] = digest(values)
-    return {'schema': 1, 'version': case.version, 'device': str(case.device),
+    for label,model in [('risk_history',RiskAssessmentHistory),('report_history',RegulatoryReportHistory)]:
+        scopes[label]=digest(list(model.objects.filter(parent__complaint=case).order_by('pk').values()))
+    return {'schema': 2, 'version': case.version, 'device': str(case.device),
             'scopes': scopes, 'hash': digest(scopes)}
 
 
 def approval_invalid_reason(approval, case):
-    if not approval or approval.snapshot.get('schema') != 1:
+    if not approval or approval.snapshot.get('schema') != 2:
         return '검증 가능한 승인 스냅샷이 없습니다. 재승인이 필요합니다.'
     current = approval_snapshot(case)
     if approval.snapshot.get('hash') != current['hash']:

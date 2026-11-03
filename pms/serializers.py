@@ -32,7 +32,14 @@ class AdverseEventSerializer(serializers.ModelSerializer):
         if patient and complaint and patient.complaint_id!=complaint.pk:
             raise serializers.ValidationError("환자 익명정보는 같은 사건에 속해야 합니다.")
         return data
-class RiskSerializer(serializers.ModelSerializer):
+class HistorySerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        obj=self.Meta.model(**validated_data)
+        obj._history_actor=self.context['request'].user
+        obj.save()
+        return obj
+
+class RiskSerializer(HistorySerializer):
     score=serializers.IntegerField(read_only=True); level=serializers.CharField(read_only=True); capa_review_required=serializers.BooleanField(read_only=True); assessed_by=serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta: model=RiskAssessment; fields="__all__"
 class CAPASerializer(serializers.ModelSerializer):
@@ -58,7 +65,7 @@ class RecallSerializer(serializers.ModelSerializer):
         if data.get("target_quantity",getattr(self.instance,"target_quantity",0))>data.get("distributed_quantity",getattr(self.instance,"distributed_quantity",0)): raise serializers.ValidationError("회수 목표 수량은 유통 수량을 초과할 수 없습니다.")
         if data.get("recovered_quantity",getattr(self.instance,"recovered_quantity",0))>data.get("target_quantity",getattr(self.instance,"target_quantity",0)): raise serializers.ValidationError("실제 회수 수량은 목표 수량을 초과할 수 없습니다.")
         return data
-class ReportSerializer(serializers.ModelSerializer):
+class ReportSerializer(HistorySerializer):
     class Meta: model=RegulatoryReport; fields="__all__"; read_only_fields=("author","approved_by","approved_at")
 class ApprovalSerializer(serializers.ModelSerializer):
     class Meta: model=Approval; fields="__all__"; read_only_fields=("decided_by","decided_at")

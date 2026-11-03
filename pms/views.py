@@ -38,16 +38,11 @@ def complaint_create(request):
 def complaint_detail(request,pk):
     obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
     approval=Approval.objects.filter(content_type="CustomerComplaint",object_id=obj.pk).order_by("-created_at").first()
-<<<<<<< HEAD
     context={"item":obj,"warnings":recurrent_warning(obj,user=request.user),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
-    context["approval_current"]=approval_is_current(obj) if approval else False
-=======
-    context={"item":obj,"warnings":recurrent_warning(obj),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
     from .approval_integrity import approval_invalid_reason
     context['approval_warning']=approval_invalid_reason(approval,obj) if approval else ''
     context['can_request_approval']=privileged and obj.status in ('APPROVAL','ACTION_COMPLETE') and (not approval or approval.decision=='REJECTED' or bool(context['approval_warning']))
     context['approval_history']=Approval.objects.filter(content_type='CustomerComplaint',object_id=obj.pk).order_by('-pk')
->>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
     return render(request,"pms/complaint_detail.html",context)
 @login_required
 @require_POST
@@ -61,7 +56,7 @@ def complaint_transition(request,pk):
 @require_POST
 def risk_save(request,pk):
     complaint=get_object_or_404(CustomerComplaint,pk=pk); current=getattr(complaint,"risk_assessment",None); form=RiskForm(request.POST,instance=current)
-    if form.is_valid(): obj=form.save(commit=False); obj.complaint=complaint; obj.assessed_by=request.user; obj.save(); audit(request.user,"UPDATE" if current else "CREATE",obj,after={"score":obj.score,"level":obj.level}); messages.success(request,f"위험평가 {obj.score}점({obj.level})을 저장했습니다.")
+    if form.is_valid(): obj=form.save(commit=False); obj.complaint=complaint; obj.assessed_by=request.user; obj._history_actor=request.user; obj.save(); audit(request.user,"UPDATE" if current else "CREATE",obj,after={"score":obj.score,"level":obj.level}); messages.success(request,f"위험평가 {obj.score}점({obj.level})을 저장했습니다.")
     else: messages.error(request,form.errors.as_text())
     return redirect("complaint-workspace",pk)
 @login_required
@@ -78,7 +73,7 @@ def capa_create(request,pk):
 def report_create(request,pk):
     complaint=get_object_or_404(CustomerComplaint,pk=pk); existing=complaint.reports.order_by("-created_at").first(); form=ReportForm(request.POST,instance=existing)
     if form.is_valid():
-        obj=form.save(commit=False); obj.complaint=complaint; obj.author=request.user; obj.document_number=obj.document_number or f"DEMO-RR-{timezone.now():%Y%m%d}-{complaint.pk:05d}"; obj.checklist={k:form.cleaned_data[k] for k in ("serious_event","health_deterioration","recurrence_possible","deadline_reviewed")}; obj.save(); audit(request.user,"REPORT_CREATE",obj,after=obj.checklist); messages.success(request,"규제보고 판단과 체크리스트를 저장했습니다.")
+        obj=form.save(commit=False); obj.complaint=complaint; obj.author=request.user; obj._history_actor=request.user; obj.document_number=obj.document_number or f"DEMO-RR-{timezone.now():%Y%m%d}-{complaint.pk:05d}"; obj.checklist={k:form.cleaned_data[k] for k in ("serious_event","health_deterioration","recurrence_possible","deadline_reviewed")}; obj.save(); audit(request.user,"REPORT_CREATE",obj,after=obj.checklist); messages.success(request,"규제보고 판단과 체크리스트를 저장했습니다.")
     else: messages.error(request,form.errors.as_text())
     return redirect("complaint-workspace",pk)
 @login_required
@@ -173,7 +168,7 @@ def recall_admin_action(request,pk):
         if obj.approval_status!=Recall.Approval.APPROVED or not obj.closure_report.strip(): messages.error(request,"승인과 종료 보고서가 있어야 리콜을 종료할 수 있습니다."); return redirect("recall-detail",pk)
         obj.progress_status=Recall.Progress.CLOSED
     else: raise ValidationError("지원하지 않는 리콜 조치입니다.")
-    obj.save(); audit(request.user,"RECALL_"+action.upper(),obj,before,{"approval_status":obj.approval_status,"progress_status":obj.progress_status}); messages.success(request,"리콜 상태를 변경했습니다."); return redirect("recall-detail",pk)
+    obj.save(); audit(request.user,"RECALL_"+action.upper(),obj,before,{"approval_status":obj.approval_status,"progress_status":obj.progress_status,"reason":reason}); messages.success(request,"리콜 상태를 변경했습니다."); return redirect("recall-detail",pk)
 @login_required
 @raqa_required
 def recall_print(request,pk):

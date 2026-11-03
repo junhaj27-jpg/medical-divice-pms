@@ -1,6 +1,7 @@
 """Isolated PMS analysis cohort; existing complaint workflows remain unchanged."""
 from django.conf import settings
 from django.db import models
+from .history import AppendOnlyRecord
 
 
 class AnalysisImport(models.Model):
@@ -31,6 +32,11 @@ class AnalysisRecord(models.Model):
     narrative = models.TextField(blank=True)
 
 
+    class Meta:
+        indexes=[models.Index(fields=['reported_on'],name='analysis_reported_period'),models.Index(fields=['occurred_on'],name='analysis_occurred_period')]
+        constraints=[models.UniqueConstraint(fields=['batch','row_number'],name='unique_import_row'),models.CheckConstraint(condition=models.Q(seriousness__in=['SERIOUS','NON_SERIOUS','UNKNOWN']),name='analysis_seriousness_valid')]
+
+
 class AnalysisReview(models.Model):
     key = models.CharField(max_length=64, unique=True)
     snapshot = models.JSONField()
@@ -39,7 +45,7 @@ class AnalysisReview(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-class AnalysisReviewHistory(models.Model):
+class AnalysisReviewHistory(AppendOnlyRecord):
     review = models.ForeignKey(AnalysisReview, on_delete=models.PROTECT, related_name='history')
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
     assignee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')

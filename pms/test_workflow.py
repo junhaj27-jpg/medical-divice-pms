@@ -88,6 +88,7 @@ class WorkflowTests(Base):
         totals=recall_totals(a.recall);self.assertEqual(set(totals),{'개','상자'}); self.assertEqual(totals['개']['target'],10)
         record_contact(RecallContact(recipient=a,contacted_at=timezone.now(),method='전화',note='회수 확인'),self.raqa);self.assertEqual(a.contacts.count(),1)
     def test_rule_effective_version_and_preserved_deadline(self):
+        self.c.is_example=True;self.c.save()
         from .regulatory import revise_rule,save_draft
         first=self.rule()
         # A pre-upgrade applied version is retained, never silently re-approved.
@@ -216,8 +217,8 @@ class WorkflowTests(Base):
         response=self.client.post(reverse('recipient-create',args=[recall.pk]),{'lot':self.lot.pk,'partner':partner.pk,'unit':'개','target_quantity':5,'reply_status':'WAITING'})
         self.assertEqual(response.status_code,302)
         row=recall.recipients.get();url=reverse('recovery-create',args=[row.pk])
-        self.assertEqual(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat()}).status_code,302)
-        self.assertContains(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat()}),'대상 수량을 초과')
+        self.assertEqual(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat(),'request_key':'11111111-1111-4111-8111-111111111111'}).status_code,302)
+        self.assertContains(self.client.post(url,{'quantity':3,'recovered_on':timezone.localdate().isoformat(),'request_key':'22222222-2222-4222-8222-222222222222'}),'대상 수량을 초과')
         self.assertEqual(row.recovered_quantity,3)
     def test_postgres_adapter_uses_argv_and_hides_output(self):
         import subprocess

@@ -11,23 +11,16 @@ from .permissions import IsAdminRole, IsRAQAOrAdmin, RoleWritePermission
 from .serializers import *
 from .services import audit, decide_approval, role, transition_complaint, visible_complaints
 def custom_exception_handler(exc,context):
-<<<<<<< HEAD
-    from django.core.exceptions import ValidationError as DomainValidationError
-    from rest_framework.exceptions import ValidationError as APIValidationError
-    if isinstance(exc,DomainValidationError):
-        exc=APIValidationError(exc.message_dict if hasattr(exc,"message_dict") else exc.messages)
-=======
     from django.core.exceptions import ValidationError, PermissionDenied
     from rest_framework.exceptions import ValidationError as APIValidationError, PermissionDenied as APIPermissionDenied
     if isinstance(exc,ValidationError): exc=APIValidationError(exc.messages)
     if isinstance(exc,PermissionDenied): exc=APIPermissionDenied(str(exc))
->>>>>>> 243e562e399fc29d60693843cff3275fba58fa23
     response=exception_handler(exc,context)
     if response is not None: response.data={"success":False,"error":{"code":getattr(exc,"default_code","error"),"detail":response.data}}
     return response
 class AuditedViewSet(viewsets.ModelViewSet):
     def perform_create(self,s): obj=s.save(); audit(self.request.user,"CREATE",obj,after=s.data,ip=self.request.META.get("REMOTE_ADDR"))
-    def perform_update(self,s): before=dict(self.get_serializer(s.instance).data); obj=s.save(); audit(self.request.user,"UPDATE",obj,before,s.data,self.request.META.get("REMOTE_ADDR"))
+    def perform_update(self,s): s.instance._history_actor=self.request.user; before=dict(self.get_serializer(s.instance).data); obj=s.save(); audit(self.request.user,"UPDATE",obj,before,s.data,self.request.META.get("REMOTE_ADDR"))
     def perform_destroy(self,obj): audit(self.request.user,"DELETE",obj); obj.delete()
 class ManufacturerViewSet(AuditedViewSet): queryset=Manufacturer.objects.all(); serializer_class=ManufacturerSerializer; permission_classes=[RoleWritePermission]; search_fields=["name"]; ordering_fields=["name","created_at"]
 class DeviceViewSet(AuditedViewSet): queryset=MedicalDevice.objects.select_related("manufacturer"); serializer_class=DeviceSerializer; permission_classes=[RoleWritePermission]; filterset_fields=["manufacturer","active"]; search_fields=["name","model_number"]

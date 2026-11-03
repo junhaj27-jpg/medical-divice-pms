@@ -103,15 +103,23 @@ def save_recipient(obj,user):
 
 
 @transaction.atomic
-def record_recovery(recipient,user,quantity,recovered_on):
+def record_recovery(recipient,user,quantity,recovered_on,request_key=None):
     privileged(user)
     if recipient.recall.complaint_id: CustomerComplaint.objects.select_for_update().get(pk=recipient.recall.complaint_id)
     if not isinstance(quantity,int) or isinstance(quantity,bool) or quantity<=0: raise ValidationError("회수 수량은 양수 정수여야 합니다.")
     # Lock parent for PostgreSQL; conditional UPDATE also enforces capacity on SQLite.
     obj=RecallRecipient.objects.select_for_update().get(pk=recipient.pk)
+    if request_key is not None:
+        request_key=str(request_key).strip()
+        if not request_key or len(request_key)>64: raise ValidationError('회수 요청 식별자가 올바르지 않습니다.')
+        existing=RecoveryEntry.objects.filter(recipient=obj,request_key=request_key).first()
+        if existing:
+            if existing.quantity!=quantity or existing.recovered_on!=recovered_on:
+                raise ValidationError('같은 회수 요청 식별자에 다른 내용을 사용할 수 없습니다.')
+            return existing
     changed=RecallRecipient.objects.filter(pk=obj.pk,recovered_total__lte=F("target_quantity")-quantity).update(recovered_total=F("recovered_total")+quantity)
     if changed!=1: raise ValidationError("회수 대상 수량을 초과했습니다.")
-    entry=RecoveryEntry(recipient=obj,quantity=quantity,recovered_on=recovered_on,actor=user); entry.full_clean(); entry.save()
+    entry=RecoveryEntry(recipient=obj,quantity=quantity,recovered_on=recovered_on,actor=user,request_key=request_key); entry.full_clean(); entry._ledger_write=True; entry.save()
     audit(user,"RECALL_RECOVERY",entry,after={"recipient":obj.pk,"quantity":quantity,"unit":obj.unit})
     return entry
 

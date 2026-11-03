@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import *
-for model in [Profile,Manufacturer,MedicalDevice,UDI,ProductLot,AdverseEvent,PatientAnonymousInfo,RiskAssessment,CAPA,Recall,RecallTarget,RegulatoryReport,AuditLog,Notification,AssistantConversation,AssistantMessage]: admin.site.register(model)
+for model in [Profile,Manufacturer,MedicalDevice,UDI,ProductLot,AdverseEvent,PatientAnonymousInfo,CAPA,Recall,RecallTarget,Notification,AssistantConversation,AssistantMessage]: admin.site.register(model)
 
 @admin.register(CustomerComplaint)
 class ComplaintAdmin(admin.ModelAdmin):
@@ -18,3 +18,21 @@ class AttachmentAdmin(admin.ModelAdmin):
     def has_change_permission(self,request,obj=None): return False
     def has_delete_permission(self,request,obj=None): return False
     def has_add_permission(self,request): return False
+
+
+class HistoryActorAdmin(admin.ModelAdmin):
+    def save_model(self,request,obj,form,change):
+        obj._history_actor=request.user
+        obj._history_reason='Django admin change: '+', '.join(form.changed_data)
+        super().save_model(request,obj,form,change)
+
+admin.site.register(RiskAssessment,HistoryActorAdmin)
+admin.site.register(RegulatoryReport,HistoryActorAdmin)
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    readonly_fields=tuple(f.name for f in AuditLog._meta.fields)
+    def has_add_permission(self,request): return False
+    def has_change_permission(self,request,obj=None): return False
+    def has_delete_permission(self,request,obj=None): return False

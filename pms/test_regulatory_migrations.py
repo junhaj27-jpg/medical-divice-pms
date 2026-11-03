@@ -13,9 +13,9 @@ class LegacyRegulationMigrationTests(TransactionTestCase):
             User=old.get_model('auth','User');Manufacturer=old.get_model('pms','Manufacturer');Device=old.get_model('pms','MedicalDevice');UDI=old.get_model('pms','UDI');Complaint=old.get_model('pms','CustomerComplaint');Rule=old.get_model('pms','ReportingRule');Application=old.get_model('pms','RuleApplication')
             user=User.objects.create(username='migration-user');manufacturer=Manufacturer.objects.create(name='migration fixture');device=Device.objects.create(name='test',model_number='migration',manufacturer=manufacturer);udi=UDI.objects.create(device=device,device_identifier='MIGRATION-TEST')
             case=Complaint.objects.create(device=device,udi=udi,complaint_type='TEST',title='migration test',description='synthetic test',occurred_on=date(2026,1,1),reporter=user,due_date=date(2026,1,7))
-            first=Rule.objects.create(name='legacy A',version=1,basis='REPORTED',days=3,day_type='CALENDAR',effective_on=date(2026,1,1),change_reason='old')
-            second=Rule.objects.create(name='legacy A',version=2,basis='REPORTED',days=5,day_type='CALENDAR',effective_on=date(2026,2,1),change_reason='old')
-            third=Rule.objects.create(name='legacy B',version=1,basis='OCCURRED',days=2,day_type='BUSINESS',holidays=['2026-01-02'],effective_on=date(2026,1,1),change_reason='old')
+            first=Rule.objects.create(is_example=False,name='legacy A',version=1,basis='REPORTED',days=3,day_type='CALENDAR',effective_on=date(2026,1,1),change_reason='old')
+            second=Rule.objects.create(is_example=False,name='legacy A',version=2,basis='REPORTED',days=5,day_type='CALENDAR',effective_on=date(2026,2,1),change_reason='old')
+            third=Rule.objects.create(is_example=False,name='legacy B',version=1,basis='OCCURRED',days=2,day_type='BUSINESS',holidays=['2026-01-02'],effective_on=date(2026,1,1),change_reason='old')
             snapshot={'original':'keep byte-equivalent JSON data','days':3};due=datetime(2026,1,7,14,59,tzinfo=timezone.utc)
             app=Application.objects.create(complaint=case,rule=first,snapshot=snapshot,due_at=due,actor=user,reason='original applied reason')
             executor=MigrationExecutor(connection);executor.migrate([latest]);new=executor.loader.project_state([latest]).apps

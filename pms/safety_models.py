@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from .history import AppendOnlyRecord
 
 
 class SafetySignal(models.Model):
@@ -14,7 +15,12 @@ class SafetySignal(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
-class SafetyReview(models.Model):
+    class Meta:
+        indexes=[models.Index(fields=['scope','-id'],name='signal_scope_sequence')]
+        constraints=[models.CheckConstraint(condition=models.Q(status__in=['NEW','REVIEW','ACTION','CLOSED']),name='signal_status_valid')]
+
+
+class SafetyReview(AppendOnlyRecord):
     signal = models.ForeignKey(SafetySignal, on_delete=models.PROTECT, related_name="history")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     assignee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")

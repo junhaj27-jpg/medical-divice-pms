@@ -67,3 +67,30 @@ class ApprovalConcurrencyTests(TransactionTestCase):
                 decide_approval(approval,self.admin,'APPROVED')
             future.result(timeout=10)
         self.assertRaises(ValidationError,transition_complaint,self.case,'ACTION_COMPLETE',self.admin)
+
+    def test_target_capacity_is_serialized(self):
+        from .models import Recall, RecallTarget, ProductLot
+        recall=Recall.objects.create(complaint=self.case,device=self.case.device,title='test',reason='test',risk_level='LOW',distributed_quantity=10,target_quantity=5,start_date=timezone.localdate(),expected_end_date=timezone.localdate(),owner=self.admin)
+        lot=ProductLot.objects.create(device=self.case.device,udi=self.case.udi,lot_number='CONCURRENCY')
+        self.race(lambda i:RecallTarget.objects.create(recall=recall,lot=lot,serial_number=str(i),target_quantity=4))
+        self.assertEqual(recall.targets.count(),1)
+
+    def test_recovery_capacity_is_serialized(self):
+        from .models import Recall, RecallRecipient, ProductLot, BusinessPartner
+        from .workflow import record_recovery
+        recall=Recall.objects.create(complaint=self.case,device=self.case.device,title='test',reason='test',risk_level='LOW',distributed_quantity=10,target_quantity=5,start_date=timezone.localdate(),expected_end_date=timezone.localdate(),owner=self.admin)
+        lot=ProductLot.objects.create(device=self.case.device,udi=self.case.udi,lot_number='RECOVERY-CONCURRENCY')
+        row=RecallRecipient.objects.create(recall=recall,lot=lot,partner=BusinessPartner.objects.create(name='concurrency'),target_quantity=5)
+        self.race(lambda _:record_recovery(row,self.admin,4,timezone.localdate()))
+        row.refresh_from_db();self.assertEqual(row.recovered_total,4);self.assertEqual(row.recoveries.count(),1)
+
+    def test_import_identity_prevents_concurrent_duplicates(self):
+        from .analysis import ingest, HEADERS
+        from .analysis_models import AnalysisRecord
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        content=(','.join(HEADERS)+'\nsource,concurrent-id,device,,,2026-01-01,2026-01-02,event,UNKNOWN,test\n').encode()
+        def action(_):
+            batch=ingest(SimpleUploadedFile('test.csv',content),self.admin,is_example=True)
+            if not batch.accepted: raise ValidationError('duplicate')
+        self.race(action)
+        self.assertEqual(AnalysisRecord.objects.count(),1)

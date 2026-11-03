@@ -31,7 +31,10 @@ class ApprovalIntegrityTests(Base):
     def test_reapproval_after_action_complete(self):
         a=self.request();decide_approval(a,self.admin,'APPROVED');transition_complaint(self.c,'ACTION_COMPLETE',self.admin)
         self.change_risk();self.assertRaises(ValidationError,transition_complaint,self.c,'CLOSED',self.admin)
-        a=self.request();decide_approval(a,self.admin,'APPROVED');transition_complaint(self.c,'CLOSED',self.admin)
+        a=request_complaint_approval(self.c,self.raqa,reason='changed risk reviewed')
+        decide_approval(a,self.admin,'APPROVED')
+        transition_complaint(self.c,'ACTION_COMPLETE',self.admin)
+        transition_complaint(self.c,'CLOSED',self.admin)
     def test_stale_pending_preserved_and_superseded(self):
         a=self.request();before=a.snapshot.copy();self.change_risk();new=self.request()
         a.refresh_from_db();self.assertTrue(a.superseded);self.assertEqual(a.snapshot,before);self.assertEqual(a.decision,'PENDING')
