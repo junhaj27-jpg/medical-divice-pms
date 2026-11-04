@@ -1,0 +1,11 @@
+<dl>
+  <dt>접수 버전</dt><dd>{{ software.intake }}</dd>
+  <dt>영향 버전</dt><dd>{{ software.affected|join:", "|default:"미지정" }}</dd>
+  <dt>영향 범위 검토 근거</dt><dd>{{ software.rationale|default:"미기록"|linebreaksbr }}</dd>
+</dl>
+<h3>수정 릴리스 및 검증</h3>
+{% for check in software.checks %}
+  <p><a href="{% url 'capa-detail' check.capa_id %}">{{ check.capa }}</a> · {{ check.release|default:"수정 릴리스 미지정" }} · {{ check.verdict }}</p>
+  {% if check.result %}<p>{{ check.result|linebreaksbr }}</p>{% endif %}
+  {% if check.evidence %}<p>증빙 {{ check.evidence|join:", " }}</p>{% endif %}
+{% empty %}<p>연결된 CAPA 없음</p>{% endfor %}

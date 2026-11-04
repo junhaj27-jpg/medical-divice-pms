@@ -5,6 +5,8 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models, transaction
+from django.db.models.signals import m2m_changed
+from django.dispatch import receiver
 from django.utils import timezone
 from .history import AppendOnlyRecord
 
@@ -31,6 +33,10 @@ class TimeStamped(models.Model):
                 Recall.objects.select_for_update().get(pk=self.pk)
             if type(self).__name__ in ('RecallTarget', 'RecallRecipient'):
                 self.recall=Recall.objects.select_for_update().get(pk=self.recall_id)
+            if isinstance(self, SoftwareRelease) and self.device_id:
+                self.device = MedicalDevice.objects.select_for_update().get(pk=self.device_id)
+            if isinstance(self, MedicalDevice) and self.pk:
+                MedicalDevice.objects.select_for_update().get(pk=self.pk)
             from .model_integrity import validate_relations
             validate_relations(self)
             history_model = {'RiskAssessment': 'RiskAssessmentHistory', 'RegulatoryReport': 'RegulatoryReportHistory'}.get(type(self).__name__)
@@ -59,9 +65,28 @@ class Manufacturer(TimeStamped):
     name=models.CharField(max_length=200,unique=True); country=models.CharField(max_length=100,blank=True); contact_email=models.EmailField(blank=True)
     def __str__(self): return self.name
 class MedicalDevice(TimeStamped):
+    class ProductType(models.TextChoices):
+        HARDWARE = "HARDWARE", "하드웨어"
+        SOFTWARE = "SOFTWARE", "소프트웨어"
+
+    product_type = models.CharField("제품 유형", max_length=12, choices=ProductType.choices, blank=True)
+
     manufacturer=models.ForeignKey(Manufacturer,on_delete=models.PROTECT,related_name="devices"); name=models.CharField(max_length=200); model_number=models.CharField(max_length=100); risk_class=models.CharField(max_length=20,blank=True); active=models.BooleanField(default=True)
     class Meta: unique_together=("manufacturer","model_number")
     def __str__(self): return f"{self.name} ({self.model_number})"
+class SoftwareRelease(TimeStamped):
+    device = models.ForeignKey(MedicalDevice, on_delete=models.PROTECT, related_name="software_releases")
+    version = models.CharField("버전", max_length=80)
+    released_on = models.DateField("출시일")
+
+    class Meta:
+        ordering = ("-released_on", "version", "pk")
+        constraints = [models.UniqueConstraint(fields=("device", "version"), name="software_release_device_version_unique")]
+
+    def __str__(self):
+        return self.version
+
+
 class UDI(TimeStamped):
     device=models.ForeignKey(MedicalDevice,on_delete=models.CASCADE,related_name="udis"); device_identifier=models.CharField(max_length=100,unique=True)
     def __str__(self): return self.device_identifier
@@ -74,6 +99,10 @@ class ProductLot(TimeStamped):
     def __str__(self): return f"{self.lot_number} / {self.serial_number or '-'}"
 
 class CustomerComplaint(TimeStamped):
+    intake_release = models.ForeignKey(SoftwareRelease, verbose_name="접수 버전", on_delete=models.PROTECT, null=True, blank=True, related_name="intake_cases")
+    affected_releases = models.ManyToManyField(SoftwareRelease, verbose_name="영향 버전", blank=True, related_name="affected_cases")
+    impact_rationale = models.TextField("영향 범위 검토 근거", blank=True)
+
     is_example=models.BooleanField("테스트용 사건",default=False)
     class Status(models.TextChoices): RECEIVED="RECEIVED","접수"; REVIEW="REVIEW","RA/QA 검토"; AE_DECISION="AE_DECISION","이상사례 판단"; RISK="RISK","위험평가"; CAPA_DECISION="CAPA_DECISION","CAPA 판단"; REPORT_REVIEW="REPORT_REVIEW","규제보고 검토"; RECALL_REVIEW="RECALL_REVIEW","리콜 검토"; APPROVAL="APPROVAL","관리자 승인"; ACTION_COMPLETE="ACTION_COMPLETE","조치 완료"; CLOSED="CLOSED","종료"
     device=models.ForeignKey(MedicalDevice,on_delete=models.PROTECT,related_name="complaints"); udi=models.ForeignKey(UDI,on_delete=models.PROTECT); lot=models.ForeignKey(ProductLot,on_delete=models.PROTECT,null=True,blank=True,related_name="complaints"); serial_number=models.CharField(max_length=100,blank=True); complaint_type=models.CharField(max_length=50,db_index=True); title=models.CharField(max_length=200); description=models.TextField(); occurred_on=models.DateField(); reported_on=models.DateField(default=timezone.localdate); reporter=models.ForeignKey(User,on_delete=models.PROTECT,related_name="reported_complaints"); assignee=models.ForeignKey(User,on_delete=models.SET_NULL,null=True,blank=True,related_name="assigned_complaints"); status=models.CharField(max_length=20,choices=Status.choices,default=Status.RECEIVED); due_date=models.DateField(null=True,blank=True); version=models.PositiveIntegerField(default=1)
@@ -82,6 +111,22 @@ class CustomerComplaint(TimeStamped):
         ordering=["-created_at"]
         indexes=[models.Index(fields=["reported_on","device","lot"],name="complaint_period_product"),models.Index(fields=["reporter","reported_on"],name="complaint_owner_period")]
     def __str__(self): return f"CMP-{self.pk or 'NEW'} {self.title}"
+@receiver(m2m_changed, sender=CustomerComplaint.affected_releases.through)
+def validate_affected_releases(sender, instance, action, reverse, pk_set, using, **kwargs):
+    if action not in ("pre_add", "pre_remove", "pre_clear"):
+        return
+    cases = CustomerComplaint.objects.using(using).select_for_update().order_by("pk")
+    if reverse:
+        cases = cases.filter(pk__in=pk_set) if pk_set is not None else cases.filter(affected_releases=instance)
+        for case in cases:
+            if action == "pre_add" and case.device_id != instance.device_id:
+                raise ValidationError("영향 버전은 사건 제품에 속해야 합니다.")
+    else:
+        case = cases.get(pk=instance.pk)
+        if action == "pre_add" and SoftwareRelease.objects.using(using).filter(pk__in=pk_set).exclude(device_id=case.device_id).exists():
+            raise ValidationError("영향 버전은 사건 제품에 속해야 합니다.")
+
+
 class PatientAnonymousInfo(TimeStamped):
     complaint=models.OneToOneField(CustomerComplaint,on_delete=models.PROTECT,related_name="patient_info"); anonymous_code=models.CharField(max_length=64,unique=True); age_band=models.CharField(max_length=20,blank=True); sex=models.CharField(max_length=20,blank=True); notes=models.TextField(blank=True)
     def clean(self):
@@ -219,6 +264,8 @@ class TaskHistory(AppendOnlyRecord):
     after=models.JSONField(default=dict)
 
 class CAPAEvaluation(models.Model):
+    fixed_release = models.ForeignKey(SoftwareRelease, verbose_name="검증한 수정 릴리스", on_delete=models.PROTECT, null=True, blank=True)
+
     capa=models.ForeignKey(CAPA,on_delete=models.PROTECT,related_name="evaluations")
     action_result=models.TextField("조치 결과")
     criteria=models.TextField("평가 기준")
@@ -233,7 +280,9 @@ class CAPAEvaluation(models.Model):
     class Meta: ordering=["-created_at","-pk"]
     def save(self,*args,**kwargs):
         with transaction.atomic():
-            CustomerComplaint.objects.select_for_update().get(pk=self.capa.complaint_id)
+            case = CustomerComplaint.objects.select_for_update().get(pk=self.capa.complaint_id)
+            if self.fixed_release_id and self.fixed_release.device_id != case.device_id:
+                raise ValidationError("수정 릴리스는 사건 제품에 속해야 합니다.")
             if self.pk:
                 old=type(self).objects.get(pk=self.pk)
                 if any(getattr(old,f.attname)!=getattr(self,f.attname) for f in self._meta.concrete_fields if f.name not in ('followup',)):

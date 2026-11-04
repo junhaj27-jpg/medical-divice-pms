@@ -4,7 +4,7 @@ for model in [Profile,Manufacturer,MedicalDevice,UDI,ProductLot,AdverseEvent,Pat
 
 @admin.register(CustomerComplaint)
 class ComplaintAdmin(admin.ModelAdmin):
-    readonly_fields=('status','version')
+    readonly_fields=('status','version','intake_release','affected_releases','impact_rationale')
 
 @admin.register(Approval)
 class ApprovalAdmin(admin.ModelAdmin):

@@ -50,6 +50,10 @@ def capa_evaluate(request,pk):
     privileged(request.user); obj=get_object_or_404(CAPA,pk=pk)
     form=EvaluationForm(request.POST or None,initial={"action_result":obj.action_result,"criteria":obj.evaluation_criteria,"scheduled_on":obj.evaluation_due,"evaluated_on":timezone.localdate()})
     form.fields["evidence"].queryset=Attachment.objects.filter(complaint=obj.complaint,scan_status="PASSED")
+    if obj.complaint.device.product_type == MedicalDevice.ProductType.SOFTWARE:
+        form.fields["fixed_release"].queryset = obj.complaint.device.software_releases.all()
+    else:
+        del form.fields["fixed_release"]
     if request.method=="POST" and form.is_valid():
         try: evaluate_capa(obj,request.user,form.cleaned_data,form.cleaned_data["evidence"]); return redirect("capa-detail",pk)
         except ValidationError as exc: form.add_error(None,exc)

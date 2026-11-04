@@ -1,11 +1,39 @@
 from django import forms
-from .models import AdverseEvent, Attachment, CAPA, CustomerComplaint, MedicalDevice, ProductLot, Recall, RegulatoryReport, RiskAssessment
+from .models import AdverseEvent, Attachment, CAPA, CustomerComplaint, MedicalDevice, ProductLot, Recall, RegulatoryReport, RiskAssessment, SoftwareRelease
 class StyledForm(forms.ModelForm):
     def __init__(self,*a,**kw):
         super().__init__(*a,**kw)
         for f in self.fields.values(): f.widget.attrs["class"]="form-control"
 class ComplaintForm(StyledForm):
-    class Meta: model=CustomerComplaint; exclude=("reporter","status","version")
+    class Meta:
+        model = CustomerComplaint
+        exclude = ("reporter", "status", "version", "affected_releases", "impact_rationale")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        device = self.data.get("device", "")
+        self.fields["intake_release"].queryset = SoftwareRelease.objects.filter(device_id=device) if device.isascii() and device.isdecimal() and len(device) < 19 else SoftwareRelease.objects.none()
+        self.fields["intake_release"].empty_label = "버전 미확인"
+
+class SoftwareReleaseForm(StyledForm):
+    class Meta:
+        model = SoftwareRelease
+        fields = ("version", "released_on")
+        widgets = {"released_on": forms.DateInput(attrs={"type": "date"})}
+
+class SoftwareImpactForm(StyledForm):
+    class Meta:
+        model = CustomerComplaint
+        fields = ("intake_release", "affected_releases", "impact_rationale")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        releases = self.instance.device.software_releases.all()
+        self.fields["affected_releases"].queryset = releases
+        self.fields["intake_release"].queryset = releases
+        self.fields["intake_release"].empty_label = "버전 미확인"
+        self.fields["intake_release"].disabled = bool(self.instance.intake_release_id)
+
 class RiskForm(StyledForm):
     class Meta: model=RiskAssessment; exclude=("score","level","capa_review_required","assessed_by")
 class RecallForm(StyledForm):
@@ -21,7 +49,7 @@ class ReportForm(StyledForm):
 class AttachmentForm(StyledForm):
     class Meta: model=Attachment; fields=("file",)
 class DeviceForm(StyledForm):
-    class Meta: model=MedicalDevice; fields=("manufacturer","name","model_number","risk_class","active")
+    class Meta: model=MedicalDevice; fields=("manufacturer","name","model_number","risk_class","product_type","active")
 class LotForm(StyledForm):
     class Meta: model=ProductLot; fields=("device","udi","lot_number","serial_number","manufactured_on","expires_on","distributed_quantity")
 class AdverseEventForm(StyledForm):

@@ -64,7 +64,7 @@ def notify_tasks(now=None):
 @transaction.atomic
 def evaluate_capa(capa,user,data,evidence=()):
     privileged(user)
-    CustomerComplaint.objects.select_for_update().get(pk=capa.complaint_id)
+    case = CustomerComplaint.objects.select_for_update().get(pk=capa.complaint_id)
     capa=CAPA.objects.select_for_update().get(pk=capa.pk)
     if capa.status=="CLOSED": raise ValidationError("종결 CAPA는 평가할 수 없습니다.")
     required=("action_result","criteria","scheduled_on","evaluated_on","verdict","rationale")
@@ -73,7 +73,10 @@ def evaluate_capa(capa,user,data,evidence=()):
     if data["evaluated_on"]>timezone.localdate(): raise ValidationError("평가일은 미래일 수 없습니다.")
     files=list(evidence)
     if any(f.complaint_id!=capa.complaint_id or f.scan_status!="PASSED" for f in files): raise ValidationError("동일 사건의 검사 통과 증빙만 연결할 수 있습니다.")
-    ev=CAPAEvaluation(capa=capa,evaluator=user,**{k:data[k] for k in required}); ev.full_clean(); ev.save(); ev.evidence.set(files)
+    fixed_release = data.get("fixed_release")
+    if fixed_release and case.status == "CLOSED":
+        raise ValidationError("종료된 사건의 수정 릴리스는 재평가할 수 없습니다.")
+    ev=CAPAEvaluation(capa=capa,evaluator=user,fixed_release=fixed_release,**{k:data[k] for k in required}); ev.full_clean(); ev.save(); ev.evidence.set(files)
     capa.action_result=data["action_result"]; capa.evaluation_criteria=data["criteria"]; capa.evaluation_due=data["scheduled_on"]; capa.status="EFFECTIVENESS"; capa.save()
     if ev.verdict=="FAIL":
         owner=capa.owner if role(capa.owner)!="STAFF" or capa.complaint.reporter_id==capa.owner_id else user

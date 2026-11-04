@@ -5,12 +5,15 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from .forms import AdverseEventForm, AttachmentForm, CAPAForm, ComplaintForm, DeviceForm, LotForm, RecallForm, ReportForm, RiskForm
 from .models import *
+from .forms import SoftwareImpactForm, SoftwareReleaseForm
+from .software_tracking import software_summary
 from .file_security import normalized_name, scan_attachment, safe_attachment_bytes
 from io import BytesIO
 from .assistant_service import answer_question, validate_question
@@ -28,12 +31,23 @@ def complaint_list(request):
     qs=visible_complaints(request.user); q=request.GET.get("q",""); status=request.GET.get("status","")
     if q: qs=qs.filter(title__icontains=q)
     if status: qs=qs.filter(status=status)
-    return render(request,"pms/complaint_list.html",{"items":qs[:100],"statuses":CustomerComplaint.Status.choices})
+    devices = MedicalDevice.objects.filter(complaints__in=qs).distinct()
+    releases = SoftwareRelease.objects.filter(intake_cases__in=qs).select_related("device").distinct()
+    for param, lookup in (("device", "device_id"), ("release", "intake_release_id")):
+        value = request.GET.get(param, "")
+        if value.isascii() and value.isdecimal() and len(value) < 19:
+            qs = qs.filter(**{lookup: value})
+    if request.GET.get("unknown") == "1":
+        qs = qs.filter(device__product_type="SOFTWARE", intake_release__isnull=True)
+    return render(request, "pms/complaint_list.html", {
+        "items": qs.select_related("intake_release")[:100], "statuses": CustomerComplaint.Status.choices,
+        "devices": devices, "releases": releases,
+    })
 @login_required
 def complaint_create(request):
     form=ComplaintForm(request.POST or None)
     if form.is_valid(): obj=form.save(commit=False); obj.reporter=request.user; obj.save(); audit(request.user,"CREATE",obj,after={"title":obj.title}); return redirect("complaint-workspace",obj.pk)
-    return render(request,"pms/form.html",{"form":form,"title":"고객 불만 접수"})
+    return render(request,"pms/form.html",{"form":form,"title":"고객 불만 접수","software_intake":True})
 @login_required
 def complaint_detail(request,pk):
     obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
@@ -43,7 +57,54 @@ def complaint_detail(request,pk):
     context['approval_warning']=approval_invalid_reason(approval,obj) if approval else ''
     context['can_request_approval']=privileged and obj.status in ('APPROVAL','ACTION_COMPLETE') and (not approval or approval.decision=='REJECTED' or bool(context['approval_warning']))
     context['approval_history']=Approval.objects.filter(content_type='CustomerComplaint',object_id=obj.pk).order_by('-pk')
+    if obj.device.product_type == MedicalDevice.ProductType.SOFTWARE:
+        context["software"] = software_summary(obj)
+        context["impact_form"] = SoftwareImpactForm(instance=obj)
     return render(request,"pms/complaint_detail.html",context)
+
+@login_required
+def device_releases(request, pk):
+    device = get_object_or_404(MedicalDevice, pk=pk)
+    return JsonResponse(list(device.software_releases.values("id", "version")), safe=False)
+
+@login_required
+@raqa_required
+def release_create(request, pk):
+    device = get_object_or_404(MedicalDevice, pk=pk, product_type="SOFTWARE")
+    form = SoftwareReleaseForm(request.POST or None, instance=SoftwareRelease(device=device))
+    if form.is_valid():
+        try:
+            with transaction.atomic():
+                release = form.save()
+                audit(request.user, "CREATE", release, after={"version": release.version})
+            return redirect("device-detail", pk)
+        except IntegrityError:
+            form.add_error("version", "이미 등록된 제품 버전입니다.")
+        except ValidationError as exc:
+            form.add_error(None, exc)
+    return render(request, "pms/form.html", {"form": form, "title": "소프트웨어 릴리스 등록"})
+
+@login_required
+@raqa_required
+@require_POST
+@transaction.atomic
+def software_impact_save(request, pk):
+    case = get_object_or_404(CustomerComplaint.objects.select_for_update(), pk=pk)
+    if case.device.product_type != "SOFTWARE" or case.status == "CLOSED":
+        raise PermissionDenied
+    form = SoftwareImpactForm(request.POST, instance=case)
+    if form.is_valid():
+        form.save()
+        audit(request.user, "SOFTWARE_IMPACT_UPDATE", case, after={
+            "intake_release_id": case.intake_release_id,
+            "release_ids": list(case.affected_releases.values_list("pk", flat=True)),
+            "rationale": case.impact_rationale,
+        })
+        messages.success(request, "영향 범위를 저장했습니다.")
+    else:
+        messages.error(request, form.errors.as_text())
+    return redirect("complaint-workspace", pk)
+
 @login_required
 @require_POST
 def complaint_transition(request,pk):
@@ -108,7 +169,7 @@ def device_detail(request,pk):
     cases=visible_complaints(request.user)
     recalls=item.recalls.all()
     if role(request.user)=="STAFF": recalls=recalls.filter(complaint__in=cases)
-    return render(request,"pms/device_detail.html",{"item":item,"complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count()})
+    return render(request,"pms/device_detail.html",{"item":item,"complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count(),"privileged":role(request.user) in ("RA_QA","ADMIN")})
 @login_required
 @raqa_required
 def device_create(request):
@@ -179,7 +240,9 @@ def report_list(request): return render(request,"pms/report_list.html",{"items":
 @login_required
 @raqa_required
 def report_print(request,pk):
-    obj=get_object_or_404(RegulatoryReport,pk=pk); audit(request.user,"REPORT_GENERATE",obj); return render(request,"pms/report_print.html",{"item":obj})
+    obj = get_object_or_404(RegulatoryReport, pk=pk)
+    audit(request.user, "REPORT_GENERATE", obj)
+    return render(request, "pms/report_print.html", {"item": obj, "software": software_summary(obj.complaint)})
 @login_required
 def notifications(request): return render(request,"pms/notifications.html",{"items":Notification.objects.filter(user=request.user)})
 @login_required

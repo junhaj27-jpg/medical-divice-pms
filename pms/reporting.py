@@ -20,6 +20,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, LongTable, TableStyle, Image, PageBreak
 from .models import CustomerComplaint, ReportArtifact
 from .services import audit
+from .software_tracking import software_summary
 from .workflow import privileged, recall_totals
 from .file_security import safe_attachment_bytes, normalized_name
 
@@ -28,6 +29,7 @@ def snapshot_case(c):
     def rows(qs,fields): return list(qs.values(*fields))
     return json.loads(json.dumps({
         "complaint":{"id":c.pk,"title":c.title,"description":c.description,"status":c.status,"device":str(c.device),"lot":str(c.lot or ""),"reported_on":c.reported_on,"due_date":c.due_date},
+        "software":software_summary(c),
         "risk":rows(c.risk_assessment.__class__.objects.filter(complaint=c),["severity","probability","score","level","rationale"]) if hasattr(c,"risk_assessment") else [],
         "regulatory_reports":rows(c.reports.all(),["document_number","required","checklist","investigation_result","status"]),
         "tasks":rows(c.tasks.all(),["id","title","description","assignee__username","priority","status","due_at"]),
@@ -67,6 +69,9 @@ def build_pdf(snapshot,number,version,creator,evidence,title="의료기기 시�
         table=LongTable(rows,colWidths=[160,335],repeatRows=1,hAlign="LEFT")
         table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#e3eff5")),("GRID",(0,0),(-1,-1),0.3,colors.lightgrey),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),6),("RIGHTPADDING",(0,0),(-1,-1),6)]))
         story.append(table)
+    if snapshot.get("software"):
+        labels.update(intake="접수 버전", affected="영향 버전", checks="수정 검증", capa="CAPA", capa_id="CAPA 번호", release="수정 릴리스", result="검증 결과", evidence="증빙")
+        section("소프트웨어 버전 추적", snapshot["software"])
     for key,title in [("complaint","사건 요약"),("risk","위험평가"),("regulatory_reports","규제보고 판단"),("tasks","담당 업무"),("capas","CAPA 효과성 평가"),("recalls","리콜 회수 현황"),("rules","적용 보고 규칙"),("evidence","첨부 증빙 목록")]: section(title,snapshot[key])
     for name,kind,data in evidence:
         if kind in ("png","jpeg"):

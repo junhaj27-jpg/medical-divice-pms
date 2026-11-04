@@ -1,7 +1,7 @@
 import uuid
 from django import forms
 from .forms import StyledForm
-from .models import WorkTask, CAPAEvaluation, RecallRecipient, RecallContact, ReportingRule, BusinessPartner
+from .models import WorkTask, CAPAEvaluation, RecallRecipient, RecallContact, ReportingRule, BusinessPartner, SoftwareRelease
 
 
 class TaskForm(StyledForm):
@@ -11,9 +11,10 @@ class TaskForm(StyledForm):
         widgets={"due_at":forms.DateTimeInput(format="%Y-%m-%dT%H:%M",attrs={"type":"datetime-local"})}
 
 class EvaluationForm(StyledForm):
+    fixed_release = forms.ModelChoiceField(queryset=SoftwareRelease.objects.none(), required=False, label="검증한 수정 릴리스")
     class Meta:
         model=CAPAEvaluation
-        fields=("action_result","criteria","scheduled_on","evaluated_on","verdict","rationale","evidence")
+        fields=("action_result","criteria","scheduled_on","evaluated_on","verdict","rationale","fixed_release","evidence")
         widgets={k:forms.DateInput(attrs={"type":"date"}) for k in ("scheduled_on","evaluated_on")}
 
 class RecipientForm(StyledForm):

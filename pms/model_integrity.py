@@ -8,7 +8,28 @@ def validate_relations(obj):
     if name in ('ProductLot', 'CustomerComplaint'):
         if obj.udi_id and obj.device_id and obj.udi.device_id != obj.device_id:
             fail('UDI와 제품이 일치하지 않습니다.')
+    if name == 'MedicalDevice' and obj.pk and obj.product_type != 'SOFTWARE' and obj.software_releases.exists():
+        fail('릴리스가 있는 제품은 소프트웨어 유형을 유지해야 합니다.')
+    if name == 'SoftwareRelease':
+        if obj.device_id and obj.device.product_type != 'SOFTWARE':
+            fail('소프트웨어 제품에만 릴리스를 등록할 수 있습니다.')
+        if obj.pk and type(obj).objects.filter(pk=obj.pk).exclude(
+            device_id=obj.device_id, version=obj.version, released_on=obj.released_on
+        ).exists():
+            fail('등록된 릴리스는 수정할 수 없습니다. 새 버전을 등록하세요.')
     if name == 'CustomerComplaint':
+        if obj.intake_release_id and obj.intake_release.device_id != obj.device_id:
+            fail('접수 버전은 사건 제품에 속해야 합니다.')
+        if obj.pk and type(obj).objects.filter(pk=obj.pk, intake_release__isnull=False).exclude(
+            intake_release_id=obj.intake_release_id
+        ).exists():
+            fail('확인된 접수 버전은 변경할 수 없습니다.')
+        if obj.pk and (
+            obj.affected_releases.exclude(device_id=obj.device_id).exists()
+            or _has_mismatched_verification(obj)
+        ):
+            fail('영향 버전과 수정 릴리스는 사건 제품에 속해야 합니다.')
+
         if obj.lot_id and (obj.lot.device_id != obj.device_id or obj.lot.udi_id != obj.udi_id):
             fail('사건의 제품·UDI·LOT가 일치하지 않습니다.')
         if obj.assignee_id and obj.reporter_id:
@@ -66,6 +87,13 @@ def validate_relations(obj):
         if any(getattr(old, k) != getattr(obj, k) for k in keys):
             # Product identity is referenced by snapshots and child rows, never silently reparent it.
             fail('기존 UDI·LOT의 제품 연결은 변경할 수 없습니다. 새 항목을 등록하세요.')
+
+
+def _has_mismatched_verification(complaint):
+    from .models import CAPAEvaluation
+    return CAPAEvaluation.objects.filter(
+        capa__complaint=complaint, fixed_release__isnull=False,
+    ).exclude(fixed_release__device_id=complaint.device_id).exists()
 
 
 def validate_assignee(user, complaint):

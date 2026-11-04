@@ -1,1 +1,21 @@
-{% extends 'pms/base.html' %}{% block content %}<div class="page-head"><h1>{{title}}</h1></div><form method="post" enctype="multipart/form-data" class="panel form-grid">{% csrf_token %}{{form.as_p}}<div><button class="btn primary">저장</button> <a class="btn" href="javascript:history.back()">취소</a></div></form><script>document.querySelector('form.form-grid').addEventListener('submit',function(){const b=this.querySelector('button');b.disabled=true;b.textContent='저장 중…';this.setAttribute('aria-busy','true')})</script>{% endblock %}
+{% extends 'pms/base.html' %}{% block content %}<div class="page-head"><h1>{{title}}</h1></div><form method="post" enctype="multipart/form-data" class="panel form-grid">{% csrf_token %}{{form.as_p}}<div><button class="btn primary">저장</button> <a class="btn" href="javascript:history.back()">취소</a></div></form><script>document.querySelector('form.form-grid').addEventListener('submit',function(){const b=this.querySelector('button');b.disabled=true;b.textContent='저장 중…';this.setAttribute('aria-busy','true')})</script>{% if software_intake %}
+<script>
+const deviceSelect = document.getElementById("id_device");
+const releaseSelect = document.getElementById("id_intake_release");
+const releaseUrl = "{% url 'device-releases' 0 %}";
+deviceSelect.addEventListener("change", async () => {
+    const device = deviceSelect.value;
+    releaseSelect.replaceChildren(new Option("버전 미확인", ""));
+    if (!device) return;
+    try {
+        const response = await fetch(releaseUrl.replace("/0/", "/" + device + "/"));
+        if (!response.ok) throw new Error();
+        const releases = await response.json();
+        if (device !== deviceSelect.value) return;
+        for (const release of releases) releaseSelect.add(new Option(release.version, release.id));
+    } catch {
+        if (device === deviceSelect.value) releaseSelect.options[0].text = "버전 미확인 (목록 조회 실패)";
+    }
+});
+</script>
+{% endif %}{% endblock %}

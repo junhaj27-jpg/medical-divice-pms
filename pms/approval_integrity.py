@@ -53,6 +53,14 @@ def approval_snapshot(case):
                     value['recipients'] = list(obj.recipients.order_by('pk').values('id', 'lot_id', 'partner_id', 'unit', 'target_quantity', 'recovered_total', 'reply_status', 'unrecovered_reason', 'notified_on', 'replied_on'))
                 values.append(value)
         scopes[name] = digest(values)
+    if case.device.product_type == 'SOFTWARE':
+        scopes['software_versions'] = digest({
+            'intake': case.intake_release_id,
+            'affected': list(case.affected_releases.order_by('pk').values_list('pk', flat=True)),
+            'rationale': case.impact_rationale,
+            'verified': list(case.capas.filter(evaluations__fixed_release__isnull=False)
+                             .order_by('evaluations__pk').values_list('evaluations__pk', 'evaluations__fixed_release_id')),
+        })
     for label,model in [('risk_history',RiskAssessmentHistory),('report_history',RegulatoryReportHistory)]:
         scopes[label]=digest(list(model.objects.filter(parent__complaint=case).order_by('pk').values()))
     return {'schema': 2, 'version': case.version, 'device': str(case.device),

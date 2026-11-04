@@ -11,8 +11,10 @@ class LotSerializer(serializers.ModelSerializer):
     class Meta: model=ProductLot; fields="__all__"
 class ComplaintSerializer(serializers.ModelSerializer):
     reporter=serializers.PrimaryKeyRelatedField(read_only=True); risk_level=serializers.CharField(source="risk_assessment.level",read_only=True)
-    class Meta: model=CustomerComplaint; fields="__all__"; read_only_fields=("status","version")
+    class Meta: model=CustomerComplaint; fields="__all__"; read_only_fields=("status","version","affected_releases","impact_rationale")
     def validate(self,data):
+        if self.instance and "intake_release" in data and data["intake_release"] != self.instance.intake_release:
+            raise serializers.ValidationError({"intake_release": "접수 후 버전 확인은 사건 워크스페이스에서 수행하세요."})
         if data.get("udi") and data.get("device") and data["udi"].device_id!=data["device"].id: raise serializers.ValidationError("UDI가 선택한 의료기기에 속하지 않습니다.")
         if data.get("lot") and data.get("device") and data["lot"].device_id!=data["device"].id: raise serializers.ValidationError("LOT가 선택한 의료기기에 속하지 않습니다.")
         return data
