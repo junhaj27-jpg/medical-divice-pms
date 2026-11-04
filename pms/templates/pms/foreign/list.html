@@ -1,0 +1,16 @@
+{% extends "pms/base.html" %}
+{% block content %}
+<div class="page-head"><h1>해외 인허가{% if device %} · {{ device }}{% endif %}</h1>
+{% if device %}<a class="btn primary" href="{% url 'foreign-device-new' device.pk %}">신청 건 등록</a>
+{% else %}<a class="btn primary" href="{% url 'foreign-new' %}">신청 건 등록</a>{% endif %}</div>
+{% if device %}<nav aria-label="제품 상세 탭"><a href="{% url 'device-detail' device.pk %}">제품 상세</a> · <strong>해외 인허가</strong> · <a href="{% url 'report-list' %}?device={{ device.pk }}">시판 후 규제보고</a></nav>{% endif %}
+<p>미국과 EU의 신청 준비 및 수동 제출 기록을 관리합니다.</p>
+<form class="filters" method="get">{{ form.as_p }}<button class="btn">검색</button></form>
+<div class="panel table-wrap"><table><thead><tr><th>신청 건</th><th>제품</th><th>시장</th><th>상태</th><th>담당자</th><th>목표 제출일</th></tr></thead>
+<tbody>{% for item in page %}<tr>
+<td><a href="{% url 'foreign-detail' item.pk %}">{{ item }}</a>{% if item.is_example %}<small>가상 시연 데이터</small>{% endif %}</td>
+<td>{{ item.profile.device }}</td><td>{{ item.get_market_display }}</td><td>{{ item.get_stage_display }}</td><td>{{ item.owner }}</td><td>{{ item.target_on|default:"미정" }}</td>
+</tr>{% empty %}<tr><td colspan="6">해외 인허가 신청 건이 없습니다.</td></tr>{% endfor %}</tbody></table></div>
+{% if page.has_previous %}<a href="?{{ params }}&amp;page={{ page.previous_page_number }}">이전</a>{% endif %}
+{% if page.has_next %}<a href="?{{ params }}&amp;page={{ page.next_page_number }}">다음</a>{% endif %}
+{% endblock %}

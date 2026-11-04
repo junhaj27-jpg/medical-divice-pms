@@ -629,3 +629,4 @@ from .ra_models import RiskCriteria, ProductRisk, SafetyInformation, FieldSafety
 
 from .ra_models import TrainingRequirement, TrainingAssignment, AuditPlan, AuditFinding, AuditPackage, ManagementReview, ManagementDecision, RetentionPolicy
 from . import ra_operations_models
+from . import foreign_models

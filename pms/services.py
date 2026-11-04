@@ -69,6 +69,8 @@ def decide_approval(approval,user,decision,reason="",ip=None):
     original=approval
     approval=Approval.objects.get(pk=approval.pk)
     case=None
+    if approval.content_type == "ForeignApplication":
+        raise ValidationError("해외 인허가 화면에서 제출 범위를 검토하고 승인하세요.")
     if approval.content_type=="CustomerComplaint": case=CustomerComplaint.objects.select_for_update().get(pk=approval.object_id)
     approval=Approval.objects.select_for_update().get(pk=approval.pk)
     if approval.superseded: raise ValidationError("대체된 승인 요청입니다. 최신 요청을 확인하세요.")

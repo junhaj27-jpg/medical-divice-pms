@@ -1,12 +1,22 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from . import api, views, regulatory_views as regulatory
-from . import impact_views
+from . import impact_views, foreign_views as foreign
 
 r=DefaultRouter()
 for prefix,view,base in [("manufacturers",api.ManufacturerViewSet,"manufacturer"),("devices",api.DeviceViewSet,"device"),("udis",api.UDIViewSet,"udi"),("lots",api.LotViewSet,"lot"),("complaints",api.ComplaintViewSet,"complaint"),("adverse-events",api.AdverseEventViewSet,"adverse"),("risks",api.RiskViewSet,"risk"),("capas",api.CAPAViewSet,"capa"),("recalls",api.RecallViewSet,"recall"),("recall-targets",api.RecallTargetViewSet,"recall-target"),("reports",api.ReportViewSet,"report"),("attachments",api.AttachmentViewSet,"attachment"),("approvals",api.ApprovalViewSet,"approval"),("notifications",api.NotificationViewSet,"notification"),("audits",api.AuditViewSet,"audit")]: r.register(prefix,view,basename=base)
 
 urlpatterns=[
+ path("foreign/", foreign.listing, name="foreign-list"),
+ path("foreign/new/", foreign.edit, name="foreign-new"),
+ path("foreign/<int:pk>/", foreign.detail, name="foreign-detail"),
+ path("foreign/<int:pk>/edit/", foreign.edit, name="foreign-edit"),
+ path("foreign/<int:pk>/documents/new/", foreign.document_edit, name="foreign-document-new"),
+ path("foreign/<int:pk>/documents/<int:document_pk>/", foreign.document_edit, name="foreign-document"),
+ path("foreign/<int:pk>/actions/<str:operation>/", foreign.action, name="foreign-action"),
+ path("foreign/<int:pk>/supplements/<int:supplement_pk>/reply/", foreign.action, {"operation":"respond"}, name="foreign-respond"),
+ path("devices/<int:device_pk>/foreign/", foreign.listing, name="foreign-device"),
+ path("devices/<int:device_pk>/foreign/new/", foreign.edit, name="foreign-device-new"),
  # Keep HTML names preferred when legacy DRF route names overlap.
  path("api/",include(r.urls)),
  path("rules/impacts/",impact_views.impact_list,name="impact-list"),

@@ -1,0 +1,7 @@
+{% extends "pms/base.html" %}
+{% block content %}
+<div class="page-head"><h1>{{ title }}</h1></div>
+{% if case %}<p><a href="{% url 'foreign-detail' case.pk %}">{{ case }}</a>{% if case.is_example %} · 가상 시연 데이터{% endif %}</p>{% endif %}
+{% if form.profile %}<p>기존 <a href="{% url 'ra-list' 'profiles' %}">제품 규제 프로필</a>의 관할에 US 또는 EU를 지정합니다. 분류와 경로는 미확정이면 비워 둡니다.</p>{% endif %}
+<form method="post" class="panel form-grid">{% csrf_token %}{{ form.as_p }}<button class="btn primary">저장</button></form>
+{% endblock %}

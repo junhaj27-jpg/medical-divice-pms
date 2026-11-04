@@ -236,7 +236,12 @@ def recall_print(request,pk):
     obj=get_object_or_404(Recall.objects.select_related("device","owner","complaint"),pk=pk); audit(request.user,"REPORT_GENERATE",obj); return render(request,"pms/recall_print.html",{"item":obj})
 @login_required
 @raqa_required
-def report_list(request): return render(request,"pms/report_list.html",{"items":RegulatoryReport.objects.select_related("complaint")})
+def report_list(request):
+    items = RegulatoryReport.objects.select_related("complaint")
+    device = request.GET.get("device", "")
+    if device.isascii() and device.isdecimal() and len(device) < 19:
+        items = items.filter(complaint__device_id=device)
+    return render(request, "pms/report_list.html", {"items": items})
 @login_required
 @raqa_required
 def report_print(request,pk):
@@ -248,7 +253,7 @@ def notifications(request): return render(request,"pms/notifications.html",{"ite
 @login_required
 def approvals(request):
     if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
-    return render(request,"pms/approvals.html",{"items":Approval.objects.filter(decision="PENDING")})
+    return render(request,"pms/approvals.html",{"items":Approval.objects.filter(decision="PENDING", superseded=False)})
 @login_required
 def audit_logs(request):
     if role(request.user)!=Profile.Role.ADMIN: raise PermissionDenied
