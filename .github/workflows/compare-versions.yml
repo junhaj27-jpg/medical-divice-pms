@@ -1,0 +1,38 @@
+name: Compare PMS versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: Baseline commit SHA, tag, or branch
+        type: string
+        required: true
+        default: '5d730ff'
+      candidate:
+        description: Candidate commit SHA, tag, or branch
+        type: string
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y fonts-nanum
+      - name: Compare versions and verify the SQLite upgrade
+        env:
+          BASELINE: ${{ inputs.baseline }}
+          CANDIDATE: ${{ inputs.candidate }}
+          PDF_KOREAN_FONT: /usr/share/fonts/truetype/nanum/NanumGothic.ttf
+        run: python scripts/compare_versions.py --baseline="$BASELINE" --candidate="$CANDIDATE"

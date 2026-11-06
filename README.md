@@ -606,6 +606,38 @@ python manage.py collectstatic --noinput
 
 현재는 애플리케이션 DB에 저장되는 데모 구현입니다. 실제 운영에서는 append-only 정책, 외부 불변 저장소, 전자서명, 보존기간, 시간 동기화와 관리자 접근 통제가 추가되어야 합니다.
 
+## 두 버전 비교
+
+GitHub 저장소에서 **Actions → Compare PMS versions → Run workflow**로 이동합니다.
+`baseline`과 `candidate`에는 커밋 SHA, 태그 또는 브랜치 이름을 입력할 수 있습니다.
+기본값은 각각 `5d730ff`와 `main`입니다. 이름이 같은 브랜치와 태그를 구분하려면
+`refs/heads/<이름>` 또는 `refs/tags/<이름>`을 사용합니다.
+
+최초 비교를 재현하려면 아래 커밋을 입력합니다. 워크플로 파일이 저장소 기본 브랜치에
+등록된 뒤 Actions에서 수동 실행할 수 있습니다.
+
+| 입력 | 커밋 SHA |
+| --- | --- |
+| `baseline` | `5d730ffaa62961aa8f63704e634d1c7f0e6f4484` |
+| `candidate` | `51f3710ec3a1b64276ccc45461214b3d5021860c` |
+
+로컬에서도 Python 3.12, Git, 패키지 설치 환경을 준비한 뒤 `PDF_KOREAN_FONT`에
+한글 TTF 경로를 설정하고 저장소 루트에서 같은 검사를 실행할 수 있습니다.
+
+```bash
+python scripts/compare_versions.py --baseline=5d730ff --candidate=51f3710
+```
+
+각 버전은 별도 소스 디렉터리와 가상환경, 임시 SQLite DB에서 실행됩니다. 실행 요약에는
+해석된 두 SHA와 GitHub Compare 링크, 마이그레이션 검사와 테스트 결과, 신규 및
+기존 실패가 표시됩니다. 해외 인허가 테스트 모듈이 없으면 해당 검사는 `SKIPPED`로
+표시됩니다. 테스트가 중단되면 해당 결과를 비교할 수 없는 이유가 표시됩니다.
+
+DB 업그레이드는 기준 버전의 `seed_demo`로 만든 DB를 복제한 뒤 비교 버전의
+마이그레이션을 적용합니다. 제품과 불만의 ID 및 기존 필드 값, 제조사·UDI·로트·소프트웨어
+릴리스·영향 릴리스 연결을 확인합니다. 기준 버전에서 검사가 실패해도 비교 버전 검사는
+계속 진행하며, 양쪽에서 실행한 검사나 DB 업그레이드가 실패하면 실행을 실패로 표시합니다.
+
 ## 테스트 범위
 
 현재 Django 테스트는 다음을 포함한 **113개 시나리오**를 제공합니다. SQLite에서는 PostgreSQL 전용 4개를 건너뛰며 실제 행 잠금 검증은 별도 PostgreSQL CI에서 실행합니다.
