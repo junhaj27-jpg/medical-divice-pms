@@ -1,6 +1,6 @@
 from django import forms
 from .forms import StyledForm
-from .models import ReportingRule, RegulationDocument, RegulationChunk, MedicalDevice
+from .models import CustomerComplaint, ReportingRule, RegulationDocument, RegulationChunk, MedicalDevice
 from .regulatory import FIELD_LABELS
 from .regulation_documents import documents_for
 
@@ -55,6 +55,32 @@ class CitationForm(forms.Form):
 
 class PreviewForm(forms.Form):
     basis_at=forms.CharField(label="기준 일시",help_text="YYYY-MM-DDTHH:MM:SS 또는 UTC 오프셋을 포함한 ISO 시각. 오프셋이 없으면 규칙 시간대입니다.")
+
+
+class ComparisonCaseForm(forms.Form):
+    case = forms.ModelChoiceField(label="기존 사건", queryset=CustomerComplaint.objects.none(),
+                                  required=False, empty_label="가상 사례 입력")
+    device = forms.ModelChoiceField(label="가상 사례 제품", queryset=MedicalDevice.objects.all(),
+                                    required=False)
+    complaint_type = forms.CharField(label="가상 사례 유형", max_length=50, required=False)
+    risk_level = forms.ChoiceField(label="가상 사례 위험등급", required=False, choices=[
+        ("", "미확인"), ("LOW", "LOW"), ("MEDIUM", "MEDIUM"), ("HIGH", "HIGH"), ("CRITICAL", "CRITICAL"),
+    ])
+    serious = forms.TypedChoiceField(label="가상 사례 중대 여부", required=False,
+                                     choices=[("", "미확인"), ("yes", "예"), ("no", "아니요")],
+                                     coerce=lambda value: value == "yes", empty_value=None)
+    jurisdiction = forms.CharField(label="사건 관할", max_length=120, required=False)
+    reported_at = forms.CharField(label="접수 일시", max_length=50, required=False)
+    occurred_at = forms.CharField(label="발생 일시", max_length=50, required=False)
+    aware_at = forms.CharField(label="인지 일시", max_length=50, required=False)
+    custom_at = forms.CharField(label="별도 기준 일시", max_length=50, required=False)
+
+    def __init__(self, *args, cases, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["case"].queryset = cases.order_by("-pk")
+        self.fields["case"].label_from_instance = lambda case: (
+            f"CMP-{case.pk} · 접수 {case.reported_on or '미확인'} · 발생 {case.occurred_on or '미확인'}"
+        )
 
 class ReasonForm(forms.Form): reason=forms.CharField(label="사유",widget=forms.Textarea)
 

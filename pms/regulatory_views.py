@@ -10,8 +10,9 @@ from django.db import transaction
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from io import BytesIO
+from types import SimpleNamespace
 from .models import ReportingRule, RegulationDocument, RegulationChunk, RuleCitation, RulePreview
 from .services import role, visible_complaints, audit
 from .file_security import scan_attachment, safe_attachment_bytes
@@ -21,7 +22,8 @@ from .regulatory import (rules_for, editable, save_draft, revise_rule, readiness
     add_citation, remove_citation, import_holidays, preview_rule, transition_rule,
     apply_regulated_rule, rule_payload, FIELD_LABELS, DISPLAY_LABELS)
 from .regulatory_forms import (RegulationForm, RegulatoryRuleForm, EvidenceSearchForm, CitationForm,
-    PreviewForm, ReasonForm, HolidayImportForm, DocumentReviewForm)
+    PreviewForm, ReasonForm, HolidayImportForm, DocumentReviewForm, ComparisonCaseForm)
+from .rule_comparison import comparison_rows, deadline_delta, evaluate_version, visible_sources
 from .rule_ai import ai_available, generate_ai_draft
 
 
@@ -241,14 +243,55 @@ def rule_preview(request,pk):
 
 
 @login_required
-def compare_versions(request,pk):
-    obj=get_object_or_404(rules_for(request.user),pk=pk);versions=rules_for(request.user).filter(family_key=obj.family_key).exclude(pk=pk).order_by("-version")
-    other=get_object_or_404(versions,pk=positive_id(request.GET["other"])) if request.GET.get("other") else versions.first()
-    rows=[]
-    if other:
-        left=rule_payload(other);right=rule_payload(obj)
-        rows=[{"field":DISPLAY_LABELS.get(k,k),"left":left.get(k),"right":right.get(k),"changed":left.get(k)!=right.get(k)} for k in right]
-    return render(request,"pms/regulatory/compare.html",{"item":obj,"other":other,"versions":versions,"rows":rows})
+@require_http_methods(["GET", "HEAD", "POST"])
+def compare_versions(request, pk):
+    user = request.user
+    accessible_rules = rules_for(user)
+    obj = get_object_or_404(accessible_rules, pk=pk)
+    family = accessible_rules.filter(family_key=obj.family_key).order_by("-version")
+    versions = list(family)
+    params = request.POST if request.method == "POST" else request.GET
+    baseline_id = params.get("baseline") or params.get("other")
+    proposed_id = params.get("proposed")
+    baseline = (get_object_or_404(family, pk=positive_id(baseline_id)) if baseline_id else
+                next((v for v in versions if v.state == "EFFECTIVE"), obj))
+    proposed = (get_object_or_404(family, pk=positive_id(proposed_id)) if proposed_id else
+                obj if params.get("other") else next((v for v in versions if v.state == "DRAFT"), obj))
+    document_ids = set(documents_for(user).values_list("pk", flat=True))
+    sources = [visible_sources(rule, document_ids) for rule in (baseline, proposed)]
+    context = {"item": obj, "baseline": baseline, "proposed": proposed, "versions": versions,
+               "rows": comparison_rows(baseline, proposed, sources)}
+
+    if request.method == "POST":
+        require_author(user)
+    if can_write(user):
+        cases = visible_complaints(user)
+        if request.method == "POST" and request.POST.get("case"):
+            get_object_or_404(cases, pk=positive_id(request.POST["case"]))
+        form = ComparisonCaseForm(request.POST if request.method == "POST" else None, cases=cases)
+        context["form"] = form
+        if form.is_bound and form.is_valid():
+            inputs = form.cleaned_data
+            case = inputs["case"]
+            if case:
+                previous = case.rule_applications.select_related("rule").order_by("-pk").first()
+                context["case"] = case
+                if previous and accessible_rules.filter(pk=previous.rule_id).exists():
+                    context["previous"] = previous
+                    context["previous_version"] = previous.snapshot.get("rule", {}).get(
+                        "version", previous.snapshot.get("version", previous.rule.version)
+                    )
+            else:
+                case = SimpleNamespace(
+                    pk=None, device_id=inputs["device"].pk if inputs["device"] else None,
+                    complaint_type=inputs["complaint_type"], is_example=True,
+                    risk_assessment=SimpleNamespace(level=inputs["risk_level"]),
+                    adverse_event=SimpleNamespace(serious=inputs["serious"]),
+                )
+            results = [evaluate_version(rule, case, inputs, user, document_ids, citations)
+                       for rule, citations in zip((baseline, proposed), sources)]
+            context.update(results=results, delta=deadline_delta(results))
+    return render(request, "pms/regulatory/compare.html", context)
 
 
 class CasePreviewForm(PreviewForm):

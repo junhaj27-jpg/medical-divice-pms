@@ -33,6 +33,109 @@ TEST_TEXT='''제1조 테스트 전용 문서. 실제 법정 규정이 아닙니�
 
 @override_settings(PASSWORD_HASHERS=['django.contrib.auth.hashers.MD5PasswordHasher'])
 class RegulatoryTests(Base):
+    def comparison_flow(self):
+        baseline = self.publish(self.cite_all(self.draft()))
+        proposed = revise_rule(baseline, self.raqa, "가상 사례 비교")
+        self.client.force_login(self.raqa)
+        return baseline, proposed, reverse("rule-compare", args=[baseline.pk])
+
+    def comparison_inputs(self, baseline, proposed, **overrides):
+        inputs = {
+            "baseline": baseline.pk, "proposed": proposed.pk,
+            "jurisdiction": "TEST-REGION", "complaint_type": "TEST_EVENT",
+            "reported_at": "2026-08-03T10:00:00+09:00",
+            "occurred_at": "2026-08-02T10:00:00+09:00",
+        }
+        inputs.update(overrides)
+        return inputs
+
+    def test_rule_comparison_screen_flow_and_basis_change(self):
+        baseline, proposed, url = self.comparison_flow()
+        proposed.basis = "OCCURRED"
+        proposed = save_draft(proposed, self.raqa, "가상 사례 기산점 변경", proposed.revision)
+        detail = self.client.get(reverse("rule-detail", args=[baseline.pk]))
+        self.assertContains(detail, f'href="{url}">버전 비교')
+        compare = self.client.get(url)
+        self.assertEqual(compare.context["baseline"], baseline)
+        self.assertEqual(compare.context["proposed"], proposed)
+        self.assertEqual(compare.context["rows"][0]["status"], "변경")
+        citation_row = next(row for row in compare.context["rows"] if row["is_sources"])
+        self.assertEqual(citation_row["status"], "동일")
+        self.assertContains(compare, "원문 보기")
+
+        result = self.client.post(url, self.comparison_inputs(baseline, proposed))
+        self.assertContains(result, "영향 검증 결과 · 가상 사례")
+        self.assertContains(result, "1일 앞당겨짐")
+        left, right = result.context["results"]
+        self.assertEqual(left["calculation"]["due_at"], "2026-08-06T18:00:00+09:00")
+        self.assertEqual(right["calculation"]["due_at"], "2026-08-05T18:00:00+09:00")
+        same = self.client.post(url, self.comparison_inputs(baseline, baseline))
+        self.assertEqual(same.context["delta"], 0)
+        self.assertEqual(*[row["calculation"] for row in same.context["results"]])
+        outside_scope = self.client.post(url, self.comparison_inputs(baseline, proposed, complaint_type="OTHER"))
+        self.assertContains(outside_scope, "보고 규칙 적용 대상 아님", count=2)
+        self.assertIsNone(outside_scope.context["delta"])
+
+    def test_rule_comparison_holidays_and_missing_input_or_evidence(self):
+        baseline, proposed, url = self.comparison_flow()
+        proposed.day_type = "BUSINESS"
+        proposed.holiday_verified_from = date(2026, 8, 1)
+        proposed.holiday_verified_until = date(2026, 8, 31)
+        proposed.holiday_checked_on = timezone.localdate()
+        proposed.holidays = [{"date": "2026-08-04", "name": "가상 휴일"}]
+        proposed = save_draft(proposed, self.raqa, "가상 휴일 추가", proposed.revision)
+        response = self.client.post(url, self.comparison_inputs(baseline, proposed))
+        self.assertContains(response, "가상 휴일")
+        self.assertContains(response, "1일 늦어짐")
+        self.assertEqual(response.context["results"][1]["calculation"]["excluded"],
+                         [{"date": "2026-08-04", "reason": "가상 휴일"}])
+        self.assertIn("추가", {row["status"] for row in response.context["rows"]})
+        reverse_order = self.client.get(url, {"baseline": proposed.pk, "proposed": baseline.pk})
+        self.assertIn("삭제", {row["status"] for row in reverse_order.context["rows"]})
+
+        response = self.client.post(url, self.comparison_inputs(baseline, proposed, reported_at=""))
+        self.assertContains(response, "추가 확인 필요")
+        self.assertContains(response, "접수 일시를 입력하세요.")
+        self.assertIsNone(response.context["delta"])
+        uncited = self.draft()
+        response = self.client.post(reverse("rule-compare", args=[uncited.pk]),
+                                    self.comparison_inputs(uncited, uncited))
+        self.assertContains(response, "근거 미등록")
+        self.assertContains(response, "근거 문서와 인용 위치가 필요합니다.")
+        self.assertIsNone(response.context["results"][0]["calculation"])
+
+    def test_rule_comparison_preserves_snapshot_and_blocks_unauthorized_access(self):
+        baseline, proposed, url = self.comparison_flow()
+        application = self.apply(baseline)
+        before = CustomerComplaint.objects.values().get(pk=self.c.pk)
+        counts = [model.objects.count() for model in (RulePreview, RuleApplication, RuleChange, AuditLog)]
+        inputs = self.comparison_inputs(baseline, proposed, case=self.c.pk,
+                                       reported_at=f"{self.c.reported_on}T10:00:00+09:00")
+        result = self.client.post(url, inputs)
+        self.assertContains(result, "저장된 최근 적용 스냅샷")
+        self.assertEqual(result.context["previous_version"], baseline.version)
+        self.assertEqual(result.context["delta"], 0)
+        self.assertEqual(CustomerComplaint.objects.values().get(pk=self.c.pk), before)
+        self.assertEqual(RuleApplication.objects.get(pk=application.pk).snapshot, application.snapshot)
+        self.assertEqual([model.objects.count() for model in (RulePreview, RuleApplication, RuleChange, AuditLog)], counts)
+        proposed.refresh_from_db()
+        self.assertEqual(proposed.state, "DRAFT")
+
+        self.assertEqual(self.client.post(url, {**inputs, "case": 2**31 - 1}).status_code, 404)
+        unrelated = self.draft()
+        self.assertEqual(self.client.post(url, {**inputs, "proposed": unrelated.pk}).status_code, 404)
+        other_ra = User.objects.create_user("comparison-other-ra")
+        Profile.objects.create(user=other_ra, role="RA_QA")
+        self.client.force_login(other_ra)
+        self.assertEqual(self.client.get(url, {"proposed": proposed.pk}).status_code, 404)
+        self.assertEqual(self.client.post(url, inputs).status_code, 404)
+        self.client.force_login(self.other)
+        self.assertNotContains(self.client.get(url), f"CMP-{self.c.pk}")
+        self.assertEqual(self.client.post(url, {**inputs, "proposed": baseline.pk}).status_code, 403)
+        self.assertEqual(self.client.get(reverse("rule-compare", args=[proposed.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("complaint-workspace", args=[self.c.pk])).status_code, 404)
+        self.assertEqual(self.client.get(f"/api/complaints/{self.c.pk}/").status_code, 404)
+
     def test_revision_impact_is_read_only_and_restricted(self):
         from .rule_impact import revision_impact
         rule=self.publish(self.cite_all(self.draft()))

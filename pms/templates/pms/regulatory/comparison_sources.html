@@ -1,0 +1,16 @@
+{% if sources %}
+<details>
+  <summary>근거 인용 {{ sources|length }}건</summary>
+  {% for source in sources %}
+  <div class="reg-source">
+    <strong>{{ source.field_label }} · {{ source.document }} · {{ source.edition }}</strong>
+    <p>{% if source.page %}{{ source.page }}쪽 · {% endif %}{{ source.section }} · 문단 {{ source.paragraph }}</p>
+    <blockquote>{{ source.quote }}</blockquote>
+    {% if source.interpretation %}<p>RA 해석 · {{ source.interpretation }}</p>{% endif %}
+    <a href="{% url 'regulation-detail' source.document_id %}?chunk={{ source.chunk_id }}#chunk-{{ source.chunk_id }}">원문 보기</a>
+  </div>
+  {% endfor %}
+</details>
+{% else %}
+  <p>근거 미등록</p>
+{% endif %}
