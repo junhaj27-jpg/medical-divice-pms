@@ -1,0 +1,51 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a></p>
+<h1>{% ui 'batch_title' %}{% if market %} · {% ui market %}{% endif %}</h1>
+<p>{% ui 'batch_description' %} <a href="{% url 'market-batch-demo' %}">{% ui 'offline_demo' %}</a></p>
+<nav aria-label="{% ui 'market' %}">{% for code in markets %}
+<a class="btn" href="{% url 'market-batch-country' code %}"{% if code == market %} aria-current="page"{% endif %}>{% ui code %}</a>
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</nav>
+{% if batch_error %}<p class="alert" role="alert">{% ui batch_error %}</p>{% endif %}
+{% if market %}
+<section class="panel">
+{% if rules and entries %}
+<form method="post">{% csrf_token %}
+<label>{% ui 'baseline' %}<select required name="baseline"><option value="">—</option>
+{% for rule in rules %}{% with id=rule.pk|stringformat:"s" %}
+<option value="{{ id }}"{% if id == baseline_id %} selected{% endif %}>{{ rule.name }} · v{{ rule.version }} · {% ui rule.state %}{% if rule.is_example %} · {% ui 'is_example' %}{% endif %}</option>
+{% endwith %}{% endfor %}</select></label>
+<label>{% ui 'proposed' %}<select required name="proposed"><option value="">—</option>
+{% for rule in rules %}{% with id=rule.pk|stringformat:"s" %}
+<option value="{{ id }}"{% if id == proposed_id %} selected{% endif %}>{{ rule.name }} · v{{ rule.version }} · {% ui rule.state %}{% if rule.is_example %} · {% ui 'is_example' %}{% endif %}</option>
+{% endwith %}{% endfor %}</select></label>
+<fieldset><legend>{% ui 'batch_cases' %} · {% ui 'batch_limit' %} {{ limit }}</legend>
+{% if more_cases %}<p>{% ui 'batch_recent' %}</p>{% endif %}
+{% for entry in entries %}{% with id=entry.complaint_id|stringformat:"s" %}
+<div><label><input type="checkbox" name="case" value="{{ id }}"{% if id in selected %} checked{% endif %}> {{ entry.complaint }}{% if entry.complaint.is_example %} · {% ui 'is_example' %}{% endif %}</label></div>
+{% endwith %}{% endfor %}
+<label>{% ui 'batch_ids' %} <input name="case_ids" maxlength="2000" value="{{ entered_ids|default:'' }}"></label>
+</fieldset>
+<button class="btn primary">{% ui 'batch_run' %}</button>
+</form>
+{% else %}<p>{% ui 'empty' %}</p>{% endif %}
+</section>
+{% endif %}
+{% if rows %}
+<section class="panel">
+<h2>{% ui 'batch_results' %} · {{ rows|length|market_number }}</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>{% ui 'case' %}</th><th>{% ui 'baseline' %}</th><th>{% ui 'proposed' %}</th><th>{% ui 'delta' %}</th></tr></thead>
+<tbody>{% for row in rows %}
+<tr><th scope="row"><a href="{% url 'market-case-country' row.case_id market %}">CMP-{{ row.case_id }}</a></th>
+<td>{% include 'pms/markets/batch_side.html' with result=row.baseline engine=row.engines.baseline %}</td>
+<td>{% include 'pms/markets/batch_side.html' with result=row.proposed engine=row.engines.proposed %}</td>
+<td><ul>{% for flag in row.changes %}<li>{% ui flag %}</li>{% endfor %}</ul>
+{% if row.delta_days != None %}<p>{{ row.delta_days|market_number }}</p>{% endif %}
+{% if row.mismatches %}<ul>{% for item in row.mismatches %}
+<li>{% ui item.side %} · {% ui item.field %}<br>Python {{ item.python|default_if_none:"—" }} / C++ {{ item.cpp|default_if_none:"—" }}</li>
+{% endfor %}</ul>{% endif %}</td></tr>
+{% endfor %}</tbody>
+</table></div></section>
+{% endif %}
+{% endblock %}

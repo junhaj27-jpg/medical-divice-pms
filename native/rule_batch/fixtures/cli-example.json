@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "market": "KR",
+  "rules": [
+    {
+      "id": "EX-KR-1",
+      "version": 1,
+      "market": "KR",
+      "device": "EX-PULSE",
+      "example": true,
+      "basis": "REPORTED",
+      "conditions": {
+        "complaint_type": "EX_SIGNAL"
+      },
+      "unit": "DAYS",
+      "day_type": "CALENDAR",
+      "days": 2,
+      "include_start": false,
+      "timezone": "Asia/Seoul",
+      "deadline_time": "18:00:00",
+      "calendar": {
+        "weekend": [
+          5,
+          6
+        ],
+        "holidays": [],
+        "verified_from": null,
+        "verified_until": null,
+        "checked_on": null
+      }
+    },
+    {
+      "id": "EX-KR-2",
+      "version": 2,
+      "market": "KR",
+      "device": "EX-PULSE",
+      "example": true,
+      "basis": "REPORTED",
+      "conditions": {
+        "complaint_type": "EX_SIGNAL"
+      },
+      "unit": "DAYS",
+      "day_type": "BUSINESS",
+      "days": 2,
+      "include_start": false,
+      "timezone": "Asia/Seoul",
+      "deadline_time": "18:00:00",
+      "calendar": {
+        "weekend": [
+          5,
+          6
+        ],
+        "holidays": [
+          "2024-05-27",
+          "2024-05-28"
+        ],
+        "verified_from": "2024-01-01",
+        "verified_until": "2025-01-10",
+        "checked_on": "2024-01-01"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "EX-KR-LEAP",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2024-02-28",
+        "AWARE": "2024-02-28"
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-MONTH",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2024-01-31",
+        "AWARE": "2024-01-31"
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-YEAR",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2024-12-31",
+        "AWARE": "2024-12-31"
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-HOLIDAYS",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2024-05-24",
+        "AWARE": "2024-05-24"
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-MISSING",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": null,
+        "AWARE": null
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-MISSING-FACT",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": null
+      },
+      "bases": {
+        "REPORTED": "2024-05-24",
+        "AWARE": "2024-05-24"
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-MISMATCH",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2024-05-24",
+        "AWARE": "2024-05-24"
+      },
+      "business_dates": {
+        "REPORTED": "2024-05-23"
+      }
+    },
+    {
+      "id": "EX-KR-COVERAGE",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2025-01-10",
+        "AWARE": "2025-01-10"
+      },
+      "business_dates": {}
+    },
+    {
+      "id": "EX-KR-SOURCE",
+      "device": "EX-PULSE",
+      "example": true,
+      "facts": {
+        "complaint_type": "EX_SIGNAL",
+        "serious": true
+      },
+      "bases": {
+        "REPORTED": "2024-01-05",
+        "AWARE": "2024-01-05"
+      },
+      "business_dates": {},
+      "holds": [
+        "source_unverified",
+        null
+      ]
+    }
+  ]
+}

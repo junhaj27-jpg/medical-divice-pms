@@ -1,0 +1,6 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-batch' %}">{% ui 'batch_title' %}</a></p>
+<h1>{% ui 'offline_demo' %}</h1>
+<p>{% ui 'offline_build_required' %}</p>
+{% endblock %}

@@ -1,0 +1,533 @@
+{
+  "schema_version": 1,
+  "markets": [
+    {
+      "market": "KR",
+      "rules": [
+        {
+          "id": "EX-KR-1",
+          "version": 1,
+          "market": "KR",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 2,
+          "include_start": false,
+          "timezone": "Asia/Seoul",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        },
+        {
+          "id": "EX-KR-2",
+          "version": 2,
+          "market": "KR",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "BUSINESS",
+          "days": 2,
+          "include_start": false,
+          "timezone": "Asia/Seoul",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [
+              "2024-05-27",
+              "2024-05-28"
+            ],
+            "verified_from": "2024-01-01",
+            "verified_until": "2025-01-10",
+            "checked_on": "2024-01-01"
+          }
+        },
+        {
+          "id": "EX-KR-3",
+          "version": 3,
+          "market": "KR",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "AWARE",
+          "conditions": {
+            "serious": false
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 1,
+          "include_start": true,
+          "timezone": "Asia/Seoul",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        },
+        {
+          "id": "EX-KR-4",
+          "version": 4,
+          "market": "KR",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "HOURS",
+          "day_type": "CALENDAR",
+          "days": 24,
+          "include_start": false,
+          "timezone": "Asia/Seoul",
+          "deadline_time": null,
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        }
+      ],
+      "cases": [
+        {
+          "id": "EX-KR-LEAP",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-02-28",
+            "AWARE": "2024-02-28"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-MONTH",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-01-31",
+            "AWARE": "2024-01-31"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-YEAR",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-12-31",
+            "AWARE": "2024-12-31"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-HOLIDAYS",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-05-24",
+            "AWARE": "2024-05-24"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-MISSING",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": null,
+            "AWARE": null
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-MISSING-FACT",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": null
+          },
+          "bases": {
+            "REPORTED": "2024-05-24",
+            "AWARE": "2024-05-24"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-MISMATCH",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-05-24",
+            "AWARE": "2024-05-24"
+          },
+          "business_dates": {
+            "REPORTED": "2024-05-23"
+          }
+        },
+        {
+          "id": "EX-KR-COVERAGE",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2025-01-10",
+            "AWARE": "2025-01-10"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-KR-SOURCE",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-01-05",
+            "AWARE": "2024-01-05"
+          },
+          "business_dates": {},
+          "holds": [
+            "source_unverified",
+            null
+          ]
+        }
+      ]
+    },
+    {
+      "market": "US",
+      "rules": [
+        {
+          "id": "EX-US-1",
+          "version": 1,
+          "market": "US",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "BUSINESS",
+          "days": 2,
+          "include_start": false,
+          "timezone": "UTC",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [
+              "2024-05-27"
+            ],
+            "verified_from": "2024-01-01",
+            "verified_until": "2025-01-10",
+            "checked_on": "2024-01-01"
+          }
+        },
+        {
+          "id": "EX-US-2",
+          "version": 2,
+          "market": "US",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "BUSINESS",
+          "days": 1,
+          "include_start": false,
+          "timezone": "UTC",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [
+              "2024-05-27",
+              "2024-05-28"
+            ],
+            "verified_from": "2024-01-01",
+            "verified_until": "2025-01-10",
+            "checked_on": "2024-01-01"
+          }
+        },
+        {
+          "id": "EX-US-3",
+          "version": 3,
+          "market": "US",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 0,
+          "include_start": false,
+          "timezone": "UTC",
+          "deadline_time": "00:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        },
+        {
+          "id": "EX-US-4",
+          "version": 4,
+          "market": "US",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 2,
+          "include_start": false,
+          "timezone": "America/New_York",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        }
+      ],
+      "cases": [
+        {
+          "id": "EX-US-HOLIDAYS",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-05-24",
+            "AWARE": "2024-05-24"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-US-OFFSET",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-03-01T00:30:00+09:00",
+            "AWARE": "2024-03-01T00:30:00+09:00"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-US-DEVICE",
+          "device": "EX-OTHER",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-05-24",
+            "AWARE": "2024-05-24"
+          },
+          "business_dates": {}
+        }
+      ]
+    },
+    {
+      "market": "DE",
+      "rules": [
+        {
+          "id": "EX-DE-1",
+          "version": 1,
+          "market": "DE",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 2,
+          "include_start": false,
+          "timezone": "UTC",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        },
+        {
+          "id": "EX-DE-2",
+          "version": 2,
+          "market": "DE",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 1,
+          "include_start": true,
+          "timezone": "UTC",
+          "deadline_time": "18:00:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        },
+        {
+          "id": "EX-DE-3",
+          "version": 3,
+          "market": "DE",
+          "device": "EX-PULSE",
+          "example": true,
+          "basis": "REPORTED",
+          "conditions": {
+            "complaint_type": "EX_SIGNAL"
+          },
+          "unit": "DAYS",
+          "day_type": "CALENDAR",
+          "days": 2,
+          "include_start": false,
+          "timezone": "UTC",
+          "deadline_time": "16:30:00",
+          "calendar": {
+            "weekend": [
+              5,
+              6
+            ],
+            "holidays": [],
+            "verified_from": null,
+            "verified_until": null,
+            "checked_on": null
+          }
+        }
+      ],
+      "cases": [
+        {
+          "id": "EX-DE-LEAP",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-02-29",
+            "AWARE": "2024-02-29"
+          },
+          "business_dates": {}
+        },
+        {
+          "id": "EX-DE-YEAR",
+          "device": "EX-PULSE",
+          "example": true,
+          "facts": {
+            "complaint_type": "EX_SIGNAL",
+            "serious": true
+          },
+          "bases": {
+            "REPORTED": "2024-12-31",
+            "AWARE": "2024-12-31"
+          },
+          "business_dates": {}
+        }
+      ]
+    }
+  ]
+}

@@ -240,8 +240,8 @@ def parse_basis(value,zone):
     return value.astimezone(zone)
 
 
-def calculate_deadline(rule,basis_at, *, enforce_effective=True):
-    validate_rule_content(rule)
+def deadline_times(rule, basis_at, *, enforce_effective=True):
+    """Compute the basis and deadline without fetching rule metadata or writing state."""
     if rule.days is None or not rule.deadline_unit or not rule.day_type or rule.include_start is None or not rule.timezone_name or not rule.basis:
         raise ValidationError("기한 값·단위·달력 기준·시작일 포함·시간대·기준 시점을 확인하세요.")
     zone=ZoneInfo(rule.timezone_name);base=parse_basis(basis_at,zone)
@@ -269,6 +269,12 @@ def calculate_deadline(rule,basis_at, *, enforce_effective=True):
                 day+=timedelta(days=1)
         due=parse_basis(datetime.combine(day,rule.deadline_time),zone)
     if due<base: raise ValidationError("최종 기한이 기준 일시보다 빠릅니다. 시작일 포함과 마감 시각을 확인하세요.")
+    return base, due, excluded
+
+
+def calculate_deadline(rule,basis_at, *, enforce_effective=True):
+    validate_rule_content(rule)
+    base, due, excluded = deadline_times(rule, basis_at, enforce_effective=enforce_effective)
     coverage={"from":str(rule.holiday_verified_from or ""),"until":str(rule.holiday_verified_until or ""),"checked_on":str(rule.holiday_checked_on or "")}
     method="토·일 및 해당 버전 등록 휴일만 제외. 공휴일 자동 갱신 없음." if rule.day_type=="BUSINESS" else "달력 경과일·시간 기준이며 주말·휴일을 제외하지 않습니다."
     return {"rule_name":rule.name,"basis_label":rule.get_basis_display(),"holiday_coverage":coverage,"basis_at":base.isoformat(),"basis_type":rule.basis,"include_start":rule.include_start,"excluded":excluded,"due_at":due.isoformat(),"timezone":rule.timezone_name,"rule_id":rule.pk,"version":rule.version,"deadline_unit":rule.deadline_unit,"value":rule.days,"sources":citation_data(rule),"fingerprint":fingerprint(rule),"calendar_method":method}

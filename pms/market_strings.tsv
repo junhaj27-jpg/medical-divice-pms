@@ -179,3 +179,41 @@ regulation_document|연결된 규정 원본|Linked regulation original|Verknüpf
 same_source_url|연결한 규정 원본의 공식 URL을 사용하세요.|Use the official URL of the linked original.|Amtliche URL der verknüpften Quelle verwenden.|Utilisez l’URL officielle de la source liée.|Use la URL oficial de la fuente vinculada.|Usare l’URL ufficiale della fonte collegata.
 stale_assessment|근거나 입력이 바뀌었습니다. 현재 판단을 다시 검토하세요.|Evidence or inputs changed. Review the current assessment again.|Nachweise oder Angaben haben sich geändert. Bewertung erneut prüfen.|Les sources ou les données ont changé. Réexaminez l’évaluation.|Las fuentes o los datos han cambiado. Revise de nuevo la evaluación.|Fonti o dati modificati. Riesaminare la valutazione.
 unconfirmed_fields|비워 둔 항목은 미확정입니다.|Empty fields are unconfirmed.|Leere Felder sind ungeklärt.|Les champs vides restent à confirmer.|Los campos vacíos quedan sin confirmar.|I campi vuoti restano da confermare.
+batch_title|사건 일괄 검증|Batch case validation|Fallprüfung im Stapel|Validation par lot|Validación por lotes|Verifica per lotti
+batch_description|이전 규칙과 개정안을 선택한 사건에 적용해 비교합니다. 운영 기록은 유지됩니다.|Compare a baseline and proposal against selected cases. Operational records are preserved.|Vergleichen Sie Ausgangsregel und Entwurf für ausgewählte Fälle. Produktivdaten bleiben erhalten.|Comparez la règle de référence et le projet sur les dossiers choisis. Les données opérationnelles sont conservées.|Compare la regla base y la propuesta en los casos elegidos. Se conservan los registros operativos.|Confronta regola di riferimento e proposta sui casi selezionati. I dati operativi vengono conservati.
+batch_count_error|중복 없이 허용 건수 이내로 사건을 선택하세요.|Select cases within the limit without duplicates.|Wählen Sie Fälle ohne Duplikate innerhalb des Limits.|Sélectionnez des dossiers sans doublon dans la limite indiquée.|Seleccione casos sin duplicados dentro del límite.|Seleziona i casi entro il limite, senza duplicati.
+batch_cases_error|이 시장에서 열 수 있는 사건 ID를 입력하세요.|Enter case IDs accessible in this market.|Geben Sie zugängliche Fall-IDs für diesen Markt ein.|Saisissez les identifiants de dossiers accessibles dans ce marché.|Introduzca identificadores de casos accesibles en este mercado.|Inserisci gli ID dei casi accessibili in questo mercato.
+batch_pair_error|이 시장에서 볼 수 있는 같은 계열의 규칙 버전 두 개를 선택하세요.|Choose two accessible versions from the same rule family in this market.|Wählen Sie zwei zugängliche Versionen derselben Regel für diesen Markt.|Choisissez deux versions accessibles d’une même règle dans ce marché.|Elija dos versiones accesibles de la misma regla en este mercado.|Scegli due versioni accessibili della stessa regola in questo mercato.
+batch_limit|최대 건수|Maximum cases|Maximale Fallzahl|Nombre maximal|Máximo de casos|Numero massimo di casi
+batch_recent|최근 사건만 표시합니다. 이전 사건은 아래에 ID를 입력하세요.|Recent cases are listed. Enter IDs below for earlier cases.|Hier stehen neuere Fälle. Geben Sie ältere Fall-IDs unten ein.|Les dossiers récents sont affichés. Saisissez les anciens identifiants ci-dessous.|Se muestran los casos recientes. Introduzca abajo los identificadores anteriores.|Sono mostrati i casi recenti. Inserisci sotto gli ID dei casi precedenti.
+batch_cases|사건 선택|Select cases|Fälle auswählen|Sélectionner les dossiers|Seleccionar casos|Seleziona i casi
+batch_ids|추가 사건 번호 (숫자, 쉼표 구분)|Additional numeric case IDs, comma separated|Weitere numerische Fall-IDs, durch Komma getrennt|Autres identifiants numériques, séparés par des virgules|Otros identificadores numéricos, separados por comas|Altri ID numerici, separati da virgole
+batch_run|일괄 검증 실행|Run validation|Prüfung starten|Lancer la validation|Ejecutar validación|Esegui la verifica
+batch_results|검증 결과|Validation results|Prüfergebnisse|Résultats de validation|Resultados de validación|Risultati della verifica
+python|Python 기준 계산|Python reference|Python-Referenz|Référence Python|Referencia Python|Riferimento Python
+cpp_verified|C++ · Python 일치|C++ agrees with Python|C++ stimmt mit Python überein|C++ concorde avec Python|C++ coincide con Python|C++ concorda con Python
+cpp_disagreement|Python 기준 · C++ 불일치|Python reference · C++ disagrees|Python-Referenz · C++ weicht ab|Référence Python · écart C++|Referencia Python · diferencia con C++|Riferimento Python · difformità C++
+module_missing|C++ 모듈 미설치 또는 로드 불가|C++ module unavailable|C++-Modul nicht verfügbar|Module C++ indisponible|Módulo C++ no disponible|Modulo C++ non disponibile
+native_error|C++ 실행 오류|C++ execution failed|C++-Ausführung fehlgeschlagen|Échec d’exécution C++|Error de ejecución C++|Errore di esecuzione C++
+unsupported|지원 범위 밖|Unsupported|Nicht unterstützt|Non pris en charge|No compatible|Non supportato
+unsupported_method|이 계산 방식은 C++ 지원 범위 밖입니다.|C++ does not support this calculation method.|C++ unterstützt diese Berechnungsmethode nicht.|C++ ne prend pas en charge ce mode de calcul.|C++ no admite este método de cálculo.|C++ non supporta questo metodo di calcolo.
+unsupported_timestamp|시각이 있는 기산점은 Python으로 계산합니다.|Python handles triggers with a time of day.|Python berechnet Fristbeginne mit Uhrzeit.|Python calcule les points de départ horodatés.|Python calcula los inicios con hora.|Python calcola gli inizi con orario.
+unsupported_timezone|이 시간대는 Python으로 계산합니다.|Python handles this time zone.|Python berechnet diese Zeitzone.|Python calcule ce fuseau horaire.|Python calcula esta zona horaria.|Python calcola questo fuso orario.
+decision_changed|보고 판단 변경|Decision changed|Meldeentscheidung geändert|Décision modifiée|Decisión modificada|Decisione modificata
+earlier|기한 앞당김|Earlier deadline|Frühere Frist|Échéance avancée|Plazo adelantado|Scadenza anticipata
+later|기한 늦어짐|Later deadline|Spätere Frist|Échéance reportée|Plazo pospuesto|Scadenza posticipata
+deadline_added|기한 추가|Deadline added|Frist hinzugefügt|Échéance ajoutée|Plazo añadido|Scadenza aggiunta
+deadline_removed|기한 제거|Deadline removed|Frist entfernt|Échéance supprimée|Plazo eliminado|Scadenza rimossa
+time_changed|마감 시각 변경|Cutoff time changed|Fristzeit geändert|Heure limite modifiée|Hora límite modificada|Orario limite modificato
+unchanged|변경 없음|Unchanged|Unverändert|Inchangé|Sin cambios|Invariato
+review_required|검토 필요|Review required|Prüfung erforderlich|Examen requis|Revisión necesaria|Verifica necessaria
+comparison|비교|Comparison|Vergleich|Comparaison|Comparación|Confronto
+reason|사유|Reason|Grund|Motif|Motivo|Motivo
+basis_date|기산일|Trigger date|Datum des Fristbeginns|Date de départ|Fecha de inicio|Data di inizio
+due_date|기한 날짜|Deadline date|Fristdatum|Date d’échéance|Fecha límite|Data di scadenza
+due_at|마감 일시|Deadline time|Fristzeitpunkt|Heure d’échéance|Fecha y hora límite|Data e ora di scadenza
+rule_id|규칙 ID|Rule ID|Regel-ID|Identifiant de règle|Identificador de regla|ID regola
+changes|변경 항목|Changes|Änderungen|Modifications|Cambios|Modifiche
+delta_days|기한 차이 (일)|Deadline delta (days)|Fristdifferenz (Tage)|Écart d’échéance (jours)|Diferencia de plazo (días)|Differenza di scadenza (giorni)
+offline_demo|오프라인 규칙 비교 데모|Offline rule comparison demo|Offline-Demo zum Regelvergleich|Démo hors ligne de comparaison|Demostración de comparación sin conexión|Demo di confronto offline
+offline_build_required|README의 WASM 빌드 및 데모 설치 명령을 실행하세요.|Build and install the WASM demo using the README instructions.|Bauen und installieren Sie das WASM-Demo nach der README-Anleitung.|Compilez et installez la démo WASM selon le README.|Compile e instale la demo WASM según el README.|Compila e installa la demo WASM seguendo il README.

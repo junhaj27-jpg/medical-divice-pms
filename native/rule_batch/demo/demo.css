@@ -1,0 +1,14 @@
+body { margin: 0; color: #162c42; background: #edf3f8; font: 1rem/1.55 system-ui, sans-serif; }
+main { max-width: 72rem; margin: auto; padding: 1rem; }
+.notice { border-left: .3rem solid #14678e; padding: .65rem 1rem; background: #fff; }
+fieldset { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; border: 1px solid #96abc0; border-radius: .5rem; padding: 1rem; }
+label { display: grid; gap: .35rem; }
+select, button { font: inherit; padding: .4rem .6rem; }
+button { color: #fff; background: #175785; border: 0; border-radius: .3rem; }
+button:focus-visible, select:focus-visible { outline: .2rem solid #14678e; outline-offset: .2rem; }
+.table-wrap { overflow: auto; margin-top: 1rem; }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+caption, th, td { text-align: left; padding: .65rem; }
+th, td { border-bottom: 1px solid #c6d5e0; vertical-align: top; }
+thead { background: #dbe8f1; }
+td { white-space: pre-line; }

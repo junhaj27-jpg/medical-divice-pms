@@ -1,8 +1,12 @@
 from django.urls import path
 
 from . import market_views as views
+from .market_batch_views import batch_compare, offline_demo
 
 urlpatterns = [
+    path("markets/batch/", batch_compare, name="market-batch"),
+    path("markets/batch/demo/", offline_demo, name="market-batch-demo"),
+    path("markets/batch/<str:code>/", batch_compare, name="market-batch-country"),
     path("markets/", views.dashboard, name="market-dashboard"),
     path("preferences/language/", views.language, name="market-language"),
     path("devices/<int:pk>/markets/", views.product, name="market-product"),

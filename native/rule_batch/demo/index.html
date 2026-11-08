@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<title>오프라인 규칙 비교 데모 · MedWatch PMS</title>
+<link rel="stylesheet" href="demo.css">
+<script defer src="engine.js"></script>
+<script defer src="demo.js"></script>
+<main>
+  <h1>오프라인 규칙 비교 데모</h1>
+  <p class="notice"><strong>예시 데이터 · 내부 검증용</strong> · 브라우저 WebAssembly 계산</p>
+  <p id="status" role="status">예시 규칙과 계산 엔진을 준비하고 있습니다.</p>
+  <fieldset id="controls" disabled>
+    <legend>검증 조건</legend>
+    <label>시장 <select id="market"></select></label>
+    <label>이전 규칙 <select id="baseline"></select></label>
+    <label>개정안 <select id="proposed"></select></label>
+    <button id="run" type="button">비교 실행</button>
+  </fieldset>
+  <div class="table-wrap">
+    <table>
+      <caption>사건별 보고 판단과 기한 비교</caption>
+      <thead><tr><th scope="col">예시 사건</th><th scope="col">이전 규칙</th><th scope="col">개정안</th><th scope="col">변경 및 기한 차이 (일)</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+</html>

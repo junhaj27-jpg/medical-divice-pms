@@ -13,3 +13,6 @@ private_media/
 tmp*/
 /work/erd-validation/
 /work/ra-platform/
+/build-rule-batch/
+/build-rule-wasm/
+/static/rule-batch/

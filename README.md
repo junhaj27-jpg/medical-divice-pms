@@ -56,6 +56,121 @@ DB 경로는 새 로컬 작업 복사본 기준입니다. 기존 데이터가 �
 
 
 
+## 해외 시장 보고 규칙 일괄 검증
+
+**해외 인허가 → 사건 일괄 검증**(`/markets/batch/`) 또는 **시장별 사건 → 규칙 버전 비교 → 사건 일괄 검증**에서 시작합니다. 허용된 시장, 같은 계열의 규칙 두 버전, 해당 시장에서 조회할 수 있는 사건 최대 100건을 선택합니다. 동일 버전을 선택해 비교 기준을 확인할 수도 있습니다. 오래된 사건은 숫자 ID를 직접 입력할 수 있습니다. 결과 표시는 기존 앱의 6개 UI 로캘을 따르며, 계산은 로캘과 무관합니다.
+
+Django는 기존 Python 비교를 기준으로 계산합니다. 선택 모듈 `pms_rule_batch`가 있으면 지원하는 각 버전을 C++로도 계산합니다. 화면에서 C++ 일치 여부, Python으로 대체한 사유, 불일치 필드와 양쪽 값을 확인할 수 있습니다. 권한, 근거 접근, 규칙의 적용 전제는 Django에서 검사합니다. 실행 감사에는 실행자, 시장, 규칙 버전, 엔진, 건수와 상태가 남습니다. 결과는 읽기 전용 검증이며, 사건·기한·스냅샷·규칙 승인 상태와 기존 RA 작업 큐를 유지합니다. 기존 큐는 검토 업무를 기록하며 이 비교는 최대 100건의 동기 요청입니다.
+
+### C++17 지원 범위와 JSON v1
+
+`native/rule_batch`의 C++ 코어를 CLI, pybind11, Emscripten WebAssembly에서 공유합니다. 운영 판단과 원문 근거는 기존 Python 앱에서 관리합니다. C++ 범위는 날짜만 주어진 기산점, 달력일과 영업일, 시작일 포함/제외, 0–3660일, 초 단위 현지 마감 시각, 토·일과 확인된 휴일입니다. 영업일은 기산일부터 계산이 진행되는 모든 날짜가 명시된 확인 범위 안에 있어야 합니다. 시간대는 UTC, Etc/UTC, 2000년 이후 Asia/Seoul을 지원합니다. 시각·UTC 오프셋이 있는 입력, 경과 시간(HOURS), DST가 있는 시간대, 다른 주말 패턴은 C++ 결과에 `unsupported`를 표시하며 앱에서 Python 기준 계산을 표시합니다. 사건 조건은 `complaint_type`, `risk_level`, `serious`의 동등 비교입니다. 누락과 거짓은 구분합니다.
+
+[실행 가능한 JSON 예시](native/rule_batch/fixtures/cli-example.json)를 참조하세요. 입력은 UTF-8이며 한 배치에 최대 16 MiB, 고유 사건 ID 1–10,000건입니다. 각 객체의 키는 다음과 같습니다.
+
+| 객체 | 필드 |
+| --- | --- |
+| 배치 | `schema_version: 1`, `market`(KR, US, DE, FR, ES, IT), `rules`(이전/개정 순서 2개), `cases` |
+| 규칙 | `id` 문자열, 양의 정수 `version`, `market`, `device` 문자열 또는 null, `example` 불리언, `basis`(OCCURRED, REPORTED, AWARE, CUSTOM 또는 null), `conditions`, `unit`, `day_type`, `days`, `include_start`, `timezone`, `deadline_time`(HH:MM:SS 또는 null), `calendar` |
+| 달력 | `weekend`(월요일 0부터 일요일 6), `holidays`(중복 없는 YYYY-MM-DD 목록), `verified_from`, `verified_until`, `checked_on`(날짜 또는 null). 확인일은 입력 측에서 검증한 값입니다. |
+| 사건 | `id` 문자열, `device`, `example`, `facts`(값이 없으면 null 또는 생략), `bases`(기산점별 YYYY-MM-DD, 초가 포함된 ISO 8601 오프셋 일시 또는 null), 선택 `business_dates`(기록된 업무 날짜), 선택 `holds`(두 버전의 원문/적용 범위 사전 보류 사유) |
+
+출력 `{schema_version, market, results}`의 각 행은 `case_id`, `baseline`, `proposed`, `changes`, `delta_days`입니다. 버전별 결과에 `decision`, `reason`, `basis_date`, `due_date`, `due_at`(ISO 8601 오프셋), `rule_id`, `version`이 있습니다. 판단은 `REPORT`, `NO_MATCH`, `HOLD`, `unsupported` 중 하나입니다. 기한 차이는 개정안 날짜 − 이전 날짜이며 둘 다 계산된 경우에만 숫자입니다. `changes`에는 판단 변경, 기한 앞당김/늦어짐, 마감 시각 변경, 기한 추가/제거, 추가 확인 필요, 변경 없음이 해당하는 조합으로 들어갑니다.
+
+CLI는 `pms-rule-batch [--timings] [FILE|-]`입니다. 경로를 생략하거나 `-`를 주면 표준 입력을 읽습니다. 성공 결과는 표준 출력에 JSON 한 줄로 나옵니다. `--timings`를 쓰면 성공 시 내부 단계 시간(ms)을 표준 오류에 JSON 한 줄로 별도 출력합니다. 종료 코드 0에는 사건별 보류·미지원이 포함될 수 있습니다. 2는 잘못된 입력, 3은 입출력 오류, 4는 엔진 오류입니다. 오류는 표준 오류에 `{"schema_version":1,"error":{"code":"invalid_input|io_error|internal_error","message":"..."}}`로 출력합니다. Python 모듈의 `run_json(str) -> str`은 잘못된 입력에 `ValueError`를 발생시킵니다.
+
+### Windows PowerShell
+
+Visual Studio C++ Build Tools의 **Developer PowerShell**에서 저장소 루트로 이동합니다. 아래 명령은 CMake/Ninja와 Python 개발 헤더가 있는 CPython 3.12 x64를 사용합니다.
+
+```powershell
+python -m venv .venv
+$py = (Resolve-Path .venv/Scripts/python.exe).Path
+& $py -m pip install -r requirements.txt cmake ninja pybind11
+$env:Path = "$(Split-Path $py);$env:Path"
+$bind = & $py -m pybind11 --cmakedir
+cmake -S native/rule_batch -B build-rule-batch -G Ninja -DCMAKE_BUILD_TYPE=Release -DPMS_PYTHON=ON "-DPython_EXECUTABLE=$py" "-Dpybind11_DIR=$bind"
+cmake --build build-rule-batch
+$env:PYTHONPATH = (Resolve-Path build-rule-batch).Path
+& .\build-rule-batch\pms-rule-batch.exe native/rule_batch/fixtures/cli-example.json
+Get-Content native/rule_batch/fixtures/cli-example.json -Raw | & .\build-rule-batch\pms-rule-batch.exe -
+& $py manage.py test pms.test_market_batch pms.test_regulatory pms.test_market_workspace --noinput
+```
+
+### Linux
+
+C++17 컴파일러와 Python 개발 헤더(예를 들어 배포판의 `build-essential`, `python3-dev`, `python3-venv`)를 설치합니다.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt cmake ninja pybind11
+cmake -S native/rule_batch -B build-rule-batch -G Ninja -DCMAKE_BUILD_TYPE=Release -DPMS_PYTHON=ON \
+  -DPython_EXECUTABLE="$(command -v python)" -Dpybind11_DIR="$(python -m pybind11 --cmakedir)"
+cmake --build build-rule-batch
+export PYTHONPATH="$PWD/build-rule-batch"
+./build-rule-batch/pms-rule-batch native/rule_batch/fixtures/cli-example.json
+python manage.py test pms.test_market_batch pms.test_regulatory pms.test_market_workspace --noinput
+```
+
+CLI만 필요하면 `PMS_PYTHON`을 생략하세요. CMake는 설치된 nlohmann/json을 찾거나, 처음 구성할 때 SHA-256이 고정된 소스를 내려받습니다. 로컬 소스가 있다면 `-DFETCHCONTENT_SOURCE_DIR_NLOHMANN_JSON=/path/to/json`으로 지정할 수 있습니다.
+
+### WebAssembly 예시
+
+Windows에서는 저장소 루트에서 다음을 실행합니다.
+
+```powershell
+git clone https://github.com/emscripten-core/emsdk.git ../emsdk
+$sdk = (Resolve-Path ../emsdk).Path
+& $py "$sdk/emsdk.py" install 4.0.23
+& $py "$sdk/emsdk.py" activate 4.0.23
+$env:EM_CONFIG = "$sdk/.emscripten"
+$env:Path = "$sdk/upstream/emscripten;$(Split-Path $py);$env:Path"
+cmake -S native/rule_batch -B build-rule-wasm -G Ninja -DCMAKE_BUILD_TYPE=Release "-DCMAKE_TOOLCHAIN_FILE=$sdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+cmake --build build-rule-wasm
+cmake --install build-rule-wasm --prefix "$PWD/static/rule-batch"
+& $py -m http.server 8765 --bind 127.0.0.1 --directory static/rule-batch
+```
+
+Linux에서는 저장소 루트에서 다음을 실행합니다.
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git ../emsdk
+../emsdk/emsdk install 4.0.23
+../emsdk/emsdk activate 4.0.23
+source ../emsdk/emsdk_env.sh
+emcmake cmake -S native/rule_batch -B build-rule-wasm -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-rule-wasm
+cmake --install build-rule-wasm --prefix "$PWD/static/rule-batch"
+python -m http.server 8765 --bind 127.0.0.1 --directory static/rule-batch
+```
+
+[로컬 데모](http://127.0.0.1:8765/index.html)를 열고 **오프라인 준비 완료**가 뜨면 오프라인으로 전환한 뒤 페이지를 다시 열어 시장과 규칙을 변경해 보세요. Django에서도 자산을 설치한 후 **사건 일괄 검증 → 오프라인 규칙 비교 데모**에서 열 수 있습니다. WASM 바이트는 `engine.js`에 내장됩니다. 서비스 워커는 데모 자산만 저장합니다. 예시 사건과 예시 규칙만 선택할 수 있으며, 계산 시 네트워크 호출이 없습니다. 자산을 다시 배포해 캐시를 갱신할 때는 데모 서비스 워커의 캐시 버전도 올립니다. [공식 Emscripten 설치 문서](https://emscripten.org/docs/getting_started/downloads.html)
+
+### 일치성·오프라인·벤치마크 재현
+
+PowerShell 예시입니다. Linux에서는 `$py`를 `python`으로, CLI 파일 이름을 `build-rule-batch/pms-rule-batch`로 바꿉니다. Node.js 22 이상과 Chromium 브라우저가 필요합니다. 앞에서 시작한 로컬 데모 서버를 실행한 상태에서 브라우저 검사를 실행합니다.
+
+```powershell
+& $py native/rule_batch/verify.py --cli build-rule-batch/pms-rule-batch.exe --wasm build-rule-wasm/engine.js
+node native/rule_batch/browser_check.cjs "C:/Program Files/Google/Chrome/Application/chrome.exe" http://127.0.0.1:8765/index.html
+& $py native/rule_batch/benchmark.py --cli build-rule-batch/pms-rule-batch.exe --repeats 7
+```
+
+벤치마크는 같은 가상 사건을 두 버전에 적용합니다. 계산 시간은 입력 준비 후부터 결과 객체가 생성될 때까지입니다. 전체 시간은 JSON 인코딩·파싱·결과 변환을 포함하며 CLI에는 프로세스 시작 및 파이프 입출력도 포함합니다. 앱 요청의 인증, ORM, 근거 조회, 감사 기록 시간은 별도입니다.
+
+실측 환경은 Windows 11 x64, Intel Core i5-1130G7, CPython 3.12.14, LLVM-MinGW Clang 23.1.5입니다. C++ 네이티브는 `-O3`, WASM은 Emscripten 4.0.23 `-O3`로 빌드했습니다. 엔진당 워밍업 1회와 측정 7회의 중앙값입니다.
+
+| 사건 수 | Python 계산 / 전체 ms | C++ CLI 계산 / 전체 ms | pybind11 계산 / 전체 ms |
+| ---: | ---: | ---: | ---: |
+| 100 | 2.939 / 3.918 | 1.256 / 12.448 | 0.963 / 2.620 |
+| 1,000 | 30.398 / 39.226 | 11.295 / 46.178 | 10.348 / 28.060 |
+| 10,000 | 370.696 / 471.822 | 111.533 / 596.606 | 114.877 / 536.485 |
+
+Python 기준, CLI, pybind11, WASM의 41개 예시 배치(사건 비교 210건)가 일치했습니다. pybind11을 로드한 Django 규칙·시장 테스트 56개가 통과했습니다. 모듈을 제거한 재실행에서는 선택 모듈 테스트 한 건을 건너뛰었고 나머지 55개가 통과했습니다. 내장 브라우저에서 로컬 서버를 중지한 뒤 서비스 워커 캐시로 다시 열어 시장과 개정안을 바꿨습니다. Resource Timing으로 관찰한 추가 리소스 요청과 외부 출처 요청은 모두 0건이었습니다.
+
+이 Windows 작업 환경의 CMake는 C++ 컴파일러 탐색에서 `0xC0000409`로 종료돼 실제 검증 바이너리는 동일 소스를 Clang 및 Emscripten 드라이버로 직접 빌드했습니다. 자동 Chromium/CDP 실행은 Windows IPC 권한 오류가 있어 내장 브라우저로 오프라인 동작을 확인했습니다. 표준 CMake 구성과 Linux 빌드, 자동 Chromium 실행은 위 명령으로 재현할 수 있습니다.
+
 ## 프로젝트 요약
 
 | 항목 | 내용 |

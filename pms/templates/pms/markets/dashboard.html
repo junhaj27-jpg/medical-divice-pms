@@ -2,6 +2,7 @@
 {% block title %}{% ui 'markets' %} · MedWatch PMS{% endblock %}
 {% block content %}
 <h1>{% ui 'markets' %}</h1>
+<p><a class="btn" href="{% url 'market-batch' %}">{% ui 'batch_title' %}</a></p>
 {% if not market_scoped %}<p><a href="{% url 'foreign-list' %}">{% ui 'legacy_foreign' %}</a></p>{% endif %}
 <form method="get" class="filter-row"><label>{% ui 'market' %}
 <select name="market"><option value="">{% ui 'all' %}</option>{% for code in markets %}<option value="{{ code }}"{% if code == selected %} selected{% endif %}>{% ui code %}</option>{% endfor %}</select></label>
