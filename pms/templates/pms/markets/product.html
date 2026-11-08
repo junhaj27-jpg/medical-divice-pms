@@ -1,0 +1,13 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% if not market_scoped %} / <a href="{% url 'device-detail' device.pk %}">{% ui 'product' %}</a>{% endif %}</p>
+<h1>{{ device }} · {% ui 'registration' %}</h1>
+<section class="panel"><table><thead><tr><th>{% ui 'market' %}</th><th>{% ui 'status' %}</th><th>{% ui 'identifier' %}</th><th>{% ui 'owner' %}</th><th>{% ui 'expires_on' %}</th></tr></thead><tbody>
+{% for row in rows %}<tr><td><a href="{% url 'market-registration' device.pk row.market %}">{% ui row.market %}</a>{% if row.is_example %} · {% ui 'is_example' %}{% endif %}</td><td>{% ui row.status %}</td>
+<td>{% if row.identifier %}{{ row.identifier }}{% elif 'identifier' in row.na_fields %}{% ui 'NA' %}{% else %}{% ui 'UNKNOWN' %}{% endif %}</td>
+<td>{% if row.owner %}{{ row.owner }}{% elif 'owner' in row.na_fields %}{% ui 'NA' %}{% else %}{% ui 'UNKNOWN' %}{% endif %}</td>
+<td>{% if row.expires_on %}{{ row.expires_on }}{% elif 'expires_on' in row.na_fields %}{% ui 'NA' %}{% else %}{% ui 'UNKNOWN' %}{% endif %}</td></tr>
+{% empty %}<tr><td colspan="5">{% ui 'empty' %}</td></tr>{% endfor %}</tbody></table></section>
+{% if available %}<section class="panel"><h2>{% ui 'add_market' %}</h2>{% for code in available %}<a class="btn" href="{% url 'market-registration' device.pk code %}">{% ui code %}</a> {% endfor %}</section>{% endif %}
+{% if has_legacy %}<p><a href="{% url 'foreign-device' device.pk %}">{% ui 'legacy_foreign' %}</a></p>{% endif %}
+{% endblock %}

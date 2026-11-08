@@ -1,0 +1,181 @@
+KR|한국|South Korea|Südkorea|Corée du Sud|Corea del Sur|Corea del Sud
+US|미국|United States|USA|États-Unis|Estados Unidos|Stati Uniti
+DE|독일|Germany|Deutschland|Allemagne|Alemania|Germania
+FR|프랑스|France|Frankreich|France|Francia|Francia
+ES|스페인|Spain|Spanien|Espagne|España|Spagna
+IT|이탈리아|Italy|Italien|Italie|Italia|Italia
+EU|EU 공동|EU shared|EU-weit|Commun à l’UE|Común de la UE|Comune UE
+XX|시장 미지정|Market unspecified|Markt nicht angegeben|Marché non précisé|Mercado no especificado|Mercato non specificato
+ko-KR|한국어|한국어|한국어|한국어|한국어|한국어
+en|English|English|English|English|English|English
+de-DE|Deutsch|Deutsch|Deutsch|Deutsch|Deutsch|Deutsch
+fr-FR|Français|Français|Français|Français|Français|Français
+es-ES|Español|Español|Español|Español|Español|Español
+it-IT|Italiano|Italiano|Italiano|Italiano|Italiano|Italiano
+language|언어|Language|Sprache|Langue|Idioma|Lingua
+dashboard|대시보드|Dashboard|Übersicht|Tableau de bord|Panel|Riepilogo
+markets|해외 인허가|Market authorizations|Marktzulassungen|Autorisations par marché|Autorizaciones por mercado|Autorizzazioni per mercato
+complaints|불만|Complaints|Reklamationen|Réclamations|Reclamaciones|Reclami
+adverse|이상사례|Adverse events|Vorkommnisse|Événements indésirables|Incidentes adversos|Eventi avversi
+analysis|PMS 분석|PMS analysis|PMS-Analyse|Analyse PMS|Análisis PMS|Analisi PMS
+products|제품|Products|Produkte|Produits|Productos|Prodotti
+tracking|RA 업무 추적|RA tracking|RA-Aufgaben|Suivi RA|Seguimiento RA|Monitoraggio RA
+training|내 교육|My training|Meine Schulungen|Mes formations|Mi formación|La mia formazione
+signals|안전 신호 분석|Safety signals|Sicherheitssignale|Signaux de sécurité|Señales de seguridad|Segnali di sicurezza
+evidence_assistant|규정 근거 도우미|Evidence assistant|Quellenassistent|Assistant documentaire|Asistente documental|Assistente documentale
+recalls|리콜|Recalls|Rückrufe|Rappels|Retiradas|Richiami
+reports|보고서|Reports|Berichte|Rapports|Informes|Relazioni
+rules|보고 규칙·근거|Reporting rules and sources|Melderegeln und Quellen|Règles et sources|Reglas y fuentes|Regole e fonti
+assistant|RA 도우미|RA assistant|RA-Assistent|Assistant RA|Asistente RA|Assistente RA
+notifications|알림|Notifications|Mitteilungen|Notifications|Notificaciones|Notifiche
+tasks|내 할 일|My tasks|Meine Aufgaben|Mes tâches|Mis tareas|Le mie attività
+approvals|승인|Approvals|Freigaben|Approbations|Aprobaciones|Approvazioni
+audit|감사 로그|Audit log|Auditprotokoll|Journal d’audit|Registro de auditoría|Registro di audit
+users|사용자|Users|Benutzer|Utilisateurs|Usuarios|Utenti
+logout|로그아웃|Sign out|Abmelden|Se déconnecter|Cerrar sesión|Esci
+save|저장|Save|Speichern|Enregistrer|Guardar|Salva
+apply|적용|Apply|Anwenden|Appliquer|Aplicar|Applica
+back|뒤로|Back|Zurück|Retour|Volver|Indietro
+open|열기|Open|Öffnen|Ouvrir|Abrir|Apri
+all|전체|All|Alle|Tous|Todos|Tutti
+market|판매 시장|Sales market|Verkaufsmarkt|Marché de vente|Mercado de venta|Mercato di vendita
+registration|시장 등록|Market registration|Marktregistrierung|Enregistrement par marché|Registro por mercado|Registrazione per mercato
+progress|인허가 진행 현황|Authorization progress|Zulassungsfortschritt|Suivi des autorisations|Progreso de autorizaciones|Avanzamento delle autorizzazioni
+expiring|90일 내 만료 예정|Expiring within 90 days|Läuft in 90 Tagen ab|Expiration sous 90 jours|Vence en 90 días|Scadenza entro 90 giorni
+pending|검토 대기 사건|Cases awaiting review|Fälle zur Prüfung|Dossiers à examiner|Casos pendientes de revisión|Casi da riesaminare
+case|사건|Case|Fall|Dossier|Caso|Caso
+product|제품|Product|Produkt|Produit|Producto|Prodotto
+count|건수|Count|Anzahl|Nombre|Cantidad|Numero
+empty|기록이 없습니다.|No records yet.|Keine Einträge vorhanden.|Aucune donnée pour le moment.|Todavía no hay registros.|Nessun dato disponibile.
+error_403|접근 권한이 없습니다.|Access denied.|Zugriff verweigert.|Accès refusé.|Acceso denegado.|Accesso negato.
+error_404|요청한 기록을 찾을 수 없습니다.|The requested record could not be found.|Der angeforderte Eintrag wurde nicht gefunden.|L’élément demandé est introuvable.|No se encontró el registro solicitado.|Il dato richiesto non è stato trovato.
+required|필수 항목입니다.|This field is required.|Dieses Feld ist erforderlich.|Ce champ est obligatoire.|Este campo es obligatorio.|Questo campo è obbligatorio.
+invalid|입력값을 확인하세요.|Check the value entered.|Bitte Eingabe prüfen.|Vérifiez la valeur saisie.|Compruebe el valor introducido.|Verificare il valore inserito.
+value_or_na|값을 입력하거나 해당 없음만 선택하세요.|Enter a value or mark it not applicable.|Wert eingeben oder nicht zutreffend wählen.|Saisissez une valeur ou choisissez sans objet.|Introduzca un valor o marque no aplicable.|Immettere un valore o selezionare non applicabile.
+date_order|만료일은 적용일보다 빠를 수 없습니다.|Expiry cannot precede the effective date.|Ablauf darf nicht vor dem Gültigkeitsbeginn liegen.|L’expiration ne peut précéder la prise d’effet.|El vencimiento no puede preceder a la vigencia.|La scadenza non può precedere la decorrenza.
+date_mismatch|원본의 날짜가 사건 업무일과 다릅니다.|The source date differs from the case business date.|Das Quelldatum weicht vom Falldatum ab.|La date source diffère de la date de référence du dossier.|La fecha de origen difiere de la fecha del caso.|La data originale non coincide con la data del caso.
+iso_input|ISO 날짜 또는 UTC 오프셋 포함 일시 (예: 2026-11-08T09:30:00+09:00)|ISO date or timestamp with UTC offset (e.g. 2026-11-08T09:30:00+09:00)|ISO-Datum oder Zeitstempel mit UTC-Offset (z. B. 2026-11-08T09:30:00+09:00)|Date ISO ou horodatage avec décalage UTC (ex. 2026-11-08T09:30:00+09:00)|Fecha ISO o marca de tiempo con desfase UTC (p. ej. 2026-11-08T09:30:00+09:00)|Data ISO o data e ora con scostamento UTC (es. 2026-11-08T09:30:00+09:00)
+https_only|공식 원문은 HTTPS 주소를 입력하세요.|Use an HTTPS address for the official source.|HTTPS-Adresse für die amtliche Quelle angeben.|Utilisez une adresse HTTPS pour la source officielle.|Use una dirección HTTPS para la fuente oficial.|Usare un indirizzo HTTPS per la fonte ufficiale.
+verification_required|확인일, 조항 및 공식 출처가 필요합니다.|Verification requires a date, clause and official source.|Prüfdatum, Abschnitt und amtliche Quelle sind erforderlich.|Date, article et source officielle sont nécessaires.|Se requieren fecha, cláusula y fuente oficial.|Servono data, clausola e fonte ufficiale.
+review_requires_decision|검토를 완료하려면 담당자와 판단을 지정하세요.|Assign an owner and enter a decision to complete review.|Für den Abschluss Zuständigkeit und Entscheidung angeben.|Attribuez un responsable et saisissez une décision.|Asigne un responsable e indique una decisión.|Assegnare un responsabile e indicare una decisione.
+deadline_requires_report|보고 필요로 판단한 경우에만 수동 기한을 입력할 수 있습니다.|A manual deadline requires a report decision.|Eine manuelle Frist setzt eine Meldeentscheidung voraus.|Une échéance manuelle exige une décision de signaler.|Un plazo manual requiere una decisión de notificar.|Una scadenza manuale richiede la decisione di segnalare.
+UNKNOWN|미확정|Unconfirmed|Ungeklärt|Non confirmé|Sin confirmar|Da confermare
+NA|해당 없음|Not applicable|Nicht zutreffend|Sans objet|No aplicable|Non applicabile
+PREPARATION|준비 중|In preparation|In Vorbereitung|En préparation|En preparación|In preparazione
+IN_REVIEW|검토 중|In review|In Prüfung|En cours d’examen|En revisión|In esame
+REGISTERED|등록 확인|Registered|Registriert|Enregistré|Registrado|Registrato
+EXPIRED|만료|Expired|Abgelaufen|Expiré|Vencido|Scaduto
+ALIGNED|적용 범위 확인|Scope aligned|Geltungsbereich geklärt|Champ confirmé|Alcance confirmado|Ambito confermato
+CONFLICT|충돌 있음|Conflict|Widerspruch|Conflit|Conflicto|Conflitto
+HOLD|RA 확인 필요|RA review required|RA-Prüfung erforderlich|Examen RA requis|Revisión RA necesaria|Verifica RA necessaria
+REPORT|보고 필요|Report required|Meldung erforderlich|Signalement requis|Notificación necesaria|Segnalazione necessaria
+NO_REPORT|보고 불필요|Report not required|Keine Meldung erforderlich|Signalement non requis|Notificación no requerida|Segnalazione non necessaria
+NO_MATCH|이 버전의 적용 대상 아님|This version does not apply|Diese Fassung ist nicht anwendbar|Cette version ne s’applique pas|Esta versión no se aplica|Versione non applicabile
+status|등록 진행 상태|Registration status|Registrierungsstatus|État de l’enregistrement|Estado del registro|Stato della registrazione
+owner|담당자|Owner|Zuständig|Responsable|Responsable|Responsabile
+effective_on|적용일|Effective date|Gültig ab|Date d’effet|Fecha de vigencia|Data di decorrenza
+expires_on|만료일|Expiry date|Ablaufdatum|Date d’expiration|Fecha de vencimiento|Data di scadenza
+pathway|인허가 경로|Regulatory pathway|Zulassungsweg|Voie réglementaire|Vía regulatoria|Percorso regolatorio
+classification|제품 분류|Classification|Klassifizierung|Classification|Clasificación|Classificazione
+identifier|등록·인증 번호|Registration or certificate ID|Registrier- oder Zertifikatsnummer|Numéro d’enregistrement ou de certificat|Número de registro o certificado|Numero di registrazione o certificato
+submissions|제출 문서 및 참조|Submission documents and references|Einreichungsunterlagen und Referenzen|Documents et références de dépôt|Documentos y referencias de presentación|Documenti e riferimenti di presentazione
+rationale|근거 및 사유|Rationale|Begründung|Justification|Justificación|Motivazione
+authority|국가 관할기관|National authority|Nationale Behörde|Autorité nationale|Autoridad nacional|Autorità nazionale
+submission_language|제출 언어|Submission language|Einreichungssprache|Langue de dépôt|Idioma de presentación|Lingua di presentazione
+na_fields|해당 없음으로 표시할 항목|Fields marked not applicable|Nicht zutreffende Felder|Champs sans objet|Campos no aplicables|Campi non applicabili
+eu_assessment|EU·국가 요건 관계|EU and national scope|EU- und nationaler Geltungsbereich|Champ UE et national|Alcance de la UE y nacional|Ambito UE e nazionale
+eu_rationale|EU·국가 적용 근거|Basis for EU and national scope|Begründung für EU und nationales Recht|Motif du champ UE et national|Base del alcance de la UE y nacional|Motivo per l’ambito UE e nazionale
+is_example|예시|Example|Beispiel|Exemple|Ejemplo|Esempio
+legacy_foreign|기존 미국·EU 신청 업무|Existing US and EU applications|Bestehende US- und EU-Anträge|Dossiers US et UE existants|Solicitudes existentes de EE. UU. y UE|Domande USA e UE esistenti
+legacy_case|기존 PMS 사건 상세|Original PMS case workspace|Bestehender PMS-Fall|Dossier PMS d’origine|Expediente PMS original|Scheda PMS originale
+case_markets|사건의 시장별 보고 판단|Reporting by sales market|Meldebewertung nach Markt|Évaluation par marché|Evaluación por mercado|Valutazione per mercato
+add_market|시장 연결|Link market|Markt zuordnen|Associer un marché|Vincular mercado|Collega mercato
+occurred_on|발생 업무일|Occurrence business date|Geschäftsdatum des Ereignisses|Date de référence de survenue|Fecha operativa del incidente|Data operativa dell’evento
+reported_on|접수 업무일|Intake business date|Geschäftsdatum des Eingangs|Date de référence de réception|Fecha operativa de recepción|Data operativa di ricezione
+occurred_at_source|원본 발생 일시|Original occurrence time|Originalzeit des Ereignisses|Horodatage d’origine de survenue|Hora original del incidente|Ora originale dell’evento
+reported_at_source|원본 접수 일시|Original intake time|Originalzeit des Eingangs|Horodatage d’origine de réception|Hora original de recepción|Ora originale di ricezione
+aware_at_source|인지 기준 일시|Awareness basis|Zeitpunkt der Kenntnisnahme|Date de prise de connaissance|Fecha de conocimiento|Data di conoscenza
+custom_at_source|별도 기산 일시|Other trigger date or time|Anderer Fristbeginn|Autre point de départ|Otro inicio del plazo|Altro inizio del termine
+manual_decision|RA 보고 판단|RA reporting decision|RA-Meldeentscheidung|Décision RA de signalement|Decisión RA de notificación|Decisione RA di segnalazione
+manual_due_on|RA 지정 기한|RA deadline|RA-Frist|Échéance RA|Plazo RA|Scadenza RA
+reviewed|검토 완료|Reviewed|Geprüft|Examiné|Revisado|Verificato
+unreviewed|검토 대기|Awaiting review|Prüfung ausstehend|En attente d’examen|Pendiente de revisión|In attesa di verifica
+evaluate|승인 규칙으로 계산|Evaluate approved rules|Freigegebene Regeln auswerten|Évaluer les règles approuvées|Evaluar reglas aprobadas|Valuta le regole approvate
+automatic|자동 판단 기록|Automatic assessment|Automatische Bewertung|Évaluation automatique|Evaluación automática|Valutazione automatica
+history|이력|History|Verlauf|Historique|Historial|Cronologia
+decision|판단|Decision|Entscheidung|Décision|Decisión|Decisione
+basis|기산점|Trigger|Fristbeginn|Point de départ|Inicio del plazo|Inizio del termine
+due|기한|Deadline|Frist|Échéance|Plazo|Scadenza
+version|버전|Version|Fassung|Version|Versión|Versione
+source|공식 원문 출처|Official source|Amtliche Quelle|Source officielle|Fuente oficial|Fonte ufficiale
+evidence|근거 문서|Evidence|Nachweise|Justificatifs|Evidencias|Documenti di riferimento
+national|국가별 추가 요건|National additions|Nationale Zusatzanforderungen|Exigences nationales supplémentaires|Requisitos nacionales adicionales|Requisiti nazionali aggiuntivi
+new_evidence|원문 버전 추가|Add source version|Quellenversion hinzufügen|Ajouter une version source|Añadir versión de la fuente|Aggiungi versione della fonte
+new_translation|번역 버전 추가|Add translation version|Übersetzungsversion hinzufügen|Ajouter une traduction|Añadir versión de traducción|Aggiungi versione della traduzione
+reference_key|원문 계열 키|Source key|Quellenschlüssel|Identifiant de la source|Clave de la fuente|Chiave della fonte
+title|문서명|Document title|Dokumenttitel|Titre du document|Título del documento|Titolo del documento
+clause|조항|Clause|Abschnitt|Article|Cláusula|Clausola
+official_url|공식 원문 URL|Official source URL|URL der amtlichen Quelle|URL de la source officielle|URL de la fuente oficial|URL della fonte ufficiale
+excerpt|원문 발췌·국가 요건|Original excerpt or national requirement|Originalauszug oder nationale Anforderung|Extrait original ou exigence nationale|Extracto original o requisito nacional|Estratto originale o requisito nazionale
+checked_on|확인일|Checked on|Geprüft am|Date de vérification|Fecha de verificación|Data di verifica
+verified|검토를 완료했음|Mark as reviewed|Als geprüft markieren|Marquer comme vérifié|Marcar como revisado|Segna come verificato
+reviewer|검토자|Reviewer|Prüfer|Examinateur|Revisor|Revisore
+original|원문|Original|Original|Original|Original|Originale
+translation|번역문|Translation|Übersetzung|Traduction|Traducción|Traduzione
+text|번역 내용|Translation text|Übersetzungstext|Texte traduit|Texto traducido|Testo tradotto
+reference_translation|검토 전 참고 번역|Unreviewed reference translation|Ungeprüfte Referenzübersetzung|Traduction indicative non vérifiée|Traducción de referencia sin revisar|Traduzione di riferimento non verificata
+translation_stale|원문 개정으로 번역 재검토 필요|Source revised; translation needs review|Quelle geändert; Übersetzung erneut prüfen|Source révisée, traduction à réexaminer|Fuente revisada; revise la traducción|Fonte aggiornata; traduzione da riesaminare
+compare|규칙 버전 비교|Compare rule versions|Regelversionen vergleichen|Comparer les versions|Comparar versiones|Confronta le versioni
+baseline|이전 규칙|Baseline rule|Ausgangsregel|Règle de référence|Regla de referencia|Regola di riferimento
+proposed|개정안|Proposed rule|Vorgeschlagene Fassung|Règle proposée|Regla propuesta|Regola proposta
+pair_error|같은 계열의 서로 다른 버전을 선택하세요.|Choose distinct versions of the same rule family.|Zwei verschiedene Versionen derselben Regel wählen.|Choisissez deux versions distinctes de la même règle.|Seleccione dos versiones distintas de la misma regla.|Scegliere due versioni diverse della stessa regola.
+delta|기한 차이 (일)|Deadline difference (days)|Fristdifferenz (Tage)|Écart d’échéance (jours)|Diferencia de plazo (días)|Differenza di scadenza (giorni)
+market_unknown|판매 시장을 먼저 확정하세요.|Confirm the sales market first.|Zuerst den Verkaufsmarkt bestätigen.|Confirmez d’abord le marché.|Confirme primero el mercado.|Confermare prima il mercato.
+eu_review|EU 공동 근거와 국가별 요건을 대조해 주세요.|Review EU and national requirements together.|EU- und nationale Anforderungen abgleichen.|Vérifiez la cohérence entre les exigences UE et nationales.|Revise conjuntamente los requisitos de la UE y nacionales.|Confrontare i requisiti UE e nazionali.
+no_rule|사건 기준일에 적용할 승인 규칙을 특정할 수 없습니다.|No approved rule could be identified for the case date.|Für das Falldatum wurde keine freigegebene Regel gefunden.|Aucune règle approuvée n’a été identifiée à la date du dossier.|No se identificó una regla aprobada para la fecha del caso.|Nessuna regola approvata individuata alla data del caso.
+ambiguous_rule|적용 가능한 규칙이 여러 개입니다.|Multiple rules could apply.|Mehrere Regeln kommen infrage.|Plusieurs règles pourraient s’appliquer.|Podrían aplicarse varias reglas.|Potrebbero applicarsi più regole.
+scope_mismatch|시장, 제품, 기간 또는 조건이 규칙 범위와 다릅니다.|Market, product, date or facts are outside the rule scope.|Markt, Produkt, Datum oder Umstände liegen außerhalb des Geltungsbereichs.|Le marché, le produit, la date ou les faits sont hors champ.|El mercado, producto, fecha o hechos están fuera del alcance.|Mercato, prodotto, data o fatti sono fuori ambito.
+source_unverified|원문 근거 또는 규칙 조건을 확인하세요.|Verify the source evidence and rule terms.|Quellen und Regelbedingungen prüfen.|Vérifiez les sources et les conditions de la règle.|Verifique las fuentes y las condiciones de la regla.|Verificare le fonti e le condizioni della regola.
+missing_input|판단에 필요한 사건 입력이 부족합니다.|Required case information is missing.|Erforderliche Fallangaben fehlen.|Des informations nécessaires au dossier manquent.|Faltan datos necesarios del caso.|Mancano informazioni necessarie sul caso.
+calculation_unverified|기산점·시간대·기한 조건을 확인하세요.|Verify the trigger, time zone and deadline terms.|Fristbeginn, Zeitzone und Fristbedingungen prüfen.|Vérifiez le point de départ, le fuseau et les conditions de délai.|Compruebe el inicio, la zona horaria y las condiciones del plazo.|Verificare inizio, fuso orario e condizioni di scadenza.
+rule_match|승인 규칙 조건 충족|Rule conditions met|Regelbedingungen erfüllt|Conditions de la règle remplies|Se cumplen las condiciones de la regla|Condizioni della regola soddisfatte
+report_language|보고서 출력 언어|Report output language|Ausgabesprache des Berichts|Langue du rapport|Idioma del informe|Lingua della relazione
+draft_report|내부 검토용 보고서 초안|Draft report for internal review|Berichtsentwurf zur internen Prüfung|Projet de rapport pour examen interne|Borrador de informe para revisión interna|Bozza di relazione per verifica interna
+print|인쇄 / PDF 저장|Print or save as PDF|Drucken oder als PDF speichern|Imprimer ou enregistrer en PDF|Imprimir o guardar en PDF|Stampa o salva come PDF
+internal_only|내부 검토용 초안입니다. 외부 기관 제출 기능은 제공하지 않습니다.|Internal review draft. External submission is not available.|Entwurf zur internen Prüfung. Eine externe Einreichung ist nicht verfügbar.|Projet pour examen interne. Le dépôt externe n’est pas disponible.|Borrador para revisión interna. El envío externo no está disponible.|Bozza per verifica interna. L’invio esterno non è disponibile.
+description|사건 개요|Case summary|Fallübersicht|Résumé du dossier|Resumen del caso|Riepilogo del caso
+investigation|조사 결과|Investigation findings|Untersuchungsergebnisse|Résultats de l’enquête|Resultados de investigación|Esiti dell’indagine
+risk|위험평가|Risk assessment|Risikobewertung|Évaluation du risque|Evaluación de riesgos|Valutazione del rischio
+author|작성자|Author|Autor|Auteur|Autor|Autore
+approved_by|승인자|Approver|Freigabe durch|Approbateur|Aprobador|Approvatore
+documentation|기존 화면의 일부 문구는 영어로 표시됩니다.|Some older screens use English labels.|Einige ältere Ansichten verwenden englische Texte.|Certains écrans anciens utilisent des libellés anglais.|Algunas pantallas anteriores usan textos en inglés.|Alcune schermate precedenti usano testi in inglese.
+app_notice|포트폴리오용 데모 · 실제 규제 판단은 담당자가 검토합니다.|Portfolio demo. RA staff review regulatory decisions.|Portfolio-Demo. RA prüft regulatorische Entscheidungen.|Démo de portfolio. Les décisions sont examinées par l’équipe RA.|Demostración de portafolio. El equipo RA revisa las decisiones.|Demo di portfolio. Le decisioni sono verificate dal team RA.
+nav_toggle|메뉴 열기|Toggle menu|Menü umschalten|Afficher le menu|Mostrar menú|Mostra menu
+close|닫기|Close|Schließen|Fermer|Cerrar|Chiudi
+drawer_head|RA 업무 센터|RA workspace|RA-Arbeitsbereich|Espace RA|Área RA|Area RA
+drawer_desc|기존 PMS 기능과 챗봇을 함께 사용하세요|Open PMS tools and the assistant|PMS-Werkzeuge und Assistent öffnen|Ouvrir les outils PMS et l’assistant|Abrir herramientas PMS y asistente|Apri strumenti PMS e assistente
+drawer_chat|RA 챗봇 열기|Open RA chat|RA-Chat öffnen|Ouvrir le chat RA|Abrir chat RA|Apri chat RA
+drawer_questions|사건 현황과 업무 절차 질문하기|Ask about cases and procedures|Zu Fällen und Verfahren fragen|Questions sur les dossiers et procédures|Preguntar por casos y procedimientos|Chiedi informazioni su casi e procedure
+new_complaint|불만 접수|New complaint|Neue Reklamation|Nouvelle réclamation|Nueva reclamación|Nuovo reclamo
+high_risk|고위험 사건|High-risk cases|Fälle mit hohem Risiko|Dossiers à haut risque|Casos de alto riesgo|Casi ad alto rischio
+privacy|챗봇에 환자 식별정보를 입력하지 마세요.|Do not enter patient identifiers in chat.|Keine Patientendaten im Chat eingeben.|Ne saisissez pas de données identifiantes dans le chat.|No introduzca identificadores de pacientes en el chat.|Non inserire dati identificativi dei pazienti nella chat.
+drawer_toggle|RA 업무·챗봇|RA tools and chat|RA-Werkzeuge und Chat|Outils et chat RA|Herramientas y chat RA|Strumenti e chat RA
+old_form_help|기존 PMS 워크플로의 입력은 기존 사건 화면에서 관리합니다.|Manage legacy PMS workflow inputs in the original case workspace.||||
+APPROVED|승인|Approved|Freigegeben|Approuvé|Aprobado|Approvato
+EFFECTIVE|시행|Effective|In Kraft|En vigueur|En vigor|In vigore
+DRAFT|초안|Draft|Entwurf|Brouillon|Borrador|Bozza
+REVIEW|검토|Review|Prüfung|Examen|Revisión|Verifica
+RETIRED|폐기|Retired|Zurückgezogen|Retiré|Retirado|Ritirato
+LEGACY|기존 규칙|Legacy|Altregel|Règle historique|Regla anterior|Regola precedente
+OCCURRED|발생|Occurrence|Ereignis|Survenue|Incidente|Evento
+REPORTED|접수|Intake|Eingang|Réception|Recepción|Ricezione
+AWARE|인지|Awareness|Kenntnisnahme|Prise de connaissance|Conocimiento|Conoscenza
+CUSTOM|별도 기준|Other trigger|Anderer Beginn|Autre déclencheur|Otro inicio|Altro inizio
+
+software|소프트웨어 버전 추적|Software version tracking|Nachverfolgung von Softwareversionen|Suivi des versions logicielles|Seguimiento de versiones de software|Tracciamento delle versioni software
+intake_version|접수 버전|Intake version|Version bei Eingang|Version à la réception|Versión en la recepción|Versione alla ricezione
+affected_versions|영향 버전|Affected versions|Betroffene Versionen|Versions concernées|Versiones afectadas|Versioni interessate
+regulation_document|연결된 규정 원본|Linked regulation original|Verknüpfte amtliche Quelle|Source réglementaire liée|Fuente regulatoria vinculada|Fonte normativa collegata
+same_source_url|연결한 규정 원본의 공식 URL을 사용하세요.|Use the official URL of the linked original.|Amtliche URL der verknüpften Quelle verwenden.|Utilisez l’URL officielle de la source liée.|Use la URL oficial de la fuente vinculada.|Usare l’URL ufficiale della fonte collegata.
+stale_assessment|근거나 입력이 바뀌었습니다. 현재 판단을 다시 검토하세요.|Evidence or inputs changed. Review the current assessment again.|Nachweise oder Angaben haben sich geändert. Bewertung erneut prüfen.|Les sources ou les données ont changé. Réexaminez l’évaluation.|Las fuentes o los datos han cambiado. Revise de nuevo la evaluación.|Fonti o dati modificati. Riesaminare la valutazione.
+unconfirmed_fields|비워 둔 항목은 미확정입니다.|Empty fields are unconfirmed.|Leere Felder sind ungeklärt.|Les champs vides restent à confirmer.|Los campos vacíos quedan sin confirmar.|I campi vuoti restano da confermare.

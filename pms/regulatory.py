@@ -182,6 +182,15 @@ def conflicts(rule,states=("APPROVED","EFFECTIVE")):
     return [other for other in ReportingRule.objects.filter(state__in=states,jurisdiction=rule.jurisdiction).exclude(pk=rule.pk) if overlaps(rule,other)]
 
 
+def citation_scope_matches(rule_jurisdiction, document_jurisdiction):
+    from .market_codes import market_code
+    from .market_models import EU_COUNTRIES
+    rule_market, document_scope = map(market_code, (rule_jurisdiction, document_jurisdiction))
+    return (rule_jurisdiction == document_jurisdiction
+            or (rule_market != "XX" and rule_market == document_scope)
+            or (rule_market in EU_COUNTRIES and document_scope == "EU"))
+
+
 def readiness(rule,user):
     errors=[]
     needed=list(FIELD_LABELS)
@@ -201,7 +210,7 @@ def readiness(rule,user):
             except (PermissionDenied,OSError): errors.append(f"문서 검사·무결성 미통과: {doc.title}");checked[doc.pk]=False
         if not documents_for(user).filter(pk=doc.pk).exists() or doc.visibility!="TEAM": errors.append("공동 검토 가능한 근거 문서가 필요합니다.")
         if doc.review_status!="REVIEWED" or doc.extraction_status!="READY": errors.append(f"문서 검토·추출 미완료: {doc.title}")
-        if doc.jurisdiction!=rule.jurisdiction or (doc.device_id and doc.device_id!=rule.device_id): errors.append(f"문서 적용 범위 불일치: {doc.title}")
+        if not citation_scope_matches(rule.jurisdiction, doc.jurisdiction) or (doc.device_id and doc.device_id!=rule.device_id): errors.append(f"문서 적용 범위 불일치: {doc.title}")
         if doc.effective_on and rule.effective_on and doc.effective_on>rule.effective_on: errors.append("근거 문서 시행일보다 빠른 규칙 시행일입니다.")
         if doc.is_example and not rule.is_example: errors.append("테스트 문서를 실제 운영 규칙의 근거로 사용할 수 없습니다.")
     for key in needed:
@@ -231,13 +240,13 @@ def parse_basis(value,zone):
     return value.astimezone(zone)
 
 
-def calculate_deadline(rule,basis_at):
+def calculate_deadline(rule,basis_at, *, enforce_effective=True):
     validate_rule_content(rule)
     if rule.days is None or not rule.deadline_unit or not rule.day_type or rule.include_start is None or not rule.timezone_name or not rule.basis:
         raise ValidationError("기한 값·단위·달력 기준·시작일 포함·시간대·기준 시점을 확인하세요.")
     zone=ZoneInfo(rule.timezone_name);base=parse_basis(basis_at,zone)
-    if rule.effective_on and base.date()<rule.effective_on: raise ValidationError("기준 일시가 규칙 시행일보다 빠릅니다.")
-    if rule.effective_until and base.date()>rule.effective_until: raise ValidationError("기준 일시가 규칙 시행 기간을 벗어납니다.")
+    if enforce_effective and rule.effective_on and base.date()<rule.effective_on: raise ValidationError("기준 일시가 규칙 시행일보다 빠릅니다.")
+    if enforce_effective and rule.effective_until and base.date()>rule.effective_until: raise ValidationError("기준 일시가 규칙 시행 기간을 벗어납니다.")
     excluded=[];holidays={h['date']:h['name'] for h in normalize_holidays(rule.holidays)}
     def verified(day):
         if not rule.holiday_verified_from or not rule.holiday_verified_until or not rule.holiday_checked_on or not rule.holiday_verified_from<=day<=rule.holiday_verified_until:
@@ -336,6 +345,9 @@ def apply_regulated_rule(complaint,rule,user,preview,reason,confirmed_previous,c
     if expected_case_token or expected_rule_token:
         from .impact import case_token, rule_token
         if expected_case_token!=case_token(c) or expected_rule_token!=rule_token(rule): raise ValidationError("분석 이후 자료가 변경되었습니다. 재분석하세요.")
+    from .market_codes import market_code
+    if market_code(rule.jurisdiction) not in ("KR", "XX"):
+        raise ValidationError("Use the market-specific case workspace for this jurisdiction.")
     if c.status=="CLOSED": raise ValidationError("종료 사건은 규칙을 재적용할 수 없습니다.")
     if rule.state!="EFFECTIVE": raise ValidationError("승인 후 시행된 규칙만 사건에 적용할 수 있습니다.")
     today=timezone.now().astimezone(ZoneInfo(rule.timezone_name)).date()

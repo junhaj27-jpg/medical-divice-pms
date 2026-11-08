@@ -1,0 +1,22 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p>{% if entry %}<a href="{% url 'market-case-country' entry.complaint_id market %}">{{ entry.complaint }}</a>{% else %}<a href="{% url 'market-registration' source.device_id market %}">{{ source.device }}</a>{% endif %}</p>
+<h1>{{ source.title }} · v{{ source.version }}</h1>
+<p>{% ui source.scope %} · {{ source.clause }}{% if source.is_example %} · {% ui 'is_example' %}{% endif %}</p>
+{% if newer %}<p class="alert">{% ui 'translation_stale' %}</p>{% endif %}
+<div class="detail-grid">
+<section class="panel" lang="{{ source.language }}"><h2>{% ui 'original' %} · {% ui source.language %}</h2>
+{% if source.regulation_document_id and not market_scoped %}<p><a href="{% url 'regulation-original' source.regulation_document_id %}">{% ui 'original' %}</a></p>{% endif %}
+{% if source.official_url %}<p><a href="{{ source.official_url }}" rel="noopener noreferrer">{% ui 'official_url' %}</a></p>{% endif %}
+<p>{% if source.reviewer %}{{ source.reviewer }} · {{ source.checked_on }}{% else %}{% ui 'HOLD' %}{% endif %}</p><p>{{ source.excerpt|linebreaksbr }}</p></section>
+<section class="panel"><h2>{% ui 'translation' %}</h2>
+{% for t in translations %}{% ifchanged t.language %}<a class="btn" href="?language={{ t.language }}">{% ui t.language %}</a> {% endifchanged %}{% endfor %}
+{% if selected_translation %}<h3>{% ui selected_translation.language %} · v{{ selected_translation.version }}</h3>
+<p>{% if newer %}{% ui 'translation_stale' %}{% elif selected_translation.reviewed_on %}{% ui 'reviewed' %} · {{ selected_translation.reviewer }} · {{ selected_translation.reviewed_on }}{% else %}{% ui 'reference_translation' %}{% endif %}</p>
+<p lang="{{ selected_translation.language }}">{{ selected_translation.text|linebreaksbr }}</p>
+{% else %}<p>{% ui 'empty' %}</p>{% endif %}
+{% if can_translate %}<p><a href="{% url 'market-translation-new' source.device_id market source.pk %}">{% ui 'new_translation' %}</a></p>{% endif %}
+</section></div>
+{% if translations %}<section class="panel"><h2>{% ui 'history' %}</h2>
+{% for t in translations %}<details><summary>{% ui t.language %} · v{{ t.version }} · {% if newer %}{% ui 'translation_stale' %}{% elif t.reviewed_on %}{% ui 'reviewed' %}{% else %}{% ui 'reference_translation' %}{% endif %}</summary><p lang="{{ t.language }}">{{ t.text|linebreaksbr }}</p></details>{% endfor %}</section>{% endif %}
+{% endblock %}

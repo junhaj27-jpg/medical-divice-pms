@@ -1,0 +1,25 @@
+{% load market_ui l10n %}<!doctype html>
+<html lang="{{ output_language }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% ui 'draft_report' %} · {{ item.document_number|default:case.pk }}</title>
+<style>body{font:15px/1.55 system-ui,sans-serif;max-width:54rem;margin:2rem auto;padding:0 1rem;color:#163246}header{border-bottom:2px solid #235974}dl{display:grid;grid-template-columns:minmax(10rem,1fr) 2fr;gap:.4rem}dd{margin:0;overflow-wrap:anywhere}section{margin-block:1.5rem}a{overflow-wrap:anywhere}@media print{form,button,.controls{display:none}}</style></head><body>
+<header><h1>{% ui 'draft_report' %}</h1><p>{{ item.document_number|default:case }} · {% ui market %}{% if case.is_example %} · {% ui 'is_example' %}{% endif %}</p><p>{% ui 'internal_only' %}</p>
+{% if item %}<form method="get">{% if entries %}<label>{% ui 'market' %} <select name="market"><option value="">{% ui 'LEGACY' %}</option>{% for row in entries %}<option value="{{ row.market }}"{% if entry.market == row.market %} selected{% endif %}>{% ui row.market %}</option>{% endfor %}</select></label> {% endif %}<label>{% ui 'report_language' %} <select name="language">{% for code, name in ui_languages %}<option value="{{ code }}"{% if code == output_language %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label><button>{% ui 'apply' %}</button></form>{% endif %}
+<button onclick="window.print()">{% ui 'print' %}</button></header>
+<section><h2>{% ui 'description' %}</h2><dl><dt>{% ui 'product' %}</dt><dd>{{ case.device }}</dd><dt>UDI</dt><dd>{{ case.udi }}</dd>
+<dt>LOT / S/N</dt><dd>{{ case.lot|default:'—' }} / {{ case.serial_number|default:'—' }}</dd>
+<dt>{% ui 'occurred_on' %}</dt><dd>{{ case.occurred_on }}</dd><dt>{% ui 'reported_on' %}</dt><dd>{{ case.reported_on }}</dd></dl><p>{{ case.description|linebreaksbr }}</p></section>
+{% if entry %}<section><h2>{% ui 'manual_decision' %}</h2><p>{% ui entry.manual_decision %} · {{ entry.owner|default:'—' }} · {% if entry.reviewed %}{% ui 'reviewed' %}{% else %}{% ui 'unreviewed' %}{% endif %}</p><p>{% ui 'manual_due_on' %}: {{ entry.manual_due_on|default:'—' }}</p><p>{{ entry.rationale }}</p></section>
+<section><h2>{% ui 'automatic' %}</h2>{% if stale %}<p>{% ui 'stale_assessment' %}</p>{% endif %}{% if latest %}{% include 'pms/markets/assessment.html' with result=latest.snapshot %}{% else %}<p>{% ui 'HOLD' %}</p>{% endif %}</section>
+{% if latest.snapshot.evidence %}<section><h2>{% ui 'evidence' %} · {% ui 'history' %}</h2>{% include 'pms/markets/report_sources.html' with sources=latest.snapshot.evidence %}</section>{% endif %}
+<section><h2>{% ui 'evidence' %}</h2>{% include 'pms/markets/report_sources.html' with sources=current_sources %}</section>
+{% endif %}
+{% if item %}<section><h2>{% ui 'investigation' %}</h2><p>{{ item.investigation_result|default:'—' }}</p>
+<dl><dt>{% ui 'risk' %}</dt><dd>{{ case.risk_assessment.score|default:'—' }} {{ case.risk_assessment.level }}</dd><dt>CAPA</dt><dd>{% for c in case.capas.all %}{{ c.title }} ({{ c.status }}){% if not forloop.last %}; {% endif %}{% empty %}—{% endfor %}</dd>
+<dt>{% ui 'author' %}</dt><dd>{{ item.author }} · {{ item.created_at|date }}</dd><dt>{% ui 'reviewer' %}</dt><dd>{{ item.reviewer|default:'—' }}</dd><dt>{% ui 'approved_by' %}</dt><dd>{{ item.approved_by|default:'—' }} · {{ item.approved_at|date|default:'—' }}</dd></dl></section>
+{% if software %}{% include 'pms/markets/report_software.html' %}{% endif %}
+{% endif %}
+{% if legacy %}<section><h2>{% ui 'LEGACY' %} · {% ui 'rules' %}</h2><p>{{ legacy.rule.name }} · {% ui 'version' %} {{ legacy.rule.version }} · {% ui 'due' %} {{ legacy.due_at }}</p>
+{% for citation in legacy.snapshot.rule.citations %}{% ifchanged citation.document_id citation.section %}<p>{% ui 'source' %}: {% if citation.official_url %}<a href="{{ citation.official_url }}">{{ citation.document }}</a>{% else %}{{ citation.document }}{% endif %} · {{ citation.edition }} · {{ citation.section }}</p>{% endifchanged %}{% empty %}<p>{% ui 'source' %}: {% ui 'UNKNOWN' %}</p>{% endfor %}
+<p>{% ui 'translation' %}: {% ui 'UNKNOWN' %}</p></section>{% endif %}
+{% if entries %}<section><h2>{% ui 'case_markets' %}</h2>{% for row in entries %}<p><a href="{% url 'market-report' row.complaint_id row.market %}">{% ui row.market %}</a> · {% ui row.manual_decision %}</p>{% endfor %}</section>{% endif %}
+</body></html>

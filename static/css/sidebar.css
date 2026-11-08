@@ -17,3 +17,7 @@
 @media (max-width: 479px) {
   body > header nav { max-height: calc(100vh - 66px); overflow-y: auto; }
 }
+
+body > header nav .language-settings { display: flex; align-items: center; gap: .45rem; padding: .5rem .65rem; }
+body > header nav .language-settings select { flex: 1 1 auto; min-width: 0; width: auto; color: #18323f; }
+body > header nav .language-settings button { border: 1px solid #c6d8e4; background: transparent; color: white; border-radius: .4rem; padding: .45rem .55rem; white-space: nowrap; }

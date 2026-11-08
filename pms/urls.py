@@ -6,7 +6,7 @@ from . import impact_views, foreign_views as foreign
 r=DefaultRouter()
 for prefix,view,base in [("manufacturers",api.ManufacturerViewSet,"manufacturer"),("devices",api.DeviceViewSet,"device"),("udis",api.UDIViewSet,"udi"),("lots",api.LotViewSet,"lot"),("complaints",api.ComplaintViewSet,"complaint"),("adverse-events",api.AdverseEventViewSet,"adverse"),("risks",api.RiskViewSet,"risk"),("capas",api.CAPAViewSet,"capa"),("recalls",api.RecallViewSet,"recall"),("recall-targets",api.RecallTargetViewSet,"recall-target"),("reports",api.ReportViewSet,"report"),("attachments",api.AttachmentViewSet,"attachment"),("approvals",api.ApprovalViewSet,"approval"),("notifications",api.NotificationViewSet,"notification"),("audits",api.AuditViewSet,"audit")]: r.register(prefix,view,basename=base)
 
-urlpatterns=[
+urlpatterns=[path("",include("pms.market_urls")),
  path("foreign/", foreign.listing, name="foreign-list"),
  path("foreign/new/", foreign.edit, name="foreign-new"),
  path("foreign/<int:pk>/", foreign.detail, name="foreign-detail"),

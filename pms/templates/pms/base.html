@@ -1,6 +1,6 @@
-{% load static %}
+{% load static market_ui %}
 <!doctype html>
-<html lang="ko">
+<html lang="{{ ui_language|default:'ko-KR' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -13,30 +13,42 @@
 </head>
 <body>
   <header>
-    <a class="brand" href="/">◆ MedWatch <span>PMS</span></a>
-    <button class="nav-toggle" type="button" onclick="document.querySelector('nav').classList.toggle('open')">☰</button>
+    <a class="brand" href="{% if market_scoped %}{% url 'market-dashboard' %}{% else %}/{% endif %}">◆ MedWatch <span>PMS</span></a>
+    <button class="nav-toggle" aria-label="{% ui 'nav_toggle' %}" type="button" onclick="document.querySelector('nav').classList.toggle('open')">☰</button>
     <nav>
-      <a href="/">대시보드</a>
-      <a href="/complaints/">불만</a>
-      <a href="/adverse-events/">이상사례</a><a href="/analysis/">PMS 분석</a>
-      <a href="/devices/">제품</a><a href="/ra/">RA 업무 추적</a>{% if user.is_active and user.is_superuser or user.is_active and user.profile.role == 'ADMIN' or user.is_active and user.profile.role == 'RA_QA' %}<a href="{% url 'foreign-list' %}">해외 인허가</a>{% endif %}<a href="/my-training/">내 교육</a>
-      <a href="/lots/">UDI·LOT</a><a href="/safety/">안전 신호 분석</a><a href="/assistant/evidence/">규정 근거 도우미</a>
+      {% if user.is_authenticated %}
+      <form class="language-settings" method="post" action="{% url 'market-language' %}">
+        {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <select name="language" aria-label="{% ui 'language' %}">
+          {% for code, name in ui_languages %}<option value="{{ code }}"{% if ui_language == code %} selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+        <button>{% ui 'save' %}</button>
+      </form>
+      {% endif %}
+      {% if market_workspace %}<a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% endif %}
+      {% if not market_scoped %}
+      <a href="/">{% ui 'dashboard' %}</a>
+      <a href="/complaints/">{% ui 'complaints' %}</a>
+      <a href="/adverse-events/">{% ui 'adverse' %}</a><a href="/analysis/">{% ui 'analysis' %}</a>
+      <a href="/devices/">{% ui 'products' %}</a><a href="/ra/">{% ui 'tracking' %}</a><a href="/my-training/">{% ui 'training' %}</a>
+      <a href="/lots/">UDI·LOT</a><a href="/safety/">{% ui 'signals' %}</a><a href="/assistant/evidence/">{% ui 'evidence_assistant' %}</a>
       <a href="/capas/">CAPA</a>
-      <a href="/recalls/">리콜</a>
-      <a href="/reports/">보고서</a><a href="/rules/">보고 규칙·근거</a>
-      <a class="assistant-nav" href="{% url 'assistant-chat' %}">✦ RA 도우미</a>
-      <a href="/notifications/">알림</a><a href="/tasks/">내 할 일</a>
+      <a href="/recalls/">{% ui 'recalls' %}</a>
+      <a href="/reports/">{% ui 'reports' %}</a><a href="/rules/">{% ui 'rules' %}</a>
+      <a class="assistant-nav" href="{% url 'assistant-chat' %}">✦ {% ui 'assistant' %}</a>
+      <a href="/notifications/">{% ui 'notifications' %}</a><a href="/tasks/">{% ui 'tasks' %}</a>
       {% if user.profile.role == 'ADMIN' or user.is_superuser %}
-        <a href="/approvals/">승인</a>
-        <a href="/audits/">감사</a>
-        <a href="/users/">사용자</a>
+        <a href="/approvals/">{% ui 'approvals' %}</a>
+        <a href="/audits/">{% ui 'audit' %}</a>
+        <a href="/users/">{% ui 'users' %}</a>
+      {% endif %}
       {% endif %}
     </nav>
     <div class="user">
       <span>{{ user.username }}</span>
       <form action="{% url 'logout' %}" method="post">
         {% csrf_token %}
-        <button>로그아웃</button>
+        <button>{% ui 'logout' %}</button>
       </form>
     </div>
   </header>
@@ -48,31 +60,34 @@
     {% block content %}{% endblock %}
   </main>
 
+  {% if not market_scoped %}
   <aside class="assistant-drawer" id="assistantDrawer" aria-hidden="true">
     <div class="drawer-head">
-      <div><span>✦</span><strong>RA 업무 센터</strong><small>기존 PMS 기능과 챗봇을 함께 사용하세요</small></div>
-      <button type="button" data-assistant-close aria-label="닫기">×</button>
+      <div><span>✦</span><strong>{% ui 'drawer_head' %}</strong><small>{% ui 'drawer_desc' %}</small></div>
+      <button type="button" data-assistant-close aria-label="{% ui 'close' %}" >×</button>
     </div>
-    <a class="drawer-chat" href="{% url 'assistant-chat' %}"><b>RA 챗봇 열기</b><small>사건 현황과 업무 절차 질문하기 →</small></a>
+    <a class="drawer-chat" href="{% url 'assistant-chat' %}"><b>{% ui 'drawer_chat' %}</b><small>{% ui 'drawer_questions' %}</small></a>
     <div class="drawer-links">
-      <a href="{% url 'dashboard' %}">대시보드</a>
-      <a href="{% url 'complaint-create' %}">+ 불만 접수</a>
-      <a href="{% url 'complaint-list' %}?risk=HIGH">고위험 사건</a>
-      <a href="{% url 'adverse-list' %}">이상사례</a>
+      <a href="{% url 'dashboard' %}">{% ui 'dashboard' %}</a>
+      <a href="{% url 'complaint-create' %}">{% ui 'new_complaint' %}</a>
+      <a href="{% url 'complaint-list' %}?risk=HIGH">{% ui 'high_risk' %}</a>
+      <a href="{% url 'adverse-list' %}">{% ui 'adverse' %}</a>
       <a href="{% url 'capa-list' %}">CAPA</a>
-      <a href="{% url 'recall-list' %}">리콜</a>
-      <a href="{% url 'report-list' %}">보고서</a>
-      <a href="{% url 'notifications' %}">알림</a>
+      <a href="{% url 'recall-list' %}">{% ui 'recalls' %}</a>
+      <a href="{% url 'report-list' %}">{% ui 'reports' %}</a>
+      <a href="{% url 'notifications' %}">{% ui 'notifications' %}</a>
       {% if user.profile.role == 'ADMIN' or user.is_superuser %}
-        <a href="{% url 'approval-list' %}">승인</a>
-        <a href="{% url 'audit-list' %}">감사 로그</a>
+        <a href="{% url 'approval-list' %}">{% ui 'approvals' %}</a>
+        <a href="{% url 'audit-list' %}">{% ui 'audit' %}</a>
       {% endif %}
     </div>
-    <p>환자 이름·전화번호·주민등록번호를 챗봇에 입력하지 마세요.</p>
+    <p>{% ui 'privacy' %}</p>
   </aside>
-  <button class="assistant-launcher" type="button" data-assistant-open aria-controls="assistantDrawer" aria-expanded="false"><span>✦</span><strong>RA 업무·챗봇</strong></button>
+  <button class="assistant-launcher" type="button" data-assistant-open aria-controls="assistantDrawer" aria-expanded="false"><span>✦</span><strong>{% ui 'drawer_toggle' %}</strong></button>
 
-  <footer>포트폴리오용 데모 · 실제 식약처 규정 준수 또는 의료 판단을 보장하지 않습니다.</footer>
+  {% endif %}
+  <footer>{% ui 'app_notice' %}</footer>
+  {% if not market_scoped %}
   <script>
     const drawer=document.getElementById('assistantDrawer'), launcher=document.querySelector('[data-assistant-open]');
     function setDrawer(open){drawer.classList.toggle('open',open);drawer.setAttribute('aria-hidden',String(!open));launcher.setAttribute('aria-expanded',String(open))}
@@ -80,6 +95,7 @@
     document.querySelector('[data-assistant-close]').addEventListener('click',()=>setDrawer(false));
     document.addEventListener('keydown',e=>{if(e.key==='Escape')setDrawer(false)});
   </script>
+  {% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

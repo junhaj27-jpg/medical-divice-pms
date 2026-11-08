@@ -8,7 +8,7 @@ ALLOWED_HOSTS = [x.strip() for x in os.getenv("ALLOWED_HOSTS", "localhost,127.0.
 INSTALLED_APPS = ["django.contrib.admin","django.contrib.auth","django.contrib.contenttypes","django.contrib.sessions","django.contrib.messages","django.contrib.staticfiles","rest_framework","django_filters","drf_spectacular","pms"]
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware","django.contrib.sessions.middleware.SessionMiddleware","django.middleware.common.CommonMiddleware","django.middleware.csrf.CsrfViewMiddleware","django.contrib.auth.middleware.AuthenticationMiddleware","django.contrib.messages.middleware.MessageMiddleware","django.middleware.clickjacking.XFrameOptionsMiddleware","pms.middleware.AuditLoginMiddleware"]
 ROOT_URLCONF = "config.urls"
-TEMPLATES = [{"BACKEND":"django.template.backends.django.DjangoTemplates","DIRS":[BASE_DIR/"templates"],"APP_DIRS":True,"OPTIONS":{"context_processors":["django.template.context_processors.request","django.contrib.auth.context_processors.auth","django.contrib.messages.context_processors.messages"]}}]
+TEMPLATES = [{"BACKEND":"django.template.backends.django.DjangoTemplates","DIRS":[BASE_DIR/"templates"],"APP_DIRS":True,"OPTIONS":{"context_processors":["django.template.context_processors.request","django.contrib.auth.context_processors.auth","django.contrib.messages.context_processors.messages","pms.market_i18n.ui_context"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 if os.getenv("DB_ENGINE") == "postgresql":
     DATABASES={"default":{"ENGINE":"django.db.backends.postgresql","NAME":os.getenv("DB_NAME","pms"),"USER":os.getenv("DB_USER","pms"),"PASSWORD":os.getenv("DB_PASSWORD","pms"),"HOST":os.getenv("DB_HOST","db"),"PORT":os.getenv("DB_PORT","5432")}}
@@ -24,7 +24,7 @@ SECURE_HSTS_SECONDS=int(os.getenv("SECURE_HSTS_SECONDS","0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS=SECURE_HSTS_SECONDS>0
 SECURE_HSTS_PRELOAD=os.getenv("SECURE_HSTS_PRELOAD","False").lower()=="true"
 DATA_UPLOAD_MAX_MEMORY_SIZE=int(os.getenv("MAX_UPLOAD_BYTES","5242880")); FILE_UPLOAD_MAX_MEMORY_SIZE=DATA_UPLOAD_MAX_MEMORY_SIZE
-REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES":["rest_framework.authentication.SessionAuthentication","rest_framework.authentication.BasicAuthentication"],"DEFAULT_PERMISSION_CLASSES":["rest_framework.permissions.IsAuthenticated"],"DEFAULT_PAGINATION_CLASS":"rest_framework.pagination.PageNumberPagination","PAGE_SIZE":20,"DEFAULT_FILTER_BACKENDS":["django_filters.rest_framework.DjangoFilterBackend","rest_framework.filters.SearchFilter","rest_framework.filters.OrderingFilter"],"DEFAULT_SCHEMA_CLASS":"drf_spectacular.openapi.AutoSchema","EXCEPTION_HANDLER":"pms.api.custom_exception_handler"}
+REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES":["rest_framework.authentication.SessionAuthentication","pms.market_api.WorkspaceBasicAuthentication"],"DEFAULT_PERMISSION_CLASSES":["rest_framework.permissions.IsAuthenticated"],"DEFAULT_PAGINATION_CLASS":"rest_framework.pagination.PageNumberPagination","PAGE_SIZE":20,"DEFAULT_FILTER_BACKENDS":["django_filters.rest_framework.DjangoFilterBackend","rest_framework.filters.SearchFilter","rest_framework.filters.OrderingFilter"],"DEFAULT_SCHEMA_CLASS":"drf_spectacular.openapi.AutoSchema","EXCEPTION_HANDLER":"pms.api.custom_exception_handler"}
 SPECTACULAR_SETTINGS={"TITLE":"의료기기 PMS·리콜 API","DESCRIPTION":"포트폴리오용 데모 API","VERSION":"1.0.0"}
 PMS_RULES={"LOT_WINDOW_DAYS":int(os.getenv("LOT_WINDOW_DAYS","30")),"LOT_THRESHOLD":int(os.getenv("LOT_THRESHOLD","3")),"DEVICE_WINDOW_DAYS":int(os.getenv("DEVICE_WINDOW_DAYS","90")),"DEVICE_THRESHOLD":int(os.getenv("DEVICE_THRESHOLD","5"))}
 
@@ -57,3 +57,5 @@ SAFETY_RULES=dict(VERSION="internal-v1", COUNT=int(os.getenv("SIGNAL_COUNT","5")
 RA_AI_TIMEOUT_SECONDS=float(os.getenv("RA_AI_TIMEOUT_SECONDS","20"))
 RA_AI_MAX_INPUT_BYTES=int(os.getenv("RA_AI_MAX_INPUT_BYTES","64000"))
 RA_AI_MAX_OUTPUT_BYTES=int(os.getenv("RA_AI_MAX_OUTPUT_BYTES","16000"))
+
+MIDDLEWARE.insert(MIDDLEWARE.index('django.contrib.auth.middleware.AuthenticationMiddleware')+1,'pms.market_i18n.MarketLocaleMiddleware')

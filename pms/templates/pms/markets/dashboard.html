@@ -1,0 +1,23 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block title %}{% ui 'markets' %} · MedWatch PMS{% endblock %}
+{% block content %}
+<h1>{% ui 'markets' %}</h1>
+{% if not market_scoped %}<p><a href="{% url 'foreign-list' %}">{% ui 'legacy_foreign' %}</a></p>{% endif %}
+<form method="get" class="filter-row"><label>{% ui 'market' %}
+<select name="market"><option value="">{% ui 'all' %}</option>{% for code in markets %}<option value="{{ code }}"{% if code == selected %} selected{% endif %}>{% ui code %}</option>{% endfor %}</select></label>
+<button class="btn">{% ui 'apply' %}</button></form>
+<section class="panel"><h2>{% ui 'progress' %}</h2>
+<table><thead><tr><th>{% ui 'market' %}</th><th>{% ui 'status' %}</th><th>{% ui 'count' %}</th></tr></thead>
+<tbody>{% for row in summary %}<tr><td>{% ui row.market %}</td><td>{% ui row.status %}</td><td>{{ row.total|market_number }}</td></tr>{% empty %}<tr><td colspan="3">{% ui 'empty' %}</td></tr>{% endfor %}</tbody></table></section>
+<div class="detail-grid">
+<section class="panel"><h2>{% ui 'expiring' %}</h2>
+{% for row in expiring %}<p><a href="{% url 'market-registration' row.device_id row.market %}">{{ row.device }}</a> · {% ui row.market %} · {{ row.expires_on }}{% if row.is_example %} · {% ui 'is_example' %}{% endif %}</p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</section>
+<section class="panel"><h2>{% ui 'pending' %}</h2>
+{% for row in pending %}<p><a href="{% url 'market-case-country' row.complaint_id row.market %}">{{ row.complaint }}</a> · {% ui row.market %}{% if row.complaint.is_example %} · {% ui 'is_example' %}{% endif %}</p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</section>
+</div>
+<section class="panel"><h2>{% ui 'registration' %}</h2>
+{% for row in registrations %}<p><a href="{% url 'market-product' row.device_id %}">{{ row.device }}</a> · <a href="{% url 'market-registration' row.device_id row.market %}">{% ui row.market %}</a> · {% ui row.status %}{% if row.is_example %} · {% ui 'is_example' %}{% endif %}</p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
+{% if registrations.has_previous %}<a href="?market={{ selected|default:'' }}&amp;page={{ registrations.previous_page_number }}">←</a>{% endif %}
+{% if registrations.has_other_pages %} {{ registrations.number }} / {{ registrations.paginator.num_pages }} {% endif %}
+{% if registrations.has_next %}<a href="?market={{ selected|default:'' }}&amp;page={{ registrations.next_page_number }}">→</a>{% endif %}</section>
+{% endblock %}

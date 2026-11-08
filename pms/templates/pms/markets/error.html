@@ -1,0 +1,2 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}<section class="panel"><h1>{% ui error %}</h1><a href="{% if market_scoped %}{% url 'market-dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}">{% ui 'dashboard' %}</a></section>{% endblock %}

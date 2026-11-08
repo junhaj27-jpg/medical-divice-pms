@@ -1,0 +1,8 @@
+{% load market_ui %}
+<p><strong>{% ui result.decision %}</strong> · {% ui result.reason %}</p>
+{% if result.rule %}<p>{{ result.rule.name }} · {% ui 'version' %} {{ result.rule.version }}{% if result.rule.is_example %} · {% ui 'is_example' %}{% endif %}</p>{% endif %}
+{% if result.calculation %}<dl><dt>{% ui 'basis' %}</dt><dd>{% ui result.calculation.basis_type %} · <time datetime="{{ result.basis_source }}" title="{{ result.basis_source }}">{{ result.basis_source|market_datetime }}</time> ({{ result.calculation.timezone }})</dd>
+<dt>{% ui 'due' %}</dt><dd><time datetime="{{ result.calculation.due_at }}" title="{{ result.calculation.due_at }}">{{ result.calculation.due_at|market_datetime }}</time> ({{ result.calculation.timezone }})</dd></dl>{% endif %}
+{% for citation in result.rule.citations %}{% ifchanged citation.document_id citation.section citation.paragraph %}
+<p>{% ui 'source' %}: {% if citation.official_url %}<a href="{{ citation.official_url }}" rel="noopener noreferrer">{{ citation.document }}</a>{% else %}{{ citation.document }}{% endif %} · {{ citation.edition }} · {{ citation.section }} {{ citation.paragraph }}{% if citation.market_source_id and case and entry %} · <a href="{% url 'market-case-source' case.pk entry.market citation.market_source_id %}">{% ui 'translation' %}</a>{% endif %}</p>
+{% endifchanged %}{% if citation.quote %}<details><summary>{% ui 'clause' %} · {{ citation.field }}</summary><blockquote>{{ citation.quote|linebreaksbr }}</blockquote><p>{{ citation.interpretation }}</p></details>{% endif %}{% empty %}{% if result.rule %}<p>{% ui 'source' %}: {% ui 'UNKNOWN' %}</p>{% endif %}{% endfor %}

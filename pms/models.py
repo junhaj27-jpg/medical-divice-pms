@@ -9,6 +9,7 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 from django.utils import timezone
 from .history import AppendOnlyRecord
+from .market_models import LANGUAGES
 
 class TimeStamped(models.Model):
     created_at=models.DateTimeField(auto_now_add=True); updated_at=models.DateTimeField(auto_now=True)
@@ -59,6 +60,7 @@ class Profile(models.Model):
     class Role(models.TextChoices): STAFF="STAFF","직원"; RA_QA="RA_QA","RA/QA"; ADMIN="ADMIN","관리자"
     user=models.OneToOneField(User,on_delete=models.CASCADE,related_name="profile"); role=models.CharField(max_length=10,choices=Role.choices,default=Role.STAFF)
     timezone_name=models.CharField("시간대",max_length=64,default="Asia/Seoul")
+    ui_language=models.CharField(max_length=8,choices=LANGUAGES,default="ko-KR")
     def __str__(self): return f"{self.user.username} ({self.role})"
 
 class Manufacturer(TimeStamped):
@@ -630,3 +632,4 @@ from .ra_models import RiskCriteria, ProductRisk, SafetyInformation, FieldSafety
 from .ra_models import TrainingRequirement, TrainingAssignment, AuditPlan, AuditFinding, AuditPackage, ManagementReview, ManagementDecision, RetentionPolicy
 from . import ra_operations_models
 from . import foreign_models
+from . import market_models

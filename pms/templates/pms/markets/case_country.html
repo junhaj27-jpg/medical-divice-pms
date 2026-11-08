@@ -1,0 +1,25 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-case' case.pk %}">{{ case }}</a></p>
+<h1>{% ui market %} · {% ui 'case_markets' %}{% if case.is_example %} <span class="badge">{% ui 'is_example' %}</span>{% endif %}</h1>
+{% if registration %}<p><a href="{% url 'market-registration' case.device_id market %}">{% ui 'registration' %}</a> · {% ui registration.status %}</p>{% endif %}
+{% if case.status != 'CLOSED' %}<form class="panel compact-form" method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="btn primary">{% ui 'save' %}</button></form>
+{% else %}<section class="panel"><p>{% ui entry.manual_decision %} · {{ entry.owner|default:'—' }} · {{ entry.manual_due_on|default:'—' }}</p><p>{{ entry.rationale }}</p></section>{% endif %}
+{% if entry.pk %}
+<section class="panel"><h2>{% ui 'automatic' %}</h2>
+{% if case.status != 'CLOSED' %}<form action="{% url 'market-evaluate' case.pk market %}" method="post">{% csrf_token %}<button class="btn primary">{% ui 'evaluate' %}</button></form>{% endif %}
+<a href="{% url 'market-compare' case.pk market %}">{% ui 'compare' %}</a>
+{% if stale %}<p class="alert">{% ui 'stale_assessment' %}</p>{% endif %}
+{% if eu_pending %}<p class="alert">{% ui 'eu_review' %}</p>{% endif %}
+{% if latest %}{% include 'pms/markets/assessment.html' with result=latest.snapshot %}{% else %}<p>{% ui 'empty' %}</p>{% endif %}
+{% if entry.legacy_application %}<p>{% ui 'LEGACY' %} · {{ entry.legacy_application.rule.name }} v{{ entry.legacy_application.rule.version }} · {{ entry.legacy_application.due_at }}</p>{% endif %}
+<details><summary>{% ui 'history' %}</summary>{% for record in history %}<article><h3>#{{ record.pk }} · {{ record.recorded_at }} · {{ record.actor }}</h3>{% include 'pms/markets/assessment.html' with result=record.snapshot %}
+{% for source in record.snapshot.evidence %}<p><a href="{% url 'market-case-source' case.pk market source.id %}">{{ source.title }} v{{ source.version }}</a> · {% ui source.scope %}</p>{% endfor %}</article>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</details></section>
+<section class="panel"><h2>{% ui 'evidence' %}</h2>
+{% for source, previous in groups %}<p><strong>{% if source.scope == 'EU' %}{% ui 'EU' %}{% else %}{% ui 'national' %}{% endif %}</strong> · <a href="{% url 'market-case-source' case.pk market source.pk %}">{{ source.title }} v{{ source.version }}</a></p>
+{% for older in previous %}<p><a href="{% url 'market-case-source' case.pk market older.pk %}">{{ older.title }} v{{ older.version }}</a> · {% ui 'translation_stale' %}</p>{% endfor %}
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</section>
+<section class="panel"><h2>{% ui 'report_language' %}</h2>
+<form action="{% url 'market-report' case.pk market %}" method="post">{% csrf_token %}{{ report_form.as_p }}<button class="btn">{% ui 'draft_report' %}</button></form></section>
+{% endif %}
+{% endblock %}

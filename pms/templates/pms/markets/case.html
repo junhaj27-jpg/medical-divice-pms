@@ -1,0 +1,12 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% if not market_scoped %} / <a href="{% url 'complaint-workspace' case.pk %}?legacy=1">{% ui 'legacy_case' %}</a>{% endif %}</p>
+<h1>{{ case }}{% if case.is_example %} <span class="badge">{% ui 'is_example' %}</span>{% endif %}</h1>
+<section class="panel"><h2>{% ui 'description' %}</h2>
+<p>{{ case.description|linebreaksbr }}</p><dl><dt>{% ui 'product' %}</dt><dd>{{ case.device }}</dd><dt>{% ui 'occurred_on' %}</dt><dd>{{ case.occurred_on }}</dd><dt>{% ui 'reported_on' %}</dt><dd>{{ case.reported_on }}</dd></dl></section>
+<section class="panel"><h2>{% ui 'case_markets' %}</h2>
+{% for entry in entries %}<p><a href="{% url 'market-case-country' case.pk entry.market %}">{% ui entry.market %}</a> · {% ui entry.manual_decision %} · {{ entry.owner|default:'—' }} · {% if entry.reviewed %}{% ui 'reviewed' %}{% else %}{% ui 'unreviewed' %}{% endif %}</p>
+{% empty %}<p>{% ui 'XX' %} · {% ui 'empty' %}</p>{% endfor %}
+{% if available and case.status != 'CLOSED' %}<h3>{% ui 'add_market' %}</h3>{% for code in available %}<a class="btn" href="{% url 'market-case-country' case.pk code %}">{% ui code %}</a> {% endfor %}{% endif %}
+</section>
+{% endblock %}

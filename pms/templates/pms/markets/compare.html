@@ -1,0 +1,13 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-case-country' entry.complaint_id entry.market %}">{{ entry.complaint }}</a></p>
+<h1>{% ui 'compare' %} · {% ui entry.market %}</h1>
+{% if invalid_pair %}<p class="alert">{% ui 'pair_error' %}</p>{% endif %}
+{% if rules %}<form method="post" class="panel">{% csrf_token %}
+<label>{% ui 'baseline' %}<select name="baseline">{% for rule in rules %}<option value="{{ rule.pk }}"{% if rule.pk == baseline_id %} selected{% endif %}>{{ rule.name }} v{{ rule.version }} · {% ui rule.state %}{% if rule.is_example %} · {% ui 'is_example' %}{% endif %}</option>{% endfor %}</select></label>
+<label>{% ui 'proposed' %}<select name="proposed">{% for rule in rules %}<option value="{{ rule.pk }}"{% if rule.pk == proposed_id %} selected{% endif %}>{{ rule.name }} v{{ rule.version }} · {% ui rule.state %}{% if rule.is_example %} · {% ui 'is_example' %}{% endif %}</option>{% endfor %}</select></label>
+<button class="btn primary">{% ui 'compare' %}</button></form>
+{% else %}<p>{% ui 'empty' %}</p>{% endif %}
+{% if results %}<div class="detail-grid">{% for result in results %}<section class="panel"><h2>{% if forloop.first %}{% ui 'baseline' %}{% else %}{% ui 'proposed' %}{% endif %}</h2>{% include 'pms/markets/assessment.html' %}</section>{% endfor %}</div>
+{% if delta != None %}<p>{% ui 'delta' %}: {{ delta|market_number }}</p>{% endif %}{% endif %}
+{% endblock %}

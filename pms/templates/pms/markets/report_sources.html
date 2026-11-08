@@ -1,0 +1,5 @@
+{% load market_ui %}
+{% for source in sources %}
+<p>{% ui source.scope %} · {% ui source.language %} · {% if source.url %}<a href="{{ source.url }}">{{ source.title }}</a>{% else %}{{ source.title }}{% endif %} v{{ source.version }} · {{ source.clause }} · {{ source.checked_on }} {{ source.reviewer }}</p>
+<ul>{% for t in source.translations %}<li>{% ui t.language %} v{{ t.version }} · {% if t.reviewed %}{% ui 'reviewed' %}{% else %}{% ui 'reference_translation' %}{% endif %}</li>{% empty %}<li>{% ui 'translation' %}: {% ui 'empty' %}</li>{% endfor %}</ul>
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}

@@ -1,0 +1,5 @@
+{% load market_ui %}
+<section><h2>{% ui 'software' %}</h2>
+<p>{% ui 'intake_version' %}: {{ software.intake|default:'—' }} · {% ui 'affected_versions' %}: {{ software.affected|join:', '|default:'—' }}</p><p>{{ software.rationale }}</p>
+{% for check in software.checks %}<p>{{ check.capa }} · {{ check.release }} · {{ check.verdict }} · {{ check.result }} · {{ check.criteria }} · {{ check.evidence|join:', ' }}</p>{% endfor %}
+</section>

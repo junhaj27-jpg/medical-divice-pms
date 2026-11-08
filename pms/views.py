@@ -51,6 +51,8 @@ def complaint_create(request):
 @login_required
 def complaint_detail(request,pk):
     obj=get_object_or_404(visible_complaints(request.user),pk=pk); privileged=role(request.user) in (Profile.Role.RA_QA,Profile.Role.ADMIN)
+    if privileged and request.ui_language != "ko-KR" and request.GET.get("legacy") != "1":
+        return redirect("market-case", obj.pk)
     approval=Approval.objects.filter(content_type="CustomerComplaint",object_id=obj.pk).order_by("-created_at").first()
     context={"item":obj,"warnings":recurrent_warning(obj,user=request.user),"next_status":__import__("pms.services",fromlist=["TRANSITIONS"]).TRANSITIONS.get(obj.status),"privileged":privileged,"is_admin":role(request.user)==Profile.Role.ADMIN,"risk_form":RiskForm(initial={"complaint":obj}),"capa_form":CAPAForm(),"report_form":ReportForm(),"recall_form":RecallForm(initial={"risk_level":getattr(getattr(obj,"risk_assessment",None),"level","")}),"approval":approval}
     from .approval_integrity import approval_invalid_reason
@@ -246,8 +248,8 @@ def report_list(request):
 @raqa_required
 def report_print(request,pk):
     obj = get_object_or_404(RegulatoryReport, pk=pk)
-    audit(request.user, "REPORT_GENERATE", obj)
-    return render(request, "pms/report_print.html", {"item": obj, "software": software_summary(obj.complaint)})
+    from .market_views import legacy_report
+    return legacy_report(request, obj, software_summary(obj.complaint))
 @login_required
 def notifications(request): return render(request,"pms/notifications.html",{"items":Notification.objects.filter(user=request.user)})
 @login_required
