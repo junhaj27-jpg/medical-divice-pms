@@ -7,7 +7,7 @@ import logging
 from django.core.exceptions import ValidationError
 
 from .market_codes import market_code
-from .market_service import BASIS_FIELDS, case_inputs, compare, parse_source
+from .market_service import BASIS_FIELDS, case_inputs, compare, hold, parse_source, version_result
 from .regulatory import normalize_holidays
 
 LOG = logging.getLogger(__name__)
@@ -116,6 +116,8 @@ def apply_native(rows, response, market):
                 raise ValueError("incomplete native result")
     for row, native in zip(rows, response["results"]):
         for side in SIDES:
+            if row[side]["reason"] == "baseline_unavailable":
+                continue
             candidate = native[side]
             if candidate["decision"] == "unsupported":
                 row["engines"][side] = {"name": "python", "fallback": candidate["reason"]}
@@ -139,19 +141,42 @@ def apply_native(rows, response, market):
                     row["engines"][side]["name"] = "cpp_disagreement"
 
 
-def run(entries, rules, user, market):
+def baseline_applies(rule, entry):
+    case = entry.complaint
+    return (rule.approved_by_id and rule.approved_at and rule.effective_on
+            and rule.effective_on <= case.occurred_on
+            and (rule.state != "RETIRED" or rule.effective_until)
+            and (not rule.effective_until or case.occurred_on <= rule.effective_until)
+            and (not rule.device_id or rule.device_id == case.device_id)
+            and rule.is_example == case.is_example)
+
+
+def run(entries, rules, user, market, *, enforce_baseline=False):
     rows, inputs = [], []
     for entry in entries:
-        results, _ = compare(entry, user, *rules)
+        baseline_unavailable = enforce_baseline and not baseline_applies(rules[0], entry)
+        if baseline_unavailable:
+            results = [hold("baseline_unavailable"), version_result(rules[1], entry, user, preview=True)]
+        else:
+            results, _ = compare(entry, user, *rules)
         payload = case_input(entry, rules, results)
+        if baseline_unavailable:
+            # The native protocol supports a scope hold. Preserve the more specific
+            # Python reason and do not treat this side as natively verified.
+            payload["holds"][0] = "scope_mismatch"
         inputs.append(payload)
         before, after = [outcome(rule, result, payload) for rule, result in zip(rules, results)]
         rows.append({"case_id": payload["id"], "baseline": before, "proposed": after,
-                     "mismatches": [], **changes(before, after)})
+                     "mismatches": [], **changes(before, after),
+                     "explanations": {
+                         side: explain(rule, result, payload) for side, rule, result in zip(SIDES, rules, results)
+                     }})
     native = native_engine()
     fallback = "module_missing" if native is None else "native_error"
     for row in rows:
-        row["engines"] = {side: {"name": "python", "fallback": fallback} for side in SIDES}
+        row["engines"] = {side: {
+            "name": "python", "fallback": "baseline_unavailable" if row[side]["reason"] == "baseline_unavailable" else fallback
+        } for side in SIDES}
     if native is None:
         return rows
     try:
@@ -160,7 +185,8 @@ def run(entries, rules, user, market):
         if any(r["deadline_time"] and len(r["deadline_time"]) != 8 for r in native_rules):
             for row in rows:
                 for side in SIDES:
-                    row["engines"][side]["fallback"] = "unsupported_method"
+                    if row[side]["reason"] != "baseline_unavailable":
+                        row["engines"][side]["fallback"] = "unsupported_method"
             return rows
         request = {"schema_version": 1, "market": market, "cases": inputs, "rules": native_rules}
         response = json.loads(native(json.dumps(request, ensure_ascii=False)))
@@ -171,3 +197,25 @@ def run(entries, rules, user, market):
     except (AttributeError, KeyError, TypeError, ValueError, RuntimeError, ValidationError) as exc:
         LOG.warning("Market batch native evaluation failed (%s)", type(exc).__name__)
         return rows
+
+
+def explain(rule, result, payload):
+    # Only the structured comparison inputs are retained, never the case narrative.
+    evaluated = result["decision"] in ("REPORT", "NO_MATCH") or result["reason"] in (
+        "missing_input", "date_mismatch", "calculation_unverified",
+    )
+    conditions = []
+    if evaluated:
+        for field, expected in rule.conditions.items():
+            actual = payload["facts"].get(field)
+            status = "condition_unknown" if actual is None else "condition_match" if actual == expected else "condition_diff"
+            conditions.append({"field": field, "expected": expected, "actual": actual, "status": status})
+    calculation = result.get("calculation") or {}
+    return {
+        "conditions": conditions,
+        "basis": rule.basis,
+        "basis_input": payload["bases"].get(rule.basis) if evaluated else None,
+        "input_issue": result.get("input_issue"),
+        "excluded": calculation.get("excluded", []),
+        "detail_unavailable": not evaluated,
+    }

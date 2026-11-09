@@ -1,0 +1,19 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-case-country' entry.complaint_id entry.market %}">CMP-{{ entry.complaint_id }}</a></p>
+{% if legacy %}
+<h1>{% ui 'operating_snapshot' %} #{{ legacy.pk }} · {% ui market %} · {% ui 'LEGACY' %}</h1>
+<p>{{ legacy.created_at }} · {{ legacy.actor }}</p>
+<section class="panel">
+<p>{{ legacy.snapshot.rule.name|default:legacy.rule.name }} · {% ui 'version' %} {% if legacy.snapshot.rule.version %}{{ legacy.snapshot.rule.version }}{% elif legacy.snapshot.version %}{{ legacy.snapshot.version }}{% else %}—{% endif %}</p>
+{% if legacy.snapshot.calculation.basis_at %}<p>{% ui 'basis' %} {{ legacy.snapshot.calculation.basis_at|market_datetime }}</p>{% endif %}
+<p>{% ui 'due' %} {% if legacy.snapshot.calculation.due_at %}{{ legacy.snapshot.calculation.due_at|market_datetime }}{% else %}{{ legacy.due_at }}{% endif %}</p>
+<p>{{ legacy.reason }}</p></section>
+{% else %}
+<h1>{% ui 'operating_snapshot' %} #{{ record.pk }} · {% ui market %}{% if record.snapshot.is_example %} · {% ui 'is_example' %}{% endif %}</h1>
+<p>{{ record.recorded_at }} · {{ record.actor }}</p>
+<section class="panel">{% include 'pms/markets/assessment.html' with result=record.snapshot %}</section>
+{% if record.snapshot.evidence %}<section class="panel"><h2>{% ui 'evidence' %}</h2>
+{% include 'pms/markets/report_sources.html' with sources=record.snapshot.evidence %}</section>{% endif %}
+{% endif %}
+{% endblock %}

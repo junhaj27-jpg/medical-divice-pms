@@ -56,9 +56,46 @@ DB 경로는 새 로컬 작업 복사본 기준입니다. 기존 데이터가 �
 
 
 
+## 독일 시장 규칙 비교와 검토 이력
+
+마이그레이션 `0031`은 비교 실행, 사건별 결과, 검토 이벤트 테이블을 추가합니다. 이전 승인본과 같은 계열의 개정 초안을 사건에 대조하면 결과를 저장하고 결과 페이지로 이동합니다. 판단·기산일·기한, 규칙과 휴일, 원문 인용과 시장 근거의 문서·번역 버전, 실행자·실행 시각·계산 엔진이 실행 당시 값으로 남습니다. 운영 판단과 비교 결과는 시장별 사건 화면에서 각각 열 수 있습니다.
+
+결과 표는 보고 판단 변경, 기한 앞당김, 기한 늦어짐, 추가 확인 필요로 좁혀 볼 수 있습니다. 검토 완료 여부는 사건별 비교 결과에서 변경하며 메모와 상태 변경은 별도 이벤트로 저장합니다. 검토자 간 덮어쓰기를 막기 위해 상세 화면을 열었을 때의 마지막 이벤트 ID가 필요합니다. 감사 로그에는 실행자, 실행 및 상태 변경 정보를 기록합니다.
+
+검토 이력은 실행자와 권한 있는 관리자가 열 수 있습니다. 시장과 사건·규칙 접근 권한을 다시 검사합니다. JSON API `GET /markets/api/comparison-results/<id>/`로 같은 스냅샷과 검토 이력을 읽습니다. 로그인 세션과 CSRF 토큰을 포함한 JSON `POST`에 `note`(1~2,000자), `complete`(불리언), `previous`(GET 응답의 `revision`)를 보내면 같은 권한 검사와 이벤트 기록을 사용합니다.
+
+새 로컬 예시 DB로 실행합니다.
+
+```powershell
+python -m venv .venv
+$py = ".\.venv\Scripts\python.exe"
+& $py -m pip install -r requirements.txt
+$env:SQLITE_PATH = Join-Path $PWD "db.market-review-demo.sqlite3"
+$env:PRIVATE_MEDIA_ROOT = Join-Path $PWD "private_media"
+$env:DEMO_PASSWORD = "Local-Example-Only-2026!"
+$env:DEBUG = "True"
+& $py manage.py migrate --noinput
+& $py manage.py seed_market_review_demo
+& $py manage.py runserver 127.0.0.1:8001
+```
+
+1. `example-hq`와 위 예시 비밀번호로 [독일 일괄 검증](http://127.0.0.1:8001/markets/batch/DE/)에 로그인합니다. 한국어에서 `DE vigilance review` 계열의 승인본 v1과 초안 v2, `Earlier deadline`과 `Missing trigger` 두 예시 사건을 고릅니다.
+2. **일괄 검증 실행**을 누릅니다. 등록 휴일 10월 6일을 건너뛰어 첫 사건 기한은 **2026-10-09 → 2026-10-07**로 2일 앞당겨집니다. 둘째 사건은 기산일 누락으로 두 버전 모두 보류됩니다.
+3. 첫 결과 **비교 결과 상세**를 열어 `EX_DE_REVIEW` 조건, 인지 기산일, 영업일·휴일 설정, 독일 시장 근거 v2와 한국어 번역 검토 상태를 확인합니다.
+4. 상단 언어를 **Deutsch**로 저장합니다. 같은 결과 ID, 규칙 버전, 기한이 유지됩니다. **Vergleichsauswahl erneut öffnen**에서 선택했던 사건과 규칙을 다시 볼 수 있습니다.
+5. **Prüfnotiz**에 예시 메모를 입력하고 **Vergleich geprüft**를 체크해 저장합니다. **Prüfverlauf des Vergleichs**에서 결과를 다시 엽니다.
+6. 상세 상단의 **Snapshot der operativen Entscheidung**을 열어 기존 승인본의 10월 9일 기한을 확인합니다. 계산 결과와 검토 메모는 비교 기록에만 남습니다.
+
+C++ 모듈은 선택 사항입니다. 모듈이 로드돼도 독일 예시의 `Europe/Berlin` 기한 계산은 기존 Python으로 대체되고 그 사유가 저장됩니다. C++에서 지원하는 결과는 Python과 대조하며 값이 다르면 양쪽 값과 검토 필요 상태를 기록합니다. CLI와 WASM 데모의 기존 비교 기능은 그대로 사용할 수 있습니다.
+
+```powershell
+& $py manage.py test pms.test_market_review pms.test_market_batch pms.test_market_workspace pms.test_regulatory --noinput
+```
+
+
 ## 해외 시장 보고 규칙 일괄 검증
 
-**해외 인허가 → 사건 일괄 검증**(`/markets/batch/`) 또는 **시장별 사건 → 규칙 버전 비교 → 사건 일괄 검증**에서 시작합니다. 허용된 시장, 같은 계열의 규칙 두 버전, 해당 시장에서 조회할 수 있는 사건 최대 100건을 선택합니다. 동일 버전을 선택해 비교 기준을 확인할 수도 있습니다. 오래된 사건은 숫자 ID를 직접 입력할 수 있습니다. 결과 표시는 기존 앱의 6개 UI 로캘을 따르며, 계산은 로캘과 무관합니다.
+**해외 인허가 → 사건 일괄 검증**(`/markets/batch/`) 또는 **시장별 사건 → 규칙 버전 비교 → 사건 일괄 검증**에서 시작합니다. 허용된 시장, 같은 계열의 규칙 두 버전, 해당 시장에서 조회할 수 있는 사건 최대 100건을 선택합니다. 같은 버전의 기술 검증은 CLI 또는 WASM 데모에서 실행할 수 있습니다. 오래된 사건은 숫자 ID를 직접 입력할 수 있습니다. 결과 표시는 기존 앱의 6개 UI 로캘을 따르며, 계산은 로캘과 무관합니다.
 
 Django는 기존 Python 비교를 기준으로 계산합니다. 선택 모듈 `pms_rule_batch`가 있으면 지원하는 각 버전을 C++로도 계산합니다. 화면에서 C++ 일치 여부, Python으로 대체한 사유, 불일치 필드와 양쪽 값을 확인할 수 있습니다. 권한, 근거 접근, 규칙의 적용 전제는 Django에서 검사합니다. 실행 감사에는 실행자, 시장, 규칙 버전, 엔진, 건수와 상태가 남습니다. 결과는 읽기 전용 검증이며, 사건·기한·스냅샷·규칙 승인 상태와 기존 RA 작업 큐를 유지합니다. 기존 큐는 검토 업무를 기록하며 이 비교는 최대 100건의 동기 요청입니다.
 

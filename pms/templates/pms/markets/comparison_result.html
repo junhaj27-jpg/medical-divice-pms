@@ -1,0 +1,35 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-comparison-run' run.pk %}">{% ui 'batch_results' %} #{{ run.pk }}</a> ·
+<a href="{% url 'market-case-country' row.case_id run.market %}">CMP-{{ row.case_id }}</a> ·
+<a href="{% url 'market-comparison-history' row.case_id run.market %}">{% ui 'comparison_history' %}</a></p>
+<h1>{% ui 'comparison_detail' %} · {% ui run.market %}{% if row.example %} · {% ui 'is_example' %}{% endif %}</h1>
+<p>{{ run.recorded_at }} · {{ run.actor }} · {% ui review_status %}</p>
+{% if row.operating_snapshot %}<p><a href="{% url 'market-operating-snapshot' row.case_id run.market row.operating_snapshot %}">{% ui 'operating_snapshot' %} #{{ row.operating_snapshot }}</a></p>{% elif row.legacy_snapshot %}<p><a href="{% url 'market-legacy-snapshot' row.case_id run.market %}">{% ui 'operating_snapshot' %} · {% ui 'LEGACY' %}</a></p>{% endif %}
+{% include 'pms/markets/comparison_changes.html' %}
+<div class="reg-columns">
+<section class="panel"><h2>{% ui 'approved_baseline' %}</h2>{% include 'pms/markets/comparison_rule.html' with rule=run.rules.baseline result=row.baseline engine=row.engines.baseline explanation=row.explanations.baseline %}</section>
+<section class="panel"><h2>{% ui 'draft_proposal' %}</h2>{% include 'pms/markets/comparison_rule.html' with rule=run.rules.proposed result=row.proposed engine=row.engines.proposed explanation=row.explanations.proposed %}</section>
+</div>
+<section class="panel"><h2>{% ui 'evidence' %} · {% ui 'comparison_frozen' %}</h2>
+{% for source in row.sources %}
+<article><h3>{{ source.title }} · {% ui 'version' %} {{ source.version }}</h3>
+<p>{% ui source.scope %} · {% ui source.language %} · {{ source.clause }}</p>
+{% if source.url %}<a href="{{ source.url }}" rel="noopener noreferrer">{% ui 'original' %}</a>{% endif %}
+<p>{{ source.excerpt|linebreaksbr }}</p>
+<ul>{% for item in source.translations %}<li>{% ui item.language %} · v{{ item.version }} ·
+{% if not source.current_at_run %}{% ui 'translation_stale' %}{% elif item.reviewed %}{% ui 'reviewed' %}{% else %}{% ui 'unreviewed' %}{% endif %}</li>
+{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul></article>
+{% empty %}<p>{% ui 'detail_unavailable' %}</p>{% endfor %}</section>
+<section class="panel"><h2>{% ui 'comparison_review' %}</h2>
+{% if review_error %}<p class="alert" role="alert">{% ui review_error %}</p>{% endif %}
+<form method="post">{% csrf_token %}
+<input type="hidden" name="previous" value="{{ latest.pk|default:0|stringformat:'s' }}">
+<label for="comparison-note">{% ui 'comparison_note' %}</label>
+<textarea id="comparison-note" name="note" required maxlength="2000" rows="4"></textarea>
+<p><label><input type="checkbox" name="complete"{% if latest.complete %} checked{% endif %}> {% ui 'comparison_complete' %}</label></p>
+<button class="btn primary">{% ui 'save' %}</button></form>
+<h3>{% ui 'comparison_history' %}</h3>
+{% for event in events %}<article><p>{{ event.recorded_at }} · {{ event.actor }} · {% if event.complete %}{% ui 'comparison_complete' %}{% else %}{% ui 'review_required' %}{% endif %}</p><p>{{ event.note|linebreaksbr }}</p></article>
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</section>
+{% endblock %}

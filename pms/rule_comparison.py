@@ -116,7 +116,7 @@ def evaluate_version(rule, case, inputs, user, document_ids, sources):
 
 
 def deadline_delta(results):
-    if all(result["calculation"] for result in results):
+    if all(result.get("calculation") for result in results):
         baseline, proposed = (datetime.fromisoformat(result["calculation"]["due_at"]).date()
                               for result in results)
         return (proposed - baseline).days

@@ -1,0 +1,6 @@
+{% load market_ui %}
+<ul>{% for flag in row.changes %}<li>{% ui flag %}</li>{% endfor %}</ul>
+{% if row.delta_days != None %}<p>{% ui 'delta_days' %} {{ row.delta_days|market_number }}</p>{% endif %}
+{% if row.mismatches %}<ul>{% for item in row.mismatches %}
+<li>{% ui item.side %} · {% ui item.field %}<br>Python {{ item.python|default_if_none:"—" }} / C++ {{ item.cpp|default_if_none:"—" }}</li>
+{% endfor %}</ul>{% endif %}

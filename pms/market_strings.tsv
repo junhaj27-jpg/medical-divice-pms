@@ -138,7 +138,7 @@ scope_mismatch|시장, 제품, 기간 또는 조건이 규칙 범위와 다릅�
 source_unverified|원문 근거 또는 규칙 조건을 확인하세요.|Verify the source evidence and rule terms.|Quellen und Regelbedingungen prüfen.|Vérifiez les sources et les conditions de la règle.|Verifique las fuentes y las condiciones de la regla.|Verificare le fonti e le condizioni della regola.
 missing_input|판단에 필요한 사건 입력이 부족합니다.|Required case information is missing.|Erforderliche Fallangaben fehlen.|Des informations nécessaires au dossier manquent.|Faltan datos necesarios del caso.|Mancano informazioni necessarie sul caso.
 calculation_unverified|기산점·시간대·기한 조건을 확인하세요.|Verify the trigger, time zone and deadline terms.|Fristbeginn, Zeitzone und Fristbedingungen prüfen.|Vérifiez le point de départ, le fuseau et les conditions de délai.|Compruebe el inicio, la zona horaria y las condiciones del plazo.|Verificare inizio, fuso orario e condizioni di scadenza.
-rule_match|승인 규칙 조건 충족|Rule conditions met|Regelbedingungen erfüllt|Conditions de la règle remplies|Se cumplen las condiciones de la regla|Condizioni della regola soddisfatte
+rule_match|규칙 조건 충족|Rule conditions met|Regelbedingungen erfüllt|Conditions de la règle remplies|Se cumplen las condiciones de la regla|Condizioni della regola soddisfatte
 report_language|보고서 출력 언어|Report output language|Ausgabesprache des Berichts|Langue du rapport|Idioma del informe|Lingua della relazione
 draft_report|내부 검토용 보고서 초안|Draft report for internal review|Berichtsentwurf zur internen Prüfung|Projet de rapport pour examen interne|Borrador de informe para revisión interna|Bozza di relazione per verifica interna
 print|인쇄 / PDF 저장|Print or save as PDF|Drucken oder als PDF speichern|Imprimer ou enregistrer en PDF|Imprimir o guardar en PDF|Stampa o salva come PDF
@@ -217,3 +217,42 @@ changes|변경 항목|Changes|Änderungen|Modifications|Cambios|Modifiche
 delta_days|기한 차이 (일)|Deadline delta (days)|Fristdifferenz (Tage)|Écart d’échéance (jours)|Diferencia de plazo (días)|Differenza di scadenza (giorni)
 offline_demo|오프라인 규칙 비교 데모|Offline rule comparison demo|Offline-Demo zum Regelvergleich|Démo hors ligne de comparaison|Demostración de comparación sin conexión|Demo di confronto offline
 offline_build_required|README의 WASM 빌드 및 데모 설치 명령을 실행하세요.|Build and install the WASM demo using the README instructions.|Bauen und installieren Sie das WASM-Demo nach der README-Anleitung.|Compilez et installez la démo WASM selon le README.|Compile e instale la demo WASM según el README.|Compila e installa la demo WASM seguendo il README.
+approved_baseline|이전 승인본|Approved baseline|Genehmigte Ausgangsregel|Règle de référence approuvée|Regla de referencia aprobada|Regola di riferimento approvata
+draft_proposal|개정 초안|Draft revision|Überarbeitungsentwurf|Projet de révision|Borrador de revisión|Bozza di revisione
+batch_no_baseline|이 시장의 이전 승인본을 특정할 수 없습니다. 규칙 승인 상태와 적용 기간을 확인하세요.|No approved baseline could be identified. Check rule approvals and validity dates.|Keine genehmigte Ausgangsregel ermittelbar. Prüfen Sie Freigaben und Gültigkeitsdaten.|Aucune règle de référence approuvée identifiable. Vérifiez les approbations et dates de validité.|No se pudo identificar una regla aprobada. Revise la aprobación y vigencia.|Nessuna regola approvata identificabile. Verifica approvazioni e date di validità.
+baseline_unavailable|이 사건에 적용할 승인 기준본 확인 필요|Confirm the approved baseline for this case|Genehmigte Ausgangsregel für diesen Fall prüfen|Vérifier la règle approuvée applicable au dossier|Verifique la regla aprobada aplicable al caso|Verifica la regola approvata applicabile al caso
+missing_basis_date|기산일 누락 · 시장별 사건에서 기산일을 확인하세요.|Trigger date missing. Verify the date in the market case.|Fristbeginn fehlt. Prüfen Sie das Datum im Marktfall.|Date de départ manquante. Vérifiez la date du dossier marché.|Falta la fecha de inicio. Verifíquela en el caso del mercado.|Manca la data di inizio. Verificala nel caso del mercato.
+missing_basis_time|기산 시각 누락 · 시차가 포함된 시각을 확인하세요.|Trigger time missing. Verify a time with its UTC offset.|Uhrzeit fehlt. Prüfen Sie die Uhrzeit mit UTC-Offset.|Heure de départ manquante. Vérifiez l’heure et son décalage UTC.|Falta la hora de inicio. Verifique la hora y su desfase UTC.|Manca l’ora di inizio. Verifica l’ora con scostamento UTC.
+missing_basis_rule|규칙에 기산점이 없습니다. 규칙 설정을 확인하세요.|The rule has no trigger. Check its configuration.|Die Regel hat keinen Fristbeginn. Prüfen Sie die Konfiguration.|La règle ne définit aucun point de départ. Vérifiez sa configuration.|La regla no tiene punto de inicio. Revise la configuración.|La regola non definisce la decorrenza. Verifica la configurazione.
+missing_facts|필수 사건 정보 누락 · 아래 미확인 조건을 확인하세요.|Required case facts missing. Check the unknown conditions below.|Pflichtangaben zum Fall fehlen. Prüfen Sie die unbekannten Bedingungen unten.|Données requises manquantes. Vérifiez les conditions inconnues ci-dessous.|Faltan datos obligatorios. Revise las condiciones desconocidas abajo.|Mancano dati obbligatori. Verifica le condizioni sconosciute sotto.
+comparison_history|비교 검토 이력|Comparison review history|Prüfverlauf des Vergleichs|Historique de révision|Historial de revisión|Cronologia della revisione
+comparison_detail|비교 결과 상세|Comparison details|Vergleichsdetails|Détails du comparatif|Detalles de la comparación|Dettagli del confronto
+comparison_selection|비교 선택 다시 열기|Reopen comparison selection|Vergleichsauswahl erneut öffnen|Rouvrir la sélection|Reabrir la selección|Riapri la selezione
+comparison_frozen|실행 당시 버전|Versions at execution|Versionen zum Ausführungszeitpunkt|Versions au moment de l’exécution|Versiones al ejecutar|Versioni all’esecuzione
+comparison_review|비교 검토|Comparison review|Vergleichsprüfung|Révision du comparatif|Revisión de la comparación|Revisione del confronto
+comparison_note|검토 메모|Review note|Prüfnotiz|Note de révision|Nota de revisión|Nota di revisione
+comparison_note_error|검토 메모를 1~2,000자로 입력하세요.|Enter a review note of 1–2,000 characters.|Geben Sie eine Prüfnotiz mit 1–2.000 Zeichen ein.|Saisissez une note de 1 à 2 000 caractères.|Escriba una nota de 1 a 2.000 caracteres.|Inserisci una nota di 1–2.000 caratteri.
+comparison_review_conflict|다른 검토 기록이 추가됐습니다. 최신 기록을 확인하고 다시 저장하세요.|A review was added. Check the latest entry and save again.|Eine Prüfung wurde hinzugefügt. Prüfen Sie den neuesten Eintrag und speichern Sie erneut.|Une révision a été ajoutée. Consultez la dernière entrée et enregistrez à nouveau.|Se añadió una revisión. Consulte la última entrada y vuelva a guardar.|È stata aggiunta una revisione. Controlla l’ultima voce e salva di nuovo.
+comparison_complete|비교 검토 완료|Comparison reviewed|Vergleich geprüft|Comparatif révisé|Comparación revisada|Confronto revisionato
+comparison_pending|검토 대기|Pending review|Prüfung ausstehend|En attente de révision|Pendiente de revisión|In attesa di revisione
+review_status|검토 상태|Review status|Prüfstatus|Statut de révision|Estado de revisión|Stato della revisione
+operating_snapshot|운영 판단 스냅샷|Operational decision snapshot|Snapshot der operativen Entscheidung|Instantané de la décision opérationnelle|Instantánea de la decisión operativa|Snapshot della decisione operativa
+detail_unavailable|세부 근거 확인 필요|Verify detailed rationale|Detaillierte Begründung prüfen|Vérifier les motifs détaillés|Verifique el fundamento detallado|Verifica la motivazione dettagliata
+comparison_conditions|판단 조건 · 사건 값 / 규칙 값|Conditions · Case value / Rule value|Bedingungen · Fallwert / Regelwert|Conditions · Valeur du dossier / Valeur de la règle|Condiciones · Valor del caso / Valor de la regla|Condizioni · Valore del caso / Valore della regola
+comparison_calendar|기산일과 달력 설정|Trigger and calendar settings|Fristbeginn und Kalendereinstellungen|Date de départ et calendrier|Inicio y configuración del calendario|Decorrenza e impostazioni del calendario
+condition_match|일치|Matches|Erfüllt|Correspond|Coincide|Corrisponde
+condition_diff|불일치|Differs|Weicht ab|Diffère|Difiere|Differisce
+condition_unknown|미확인|Unknown|Unbekannt|Inconnu|Desconocido|Sconosciuto
+complaint_type|사건 유형|Case type|Falltyp|Type de dossier|Tipo de caso|Tipo di caso
+risk_level|위험 등급|Risk level|Risikostufe|Niveau de risque|Nivel de riesgo|Livello di rischio
+serious|중대성|Seriousness|Schweregrad|Gravité|Gravedad|Gravità
+CALENDAR|달력일|Calendar days|Kalendertage|Jours calendaires|Días naturales|Giorni di calendario
+BUSINESS|영업일|Business days|Werktage|Jours ouvrés|Días hábiles|Giorni lavorativi
+DAYS|일|Days|Tage|Jours|Días|Giorni
+HOURS|시간|Hours|Stunden|Heures|Horas|Ore
+calendar_includes_start|시작일 포함|Include start date|Startdatum einbeziehen|Date de départ incluse|Incluye el día de inicio|Include il giorno iniziale
+calendar_excludes_start|시작일 제외|Exclude start date|Startdatum ausschließen|Date de départ exclue|Excluye el día de inicio|Esclude il giorno iniziale
+calendar_weekend|토요일·일요일 제외|Saturday and Sunday excluded|Samstag und Sonntag ausgeschlossen|Samedi et dimanche exclus|Sábado y domingo excluidos|Sabato e domenica esclusi
+calendar_coverage|휴일 확인 범위|Verified holiday coverage|Geprüfter Feiertagszeitraum|Période de jours fériés vérifiée|Período de festivos verificado|Periodo festivo verificato
+calendar_holidays|등록 휴일|Recorded holidays|Erfasste Feiertage|Jours fériés enregistrés|Festivos registrados|Festività registrate
+calendar_excluded|계산에서 건너뛴 날짜|Dates skipped in calculation|Übersprungene Kalendertage|Dates ignorées par le calcul|Fechas omitidas en el cálculo|Date escluse dal calcolo

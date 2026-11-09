@@ -3,4 +3,5 @@
 <p>#{{ result.rule_id }} · v{{ result.version }}</p>
 <p>{% ui 'basis' %} {% if result.basis_date %}<time datetime="{{ result.basis_date }}">{{ result.basis_date|market_datetime }}</time>{% else %}—{% endif %}<br>
 {% ui 'due' %} {% if result.due_at %}<time datetime="{{ result.due_at }}" title="{{ result.due_at }}">{{ result.due_at|market_datetime }}</time>{% else %}—{% endif %}</p>
-<p>{% ui engine.name %}{% if engine.fallback %} · {% ui engine.fallback %}{% endif %}</p>
+{% if explanation.input_issue %}<p class="alert">{% ui explanation.input_issue %}</p>{% endif %}
+<p>{% ui engine.name %}{% if engine.fallback and engine.fallback != result.reason %} · {% ui engine.fallback %}{% endif %}</p>

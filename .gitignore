@@ -16,3 +16,4 @@ tmp*/
 /build-rule-batch/
 /build-rule-wasm/
 /static/rule-batch/
+/db.market-review-demo.sqlite3

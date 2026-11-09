@@ -138,20 +138,22 @@ def version_result(rule, entry, user, *, preview=False):
         "risk_level": getattr(getattr(c, "risk_assessment", None), "level", None),
         "serious": getattr(getattr(c, "adverse_event", None), "serious", None),
     }
-    if any(facts.get(k) is None for k in conditions):
-        return hold("missing_input", **data)
+    missing = [key for key in conditions if facts.get(key) is None]
+    if missing:
+        return hold("missing_input", input_issue="missing_facts", missing_facts=missing, **data)
     if any(facts[k] != v for k, v in conditions.items()):
         return {"decision": "NO_MATCH", "reason": "scope_mismatch", **data}
 
     if rule.basis not in BASIS_FIELDS:
-        return hold("missing_input", **data)
+        return hold("missing_input", input_issue="missing_basis_rule", **data)
     field, case_date_field = BASIS_FIELDS[rule.basis]
     business_date = getattr(c, case_date_field) if case_date_field else None
     raw = getattr(entry, field)
     try:
         value = parse_source(raw) if raw else business_date
         if value is None or (type(value) is date and rule.deadline_unit == "HOURS"):
-            return hold("missing_input", **data)
+            issue = "missing_basis_date" if value is None else "missing_basis_time"
+            return hold("missing_input", input_issue=issue, **data)
         if business_date and (value.date() if isinstance(value, datetime) else value) != business_date:
             return hold("date_mismatch", **data)
         # A date-only value is never presented as an observed clock time.

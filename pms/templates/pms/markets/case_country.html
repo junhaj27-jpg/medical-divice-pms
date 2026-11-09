@@ -8,12 +8,13 @@
 {% if entry.pk %}
 <section class="panel"><h2>{% ui 'automatic' %}</h2>
 {% if case.status != 'CLOSED' %}<form action="{% url 'market-evaluate' case.pk market %}" method="post">{% csrf_token %}<button class="btn primary">{% ui 'evaluate' %}</button></form>{% endif %}
-<a href="{% url 'market-compare' case.pk market %}">{% ui 'compare' %}</a>
+<p><a href="{% url 'market-compare' case.pk market %}">{% ui 'compare' %}</a> ·
+<a href="{% url 'market-comparison-history' case.pk market %}">{% ui 'comparison_history' %}</a></p>
 {% if stale %}<p class="alert">{% ui 'stale_assessment' %}</p>{% endif %}
 {% if eu_pending %}<p class="alert">{% ui 'eu_review' %}</p>{% endif %}
-{% if latest %}{% include 'pms/markets/assessment.html' with result=latest.snapshot %}{% else %}<p>{% ui 'empty' %}</p>{% endif %}
-{% if entry.legacy_application %}<p>{% ui 'LEGACY' %} · {{ entry.legacy_application.rule.name }} v{{ entry.legacy_application.rule.version }} · {{ entry.legacy_application.due_at }}</p>{% endif %}
-<details><summary>{% ui 'history' %}</summary>{% for record in history %}<article><h3>#{{ record.pk }} · {{ record.recorded_at }} · {{ record.actor }}</h3>{% include 'pms/markets/assessment.html' with result=record.snapshot %}
+{% if latest %}<p><a href="{% url 'market-operating-snapshot' case.pk market latest.pk %}">{% ui 'operating_snapshot' %} #{{ latest.pk }}</a></p>{% include 'pms/markets/assessment.html' with result=latest.snapshot %}{% else %}<p>{% ui 'empty' %}</p>{% endif %}
+{% if entry.legacy_application %}<p><a href="{% url 'market-legacy-snapshot' case.pk market %}">{% ui 'operating_snapshot' %} · {% ui 'LEGACY' %}</a> · {{ entry.legacy_application.rule.name }} v{{ entry.legacy_application.rule.version }} · {{ entry.legacy_application.due_at }}</p>{% endif %}
+<details><summary>{% ui 'history' %}</summary>{% for record in history %}<article><h3><a href="{% url 'market-operating-snapshot' case.pk market record.pk %}">#{{ record.pk }}</a> · {{ record.recorded_at }} · {{ record.actor }}</h3>{% include 'pms/markets/assessment.html' with result=record.snapshot %}
 {% for source in record.snapshot.evidence %}<p><a href="{% url 'market-case-source' case.pk market source.id %}">{{ source.title }} v{{ source.version }}</a> · {% ui source.scope %}</p>{% endfor %}</article>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</details></section>
 <section class="panel"><h2>{% ui 'evidence' %}</h2>
 {% for source, previous in groups %}<p><strong>{% if source.scope == 'EU' %}{% ui 'EU' %}{% else %}{% ui 'national' %}{% endif %}</strong> · <a href="{% url 'market-case-source' case.pk market source.pk %}">{{ source.title }} v{{ source.version }}</a></p>

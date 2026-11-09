@@ -129,3 +129,37 @@ class MarketAssessment(AppendOnlyRecord):
 
     class Meta:
         ordering = ("-pk",)
+
+
+class MarketComparisonRun(AppendOnlyRecord):
+    market = models.CharField(max_length=2, choices=MARKETS)
+    baseline = models.ForeignKey("pms.ReportingRule", on_delete=models.PROTECT, related_name="+")
+    proposed = models.ForeignKey("pms.ReportingRule", on_delete=models.PROTECT, related_name="+")
+    actor = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    rules = models.JSONField()
+
+    class Meta:
+        ordering = ("-pk",)
+        indexes = [models.Index(fields=("market", "actor", "-id"), name="market_comparison_lookup")]
+
+
+class MarketComparisonResult(AppendOnlyRecord):
+    run = models.ForeignKey(MarketComparisonRun, on_delete=models.PROTECT, related_name="results")
+    entry = models.ForeignKey(CaseMarket, on_delete=models.PROTECT, related_name="comparisons")
+    snapshot = models.JSONField()
+
+    class Meta:
+        ordering = ("pk",)
+        constraints = [models.UniqueConstraint(fields=("run", "entry"), name="market_comparison_entry_unique")]
+
+
+class MarketComparisonReview(AppendOnlyRecord):
+    result = models.ForeignKey(MarketComparisonResult, on_delete=models.PROTECT, related_name="reviews")
+    actor = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    complete = models.BooleanField()
+    note = models.CharField(max_length=2000)
+
+    class Meta:
+        ordering = ("-pk",)

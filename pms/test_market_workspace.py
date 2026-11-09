@@ -223,6 +223,8 @@ class MarketWorkspaceTests(TestCase):
         self.assertEqual(unknown.market_cases.get().market, "XX")
         old.refresh_from_db()
         other.refresh_from_db()
+        legacy_url = reverse("market-legacy-snapshot", args=[other.pk, "KR"])
+        self.assertContains(self.client.get(legacy_url), "Example legacy")
         self.assertEqual(old.snapshot, snapshot)
         self.assertEqual(other.due_date, day + timedelta(days=1))
 

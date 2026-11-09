@@ -9,14 +9,15 @@
 {% if batch_error %}<p class="alert" role="alert">{% ui batch_error %}</p>{% endif %}
 {% if market %}
 <section class="panel">
-{% if rules and entries %}
+{% if not approved %}<p class="alert">{% ui 'batch_no_baseline' %}</p>{% endif %}
+{% if approved and drafts and entries %}
 <form method="post">{% csrf_token %}
-<label>{% ui 'baseline' %}<select required name="baseline"><option value="">—</option>
-{% for rule in rules %}{% with id=rule.pk|stringformat:"s" %}
+<label>{% ui 'approved_baseline' %}<select required name="baseline"><option value="">—</option>
+{% for rule in approved %}{% with id=rule.pk|stringformat:"s" %}
 <option value="{{ id }}"{% if id == baseline_id %} selected{% endif %}>{{ rule.name }} · v{{ rule.version }} · {% ui rule.state %}{% if rule.is_example %} · {% ui 'is_example' %}{% endif %}</option>
 {% endwith %}{% endfor %}</select></label>
-<label>{% ui 'proposed' %}<select required name="proposed"><option value="">—</option>
-{% for rule in rules %}{% with id=rule.pk|stringformat:"s" %}
+<label>{% ui 'draft_proposal' %}<select required name="proposed"><option value="">—</option>
+{% for rule in drafts %}{% with id=rule.pk|stringformat:"s" %}
 <option value="{{ id }}"{% if id == proposed_id %} selected{% endif %}>{{ rule.name }} · v{{ rule.version }} · {% ui rule.state %}{% if rule.is_example %} · {% ui 'is_example' %}{% endif %}</option>
 {% endwith %}{% endfor %}</select></label>
 <fieldset><legend>{% ui 'batch_cases' %} · {% ui 'batch_limit' %} {{ limit }}</legend>
@@ -30,22 +31,8 @@
 </form>
 {% else %}<p>{% ui 'empty' %}</p>{% endif %}
 </section>
-{% endif %}
-{% if rows %}
-<section class="panel">
-<h2>{% ui 'batch_results' %} · {{ rows|length|market_number }}</h2>
-<div class="table-wrap"><table>
-<thead><tr><th>{% ui 'case' %}</th><th>{% ui 'baseline' %}</th><th>{% ui 'proposed' %}</th><th>{% ui 'delta' %}</th></tr></thead>
-<tbody>{% for row in rows %}
-<tr><th scope="row"><a href="{% url 'market-case-country' row.case_id market %}">CMP-{{ row.case_id }}</a></th>
-<td>{% include 'pms/markets/batch_side.html' with result=row.baseline engine=row.engines.baseline %}</td>
-<td>{% include 'pms/markets/batch_side.html' with result=row.proposed engine=row.engines.proposed %}</td>
-<td><ul>{% for flag in row.changes %}<li>{% ui flag %}</li>{% endfor %}</ul>
-{% if row.delta_days != None %}<p>{{ row.delta_days|market_number }}</p>{% endif %}
-{% if row.mismatches %}<ul>{% for item in row.mismatches %}
-<li>{% ui item.side %} · {% ui item.field %}<br>Python {{ item.python|default_if_none:"—" }} / C++ {{ item.cpp|default_if_none:"—" }}</li>
-{% endfor %}</ul>{% endif %}</td></tr>
-{% endfor %}</tbody>
-</table></div></section>
+{% if recent_runs %}<section class="panel"><h2>{% ui 'comparison_history' %}</h2>
+<ul>{% for run in recent_runs %}<li><a href="{% url 'market-comparison-run' run.pk %}">#{{ run.pk }} · {{ run.recorded_at }}</a> · {{ run.actor }}</li>{% endfor %}</ul>
+</section>{% endif %}
 {% endif %}
 {% endblock %}

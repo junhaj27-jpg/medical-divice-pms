@@ -1,0 +1,9 @@
+{% extends "pms/base.html" %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-case-country' entry.complaint_id entry.market %}">CMP-{{ entry.complaint_id }}</a></p>
+<h1>{% ui 'comparison_history' %} · {% ui entry.market %}</h1>
+<ul>{% for result in page %}<li><a href="{% url 'market-comparison-result' result.pk %}">{% ui 'comparison_detail' %} #{{ result.run_id }}</a> · {{ result.run.recorded_at }} · {{ result.run.actor }}</li>
+{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul>
+{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+{% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+{% endblock %}

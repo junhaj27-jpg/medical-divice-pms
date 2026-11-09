@@ -1,0 +1,24 @@
+{% load market_ui %}
+<h3>{{ rule.name }} · {% ui rule.state %}{% if rule.example %} · {% ui 'is_example' %}{% endif %}</h3>
+{% include 'pms/markets/batch_side.html' %}
+{% if rule.change_reason %}<p>{{ rule.change_reason }}</p>{% endif %}
+{% if explanation.detail_unavailable %}<p>{% ui 'detail_unavailable' %}</p>{% endif %}
+<h4>{% ui 'comparison_conditions' %}</h4>
+<ul>{% for condition in explanation.conditions %}
+<li>{% ui condition.field %} · {% ui condition.status %} · {{ condition.actual|default_if_none:"—" }} / {{ condition.expected }}</li>
+{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul>
+<h4>{% ui 'comparison_calendar' %}</h4>
+<p>{% ui 'basis' %} {% if explanation.basis %}{% ui explanation.basis %}{% endif %} · {% if explanation.basis_input %}<time datetime="{{ explanation.basis_input }}">{{ explanation.basis_input|market_datetime }}</time>{% else %}—{% endif %}</p>
+<p>{% if rule.day_type and rule.day_type != 'UNKNOWN' %}{% ui rule.day_type %}{% else %}—{% endif %} · {{ rule.days|default_if_none:"—" }}
+{% if rule.unit and rule.unit != 'UNKNOWN' %}{% ui rule.unit %}{% endif %} · {% if rule.include_start == True %}{% ui 'calendar_includes_start' %}{% elif rule.include_start == False %}{% ui 'calendar_excludes_start' %}{% endif %}
+· {{ rule.timezone }} {{ rule.deadline_time|default_if_none:"—" }}</p>
+{% if rule.day_type == 'BUSINESS' %}
+<p>{% ui 'calendar_weekend' %} · {% ui 'calendar_coverage' %}
+{{ rule.calendar.verified_from|market_datetime|default:"—" }} – {{ rule.calendar.verified_until|market_datetime|default:"—" }}</p>
+<p>{% ui 'calendar_holidays' %} {% for day in rule.calendar.holidays %}{{ day|market_datetime }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</p>
+{% endif %}
+{% if explanation.excluded %}<p>{% ui 'calendar_excluded' %} {% for day in explanation.excluded %}{{ day.date|market_datetime }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+<h4>{% ui 'original' %}</h4>
+{% for source in rule.citations %}<p>{{ source.document }} · {{ source.edition }} · {{ source.section }}{% if source.official_url %} · <a href="{{ source.official_url }}" rel="noopener noreferrer">{% ui 'original' %}</a>{% endif %}</p>
+<blockquote>{{ source.quote }}</blockquote>{% if source.interpretation %}<p>{{ source.interpretation }}</p>{% endif %}
+{% empty %}<p>{% ui 'detail_unavailable' %}</p>{% endfor %}

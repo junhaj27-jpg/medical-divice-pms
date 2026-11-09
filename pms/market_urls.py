@@ -1,9 +1,18 @@
 from django.urls import path
 
 from . import market_views as views
+from . import market_review_views as history
 from .market_batch_views import batch_compare, offline_demo
 
 urlpatterns = [
+    path("markets/comparisons/<int:pk>/", history.comparison_run, name="market-comparison-run"),
+    path("markets/comparison-results/<int:pk>/", history.comparison_result, name="market-comparison-result"),
+    path("markets/api/comparison-results/<int:pk>/", history.comparison_result, {"api": True}, name="market-comparison-api"),
+    path("complaints/<int:pk>/markets/<str:code>/comparisons/", history.comparison_history, name="market-comparison-history"),
+    path("complaints/<int:pk>/markets/<str:code>/snapshots/legacy/", history.operating_snapshot,
+         name="market-legacy-snapshot"),
+    path("complaints/<int:pk>/markets/<str:code>/snapshots/<int:assessment>/", history.operating_snapshot,
+         name="market-operating-snapshot"),
     path("markets/batch/", batch_compare, name="market-batch"),
     path("markets/batch/demo/", offline_demo, name="market-batch-demo"),
     path("markets/batch/<str:code>/", batch_compare, name="market-batch-country"),
