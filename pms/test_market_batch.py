@@ -1,3 +1,4 @@
+from copy import deepcopy
 import importlib.util
 from datetime import date, time
 from io import StringIO
@@ -87,7 +88,7 @@ class MarketBatchTests(TestCase):
             if native:
                 payload = json.loads(native(text))
             else:
-                row = {key: expected[key] for key in ("case_id", "baseline", "proposed", "changes", "delta_days")}
+                row = {key: deepcopy(expected[key]) for key in ("case_id", "baseline", "proposed", "changes", "delta_days")}
                 payload = {"schema_version": 1, "market": "KR", "results": [row]}
             payload["results"][0]["baseline"]["due_date"] = "2040-01-01"
             return json.dumps(payload)

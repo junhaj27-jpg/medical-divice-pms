@@ -1,3 +1,5 @@
+from codecs import BOM_UTF8
+import csv
 from datetime import date
 from io import StringIO
 import json
@@ -95,6 +97,83 @@ class MarketReviewTests(TestCase):
         self.assertEqual(before["snapshot"], after["snapshot"])
         self.assertEqual([s for s in after["snapshot"]["sources"] if s["scope"] == "DE"][0]["translations"][0]["version"], 1)
 
+    def test_comparison_csv_matches_filter_and_preserves_codes_across_locales(self):
+        self.run_batch()
+        run = MarketComparisonRun.objects.get()
+        early, missing = run.results.all()
+        page = reverse("market-comparison-run", args=[run.pk])
+        download = reverse("market-comparison-csv", args=[run.pk])
+        response = self.client.get(download)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertEqual(response["Content-Disposition"], f'attachment; filename="market-comparison-{run.pk}.csv"')
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertTrue(response.content.startswith(BOM_UTF8))
+        reader = csv.DictReader(StringIO(response.content.decode("utf-8-sig")))
+        first, second = reader
+        self.assertEqual(first, {
+            "run_id": str(run.pk), "recorded_at": run.recorded_at.isoformat(), "market": "DE",
+            "result_id": str(early.pk), "case_id": str(self.early.complaint_id), "is_example": "true",
+            "baseline_rule_id": str(self.baseline.pk), "baseline_version": str(self.baseline.version),
+            "baseline_decision": early.snapshot["baseline"]["decision"],
+            "baseline_basis_date": "2026-10-05", "baseline_due_date": "2026-10-09",
+            "proposed_rule_id": str(self.proposed.pk), "proposed_version": str(self.proposed.version),
+            "proposed_decision": early.snapshot["proposed"]["decision"],
+            "proposed_basis_date": "2026-10-05", "proposed_due_date": "2026-10-07",
+            "delta_days": "-2", "changes": "earlier", "review_status": "comparison_pending",
+        })
+        self.assertEqual(second["result_id"], str(missing.pk))
+        self.assertEqual(second["changes"], "review_required")
+        for side in ("baseline", "proposed"):
+            self.assertEqual(second[f"{side}_decision"], "HOLD")
+            self.assertEqual(second[f"{side}_basis_date"], "")
+            self.assertEqual(second[f"{side}_due_date"], "")
+        self.assertEqual(second["delta_days"], "")
+        self.assertContains(self.client.get(page), f'href="{download}"')
+        for flag, expected in (("earlier", [first]), ("review_required", [second]), ("later", [])):
+            with self.subTest(flag=flag):
+                self.assertContains(self.client.get(page, {"change": flag}), f'href="{download}?change={flag}"')
+                filtered = self.client.get(download, {"change": flag})
+                filtered_reader = csv.DictReader(StringIO(filtered.content.decode("utf-8-sig")))
+                self.assertEqual(filtered_reader.fieldnames, reader.fieldnames)
+                self.assertEqual(list(filtered_reader), expected)
+
+        for locale, label in (
+            ("ko-KR", "CSV 다운로드"), ("en", "Download CSV"), ("de-DE", "CSV herunterladen"),
+            ("fr-FR", "Télécharger le CSV"), ("es-ES", "Descargar CSV"), ("it-IT", "Scarica CSV"),
+        ):
+            with self.subTest(locale=locale):
+                self.client.post(reverse("market-language"), {"language": locale, "next": page})
+                self.assertContains(self.client.get(page), label)
+                self.assertEqual(self.client.get(download).content, response.content)
+
+    def test_comparison_csv_uses_frozen_rule_and_latest_review_without_writes(self):
+        self.run_batch()
+        run = MarketComparisonRun.objects.get()
+        early = run.results.get(entry=self.early)
+        download = reverse("market-comparison-csv", args=[run.pk]) + "?change=earlier"
+
+        def exported_row():
+            response = self.client.get(download)
+            self.assertEqual(response.status_code, 200)
+            row, = csv.DictReader(StringIO(response.content.decode("utf-8-sig")))
+            return row
+
+        original = exported_row()
+        ReportingRule.objects.filter(pk=self.proposed.pk).update(days=8, version=self.proposed.version + 1)
+        self.assertEqual(exported_row(), original)
+        _, api = self.paths(early)
+        state = self.client.get(api).json()
+        for complete, expected in ((True, "comparison_complete"), (False, "review_required")):
+            state = self.client.post(api, {
+                "note": "Private example review note", "complete": complete, "previous": state["revision"],
+            }, content_type="application/json").json()
+            audit_count = AuditLog.objects.count()
+            self.assertEqual(exported_row(), original | {"review_status": expected})
+            self.assertEqual(self.client.get(api).json(), state)
+            self.assertEqual(AuditLog.objects.count(), audit_count)
+        self.assertEqual(self.client.post(download).status_code, 405)
+
     def test_missing_baseline_and_required_facts_have_distinct_reasons(self):
         ReportingRule.objects.filter(pk=self.baseline.pk).update(effective_on=date(2026, 11, 1))
         ReportingRule.objects.filter(pk=self.proposed.pk).update(conditions={"serious": True})
@@ -111,13 +190,17 @@ class MarketReviewTests(TestCase):
         self.run_batch()
         result = MarketComparisonResult.objects.get(entry=self.early)
         detail, api = self.paths(result)
+        download = reverse("market-comparison-csv", args=[result.run_id])
+        self.assertEqual(self.client.get(download).status_code, 200)
         self.client.force_login(self.peer)
+        self.assertEqual(self.client.get(download).status_code, 404)
         self.assertEqual(self.client.get(detail).status_code, 404)
         self.assertEqual(self.client.get(api).status_code, 404)
         self.client.force_login(self.user)
         data = json.dumps({"note": "Example review", "complete": True, "previous": 0})
         self.assertEqual(self.client.post(api, data, content_type="application/json").json()["review_status"], "comparison_complete")
         MarketAccess.objects.create(user=self.user, markets=["KR"])
+        self.assertEqual(self.client.get(download).status_code, 404)
         self.assertEqual(self.client.get(api).status_code, 404)
         self.assertEqual(self.client.post(api, data, content_type="application/json").status_code, 404)
         self.assertEqual(self.client.get(detail).status_code, 404)

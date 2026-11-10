@@ -5,6 +5,7 @@
 <p>{{ run.recorded_at }} · {{ run.actor }} · {{ run.rules.baseline.name }} v{{ run.rules.baseline.version }} → {{ run.rules.proposed.name }} v{{ run.rules.proposed.version }}</p>
 <nav aria-label="{% ui 'changes' %}"><a href="?" {% if not change %}aria-current="page"{% endif %}>{% ui 'all' %}</a>
 {% for flag in filters %} · <a href="?change={{ flag }}" {% if flag == change %}aria-current="page"{% endif %}>{% ui flag %}</a>{% endfor %}</nav>
+<p><a class="btn" href="{% url 'market-comparison-csv' run.pk %}{% if change %}?change={{ change }}{% endif %}">{% ui 'comparison_download_csv' %}</a></p>
 <div class="panel table-wrap">
 <table><thead><tr><th>{% ui 'case' %}</th><th>{% ui 'approved_baseline' %}</th><th>{% ui 'draft_proposal' %}</th><th>{% ui 'changes' %}</th><th>{% ui 'review_status' %}</th></tr></thead>
 <tbody>{% for row in rows %}

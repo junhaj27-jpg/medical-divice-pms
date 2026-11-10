@@ -6,6 +6,8 @@ from .market_batch_views import batch_compare, offline_demo
 
 urlpatterns = [
     path("markets/comparisons/<int:pk>/", history.comparison_run, name="market-comparison-run"),
+    path("markets/comparisons/<int:pk>/csv/", history.comparison_run, {"download": True},
+         name="market-comparison-csv"),
     path("markets/comparison-results/<int:pk>/", history.comparison_result, name="market-comparison-result"),
     path("markets/api/comparison-results/<int:pk>/", history.comparison_result, {"api": True}, name="market-comparison-api"),
     path("complaints/<int:pk>/markets/<str:code>/comparisons/", history.comparison_history, name="market-comparison-history"),
