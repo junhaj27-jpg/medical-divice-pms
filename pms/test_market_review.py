@@ -7,11 +7,11 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .market_models import CaseMarket, MarketAccess, MarketComparisonResult, MarketComparisonRun, MarketEvidence, MarketTranslation
-from .models import AuditLog, CustomerComplaint, ReportingRule
+from .models import AuditLog, CustomerComplaint, RegulationChunk, RegulationDocument, ReportingRule, RuleCitation, WorkTask
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], DEBUG=False)
@@ -185,6 +185,101 @@ class MarketReviewTests(TestCase):
         self.assertEqual(result.snapshot["explanations"]["proposed"]["conditions"][0]["status"], "condition_unknown")
         ReportingRule.objects.filter(pk=self.baseline.pk).update(state="DRAFT")
         self.assertContains(self.run_batch(), "이 시장의 이전 승인본을 특정할 수 없습니다", status_code=400)
+
+    def test_conclusion_follow_up_and_correction_preserve_frozen_evidence(self):
+        self.run_batch()
+        result = MarketComparisonResult.objects.get(entry=self.early)
+        detail, api = self.paths(result)
+        task_url = reverse("market-comparison-task", args=[result.pk])
+        source = MarketEvidence.objects.get(scope="DE", device_id=self.early.complaint.device_id)
+        initial = self.client.get(api).json()
+        self.assertEqual(initial["snapshot"]["delta_days"], -2)
+        self.assertEqual(self.client.get(task_url).status_code, 404)
+        self.assertEqual(self.client.post(api, {"note": "Old note", "complete": False, "previous": 0},
+                                         content_type="application/json").status_code, 200)
+        self.assertContains(self.client.get(detail), "Old note")
+        revision = result.reviews.first().pk
+        second_reviewer = Client()
+        second_reviewer.force_login(get_user_model().objects.create_superuser(username="second-reviewer"))
+        self.assertEqual(second_reviewer.get(api).json()["revision"], revision)
+        key = f"market:{source.pk}:ko-KR:1"
+        data = {"previous": revision, "conclusion": "follow_up_required", "note": "Review two-day change",
+                "complete": "on", "evidence": [key]}
+        response = self.client.post(detail, data, follow=True)
+        self.assertContains(response, "RA 검토 업무 등록")
+        self.assertContains(response, task_url)
+        event = result.reviews.first()
+        self.assertEqual(event.actor, self.user)
+        self.assertIsNotNone(event.recorded_at)
+        self.assertEqual(event.evidence, [initial["evidence_options"][key]])
+        self.assertEqual((event.evidence[0]["original_version"], event.evidence[0]["version"],
+                          event.evidence[0]["language"], event.evidence[0]["clause"]),
+                         (2, 1, "ko-KR", "Beispiel § 2"))
+
+        self.assertContains(self.client.get(task_url), "RA 검토 업무 등록")
+        task_data = {"assignee": self.user.pk, "title": "Example RA follow-up", "priority": "NORMAL",
+                     "due_at": "2026-11-25T10:00", "status": "WAITING"}
+        self.assertRedirects(self.client.post(task_url, task_data), task_url)
+        task = WorkTask.objects.get(market_comparison=result)
+        self.assertEqual(task.complaint_id, self.early.complaint_id)
+        self.assertTrue(task.history.exists())
+        self.assertContains(self.client.get(detail), "연결된 RA 업무 열기")
+        self.assertContains(self.client.get(task_url), task.title)
+        self.assertEqual(self.client.get(api).json()["task_id"], task.pk)
+
+        MarketEvidence.objects.create(device=source.device, scope="DE", reference_key=source.reference_key,
+                                      version=3, title="New edition", language="de-DE", is_example=True,
+                                      created_by=self.user)
+        MarketTranslation.objects.create(original=source, language="ko-KR", version=2, text="Revised example",
+                                         created_by=self.user)
+        stale = second_reviewer.post(detail, {**data, "note": "Stale reviewer"})
+        self.assertContains(stale, "최신 기록을 확인", status_code=409)
+        self.assertContains(stale, "Review two-day change", status_code=409)
+        self.assertEqual(result.reviews.count(), 2)
+        correction = {**data, "previous": event.pk, "conclusion": "no_impact", "note": "Scope checked",
+                      "complete": True}
+        error = self.client.post(api, correction, content_type="application/json")
+        self.assertEqual(error.status_code, 400)
+        self.assertEqual(error.json()["error"], "comparison_correction_required")
+        corrected = self.client.post(api, {**correction, "correction_reason": "Scope clarification"},
+                                     content_type="application/json").json()
+        self.assertEqual([item["conclusion"] for item in corrected["reviews"]],
+                         ["no_impact", "follow_up_required", ""])
+        self.assertEqual(corrected["reviews"][1]["evidence"], event.evidence)
+        self.assertEqual(corrected["snapshot"], initial["snapshot"])
+        self.assertContains(self.client.get(detail), "Scope clarification")
+        self.assertContains(self.client.get(detail), "DE Review Reference")
+        self.assertNotContains(self.client.get(detail), "New edition")
+        self.assertContains(self.client.get(task_url), task.title)
+        MarketAccess.objects.create(user=self.user, markets=["KR"])
+        for url in (detail, api, task_url):
+            self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.post(api, correction, content_type="application/json").status_code, 404)
+
+    def test_citation_selection_validates_snapshot_and_current_document_permission(self):
+        document = RegulationDocument.objects.create(title="Example regulation", edition="v3", jurisdiction="DE",
+                                                      uploaded_by=self.peer, is_example=True)
+        chunk = RegulationChunk.objects.create(document=document, sequence=1, section="§ 4", paragraph=2)
+        citation = RuleCitation.objects.create(rule=self.proposed, chunk=chunk, field_name="days",
+                                               quote="Example clause", created_by=self.user)
+        self.run_batch()
+        result = MarketComparisonResult.objects.get(entry=self.early)
+        detail, api = self.paths(result)
+        key = f"proposed:{citation.pk}"
+        payload = {"previous": 0, "conclusion": "more_evidence_required", "note": "Verify scope",
+                   "complete": False, "evidence": ["proposed:999999"]}
+        self.assertEqual(self.client.post(api, payload, content_type="application/json").status_code, 400)
+        self.assertFalse(result.reviews.exists())
+        self.assertContains(self.client.get(detail), "Example regulation")
+        saved = self.client.post(api, {**payload, "evidence": [key]}, content_type="application/json").json()
+        evidence, = saved["reviews"][0]["evidence"]
+        self.assertEqual((evidence["document_id"], evidence["version"], evidence["clause"]),
+                         (document.pk, "v3", "§ 4 / 2"))
+        # Simulate a revoked TEAM grant without using the production document editor.
+        RegulationDocument.objects.filter(pk=document.pk).update(visibility="PRIVATE")
+        for url in (detail, api):
+            self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.post(api, payload, content_type="application/json").status_code, 404)
 
     def test_saved_comparison_api_and_screen_enforce_market_and_author_access(self):
         self.run_batch()

@@ -167,11 +167,12 @@ def approval_decide(request,pk,approval_pk):
 def device_list(request): return render(request,"pms/object_list.html",{"title":"의료기기","items":MedicalDevice.objects.select_related("manufacturer"),"headers":["제품명","모델","제조사"]})
 @login_required
 def device_detail(request,pk):
+    from .market_service import eu_access
     item=get_object_or_404(MedicalDevice.objects.select_related("manufacturer"),pk=pk)
     cases=visible_complaints(request.user)
     recalls=item.recalls.all()
     if role(request.user)=="STAFF": recalls=recalls.filter(complaint__in=cases)
-    return render(request,"pms/device_detail.html",{"item":item,"complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count(),"privileged":role(request.user) in ("RA_QA","ADMIN")})
+    return render(request,"pms/device_detail.html",{"item":item,"complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count(),"privileged":role(request.user) in ("RA_QA","ADMIN"),"eu_access":eu_access(request.user,item)})
 @login_required
 @raqa_required
 def device_create(request):

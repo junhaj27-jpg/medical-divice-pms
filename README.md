@@ -66,6 +66,10 @@ DB 경로는 새 로컬 작업 복사본 기준입니다. 기존 데이터가 �
 
 검토 이력은 실행자와 권한 있는 관리자가 열 수 있습니다. 시장과 사건·규칙 접근 권한을 다시 검사합니다. JSON API `GET /markets/api/comparison-results/<id>/`로 같은 스냅샷과 검토 이력을 읽습니다. 로그인 세션과 CSRF 토큰을 포함한 JSON `POST`에 `note`(1~2,000자), `complete`(불리언), `previous`(GET 응답의 `revision`)를 보내면 같은 권한 검사와 이벤트 기록을 사용합니다.
 
+마이그레이션 `0032`를 적용하면 **비교 결과 상세 → 검토 결론**에서 영향 없음, 후속 조치 필요, 추가 근거 필요 중 하나를 선택하고 검토 사유와 당시 원문·번역본을 기록할 수 있습니다. **후속 조치 필요**를 저장하면 **RA 검토 업무 등록**에서 해당 사건에 업무를 연결할 수 있고, 이후 같은 상세에서 다시 엽니다. 정정할 때는 정정 사유를 입력합니다. 비교 검토 이력에는 이전 결론과 메모, 문서 버전, 작성자가 함께 남습니다.
+
+API로 결론을 기록할 때는 기존 POST 필드에 `conclusion`(`no_impact`, `follow_up_required`, `more_evidence_required`), 선택한 `evidence` 키 배열(GET 응답의 `evidence_options`), 기존 결론을 정정할 경우 `correction_reason`을 보냅니다. 다른 검토자가 먼저 저장하면 `409`와 최신 `revision` 및 이력이 반환됩니다.
+
 새 로컬 예시 DB로 실행합니다.
 
 ```powershell

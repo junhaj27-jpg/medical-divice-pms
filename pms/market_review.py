@@ -13,6 +13,7 @@ from .services import audit, role
 
 FILTERS = ("decision_changed", "earlier", "later", "review_required")
 APPROVED = ("APPROVED", "EFFECTIVE", "RETIRED")
+CONCLUSIONS = ("no_impact", "follow_up_required", "more_evidence_required")
 
 
 def valid_pair(baseline, proposed):
@@ -102,15 +103,53 @@ def review_status(result, latest):
     return "review_required" if "review_required" in result.snapshot["changes"] else "comparison_pending"
 
 
+def frozen_evidence(result):
+    sources = result.snapshot.get("sources", [])
+    options = {}
+    languages = {s["document_id"]: s["language"] for s in sources if s.get("document_id")}
+    for side in batch.SIDES:
+        for citation in result.run.rules[side]["citations"]:
+            document_id = citation["document_id"]
+            options[f'{side}:{citation["id"]}'] = {
+                "kind": "citation", "rule_side": side, "document_id": document_id,
+                "title": citation["document"], "version": citation["edition"],
+                "language": languages.get(document_id, "und"),
+                "clause": " / ".join(str(part) for part in (citation["section"], citation["paragraph"]) if part),
+            }
+    for source in sources:
+        key = f'market:{source["id"]}'
+        original = {"kind": "original", "document_id": source.get("document_id"),
+                    "source_id": source["id"], "title": source["title"], "version": source["version"],
+                    "language": source["language"], "clause": source["clause"]}
+        options[key] = original
+        for item in source["translations"]:
+            options[f'{key}:{item["language"]}:{item["version"]}'] = {
+                **original, "kind": "translation", "original_version": source["version"],
+                "version": item["version"], "language": item["language"],
+            }
+    return options
+
+
+def evidence_access(user, options):
+    document_ids = {item["document_id"] for item in options.values() if item["document_id"]}
+    return document_ids == set(documents_for(user).filter(pk__in=document_ids).values_list("pk", flat=True))
+
+
 @transaction.atomic
-def record_review(result, user, *, note, complete, previous):
+def record_review(result, user, *, note, complete, previous, conclusion="", evidence=(), correction_reason=""):
     result = MarketComparisonResult.objects.select_for_update().get(pk=result.pk)
     latest = result.reviews.first()
     if previous != (latest.pk if latest else 0):
         return None
-    event = MarketComparisonReview.objects.create(result=result, actor=user, note=note, complete=complete)
+    if conclusion and result.reviews.exclude(conclusion="").exists() and not correction_reason:
+        raise ValidationError("comparison_correction_required")
+    event = MarketComparisonReview.objects.create(
+        result=result, actor=user, note=note, complete=complete, conclusion=conclusion,
+        evidence=list(evidence), correction_reason=correction_reason,
+    )
     audit(user, "MARKET_COMPARISON_REVIEW", result, before={"status": review_status(result, latest)},
-          after={"status": review_status(result, event), "market": result.run.market, "event_id": event.pk})
+          after={"status": review_status(result, event), "market": result.run.market, "event_id": event.pk,
+                 "conclusion": conclusion, "evidence_count": len(event.evidence)})
     return event
 
 

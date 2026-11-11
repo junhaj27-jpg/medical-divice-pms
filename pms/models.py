@@ -237,6 +237,7 @@ class WorkTask(TimeStamped):
         IN_PROGRESS="IN_PROGRESS","진행 중"
         REVIEW="REVIEW","검토 중"
         DONE="DONE","완료"
+    market_comparison=models.OneToOneField("pms.MarketComparisonResult",on_delete=models.PROTECT,null=True,blank=True,related_name="review_task")
     ra_profile=models.ForeignKey("pms.RegulatoryProfile",on_delete=models.PROTECT,null=True,blank=True,related_name="work_tasks")
     complaint=models.ForeignKey(CustomerComplaint,on_delete=models.PROTECT,null=True,blank=True,related_name="tasks",verbose_name="사건")
     capa=models.ForeignKey(CAPA,on_delete=models.PROTECT,null=True,blank=True,related_name="tasks",verbose_name="CAPA")
@@ -253,6 +254,8 @@ class WorkTask(TimeStamped):
         ordering=["due_at","pk"]
     def clean(self):
         super().clean()
+        if self.market_comparison_id and self.complaint_id != self.market_comparison.entry.complaint_id:
+            raise ValidationError("비교 검토 업무는 비교 결과의 사건에 연결해야 합니다.")
         if self.capa_id and self.capa.complaint_id != self.complaint_id: raise ValidationError("CAPA 사건이 일치하지 않습니다.")
         if self.recall_id and self.recall.complaint_id != self.complaint_id: raise ValidationError("리콜 사건이 일치하지 않습니다.")
         if self.capa_id and self.recall_id: raise ValidationError("CAPA 또는 리콜 중 하나만 연결하세요.")

@@ -62,6 +62,28 @@ class ProductMarket(models.Model):
                                               name="market_registration_date_order")]
 
 
+class HarmonisedStandardReview(AppendOnlyRecord):
+    REGULATIONS = [(code, code) for code in ("MDR", "IVDR")]
+    APPLICABILITY = [(code, code) for code in ("hs_applies", "hs_does_not_apply", "hs_pending")]
+
+    device = models.ForeignKey("pms.MedicalDevice", on_delete=models.PROTECT, related_name="harmonised_reviews")
+    regulation = models.CharField(max_length=4, choices=REGULATIONS)
+    standard_number = models.CharField(max_length=100)
+    edition = models.CharField(max_length=120)
+    eurlex_url = models.URLField(max_length=500)
+    decision_number = models.CharField(max_length=80)
+    decision_item = models.CharField(max_length=160)
+    applicability = models.CharField(max_length=20, choices=APPLICABILITY)
+    applicability_reason = models.TextField(max_length=2000)
+    review_date = models.DateField()
+    reviewer = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="harmonised_reviews")
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-pk",)
+        indexes = [models.Index(fields=("device", "regulation", "standard_number", "-id"), name="hs_review_series")]
+
+
 class MarketEvidence(AppendOnlyRecord):
     device = models.ForeignKey("pms.MedicalDevice", on_delete=models.PROTECT, related_name="market_evidence")
     scope = models.CharField(max_length=2, choices=EVIDENCE_SCOPES)
@@ -160,6 +182,9 @@ class MarketComparisonReview(AppendOnlyRecord):
     recorded_at = models.DateTimeField(auto_now_add=True)
     complete = models.BooleanField()
     note = models.CharField(max_length=2000)
+    conclusion = models.CharField(max_length=24, blank=True)
+    evidence = models.JSONField(default=list, blank=True)
+    correction_reason = models.CharField(max_length=2000, blank=True)
 
     class Meta:
         ordering = ("-pk",)

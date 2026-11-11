@@ -1,10 +1,11 @@
 {% extends "pms/base.html" %}{% load market_ui %}
 {% block content %}
 <p><a href="{% url 'market-comparison-run' run.pk %}">{% ui 'batch_results' %} #{{ run.pk }}</a> ·
-<a href="{% url 'market-case-country' row.case_id run.market %}">CMP-{{ row.case_id }}</a> ·
+<a href="{% url 'market-case-country' row.case_id run.market %}">{% ui 'case' %} CMP-{{ row.case_id }}</a> ·
 <a href="{% url 'market-comparison-history' row.case_id run.market %}">{% ui 'comparison_history' %}</a></p>
 <h1>{% ui 'comparison_detail' %} · {% ui run.market %}{% if row.example %} · {% ui 'is_example' %}{% endif %}</h1>
 <p>{{ run.recorded_at }} · {{ run.actor }} · {% ui review_status %}</p>
+{% if not market_scoped %}<p><a href="{% url 'rule-detail' run.proposed_id %}">{% ui 'draft_proposal' %} · v{{ run.rules.proposed.version }}</a></p>{% endif %}
 {% if row.operating_snapshot %}<p><a href="{% url 'market-operating-snapshot' row.case_id run.market row.operating_snapshot %}">{% ui 'operating_snapshot' %} #{{ row.operating_snapshot }}</a></p>{% elif row.legacy_snapshot %}<p><a href="{% url 'market-legacy-snapshot' row.case_id run.market %}">{% ui 'operating_snapshot' %} · {% ui 'LEGACY' %}</a></p>{% endif %}
 {% include 'pms/markets/comparison_changes.html' %}
 <div class="reg-columns">
@@ -22,14 +23,31 @@
 {% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul></article>
 {% empty %}<p>{% ui 'detail_unavailable' %}</p>{% endfor %}</section>
 <section class="panel"><h2>{% ui 'comparison_review' %}</h2>
+{% if latest_conclusion %}<p><strong>{% ui 'comparison_conclusion' %}</strong> · {% ui latest_conclusion.conclusion %}</p>{% endif %}
+{% if task or latest_conclusion.conclusion == 'follow_up_required' %}
+<p><a class="btn" href="{% url 'market-comparison-task' result.pk %}">{% if task %}{% ui 'comparison_task_open' %} #{{ task.pk }} · {{ task.title }}{% else %}{% ui 'comparison_task_create' %}{% endif %}</a></p>
+{% endif %}
 {% if review_error %}<p class="alert" role="alert">{% ui review_error %}</p>{% endif %}
 <form method="post">{% csrf_token %}
 <input type="hidden" name="previous" value="{{ latest.pk|default:0|stringformat:'s' }}">
-<label for="comparison-note">{% ui 'comparison_note' %}</label>
-<textarea id="comparison-note" name="note" required maxlength="2000" rows="4"></textarea>
-<p><label><input type="checkbox" name="complete"{% if latest.complete %} checked{% endif %}> {% ui 'comparison_complete' %}</label></p>
+<p><label for="comparison-conclusion">{% ui 'comparison_conclusion' %}</label>
+<select id="comparison-conclusion" name="conclusion" required>
+<option value="">—</option>{% for key in conclusions %}<option value="{{ key }}"{% if review_form.conclusion.value == key %} selected{% endif %}>{% ui key %}</option>{% endfor %}
+</select></p>
+<label for="comparison-note">{% ui 'comparison_reason' %}</label>
+<textarea id="comparison-note" name="note" required maxlength="2000" rows="4">{{ review_form.note.value|default_if_none:"" }}</textarea>
+{% if evidence_options %}<fieldset><legend>{% ui 'evidence' %} · {% ui 'comparison_frozen' %}</legend>
+{% for key, item in evidence_options.items %}<div><label><input type="checkbox" name="evidence" value="{{ key }}"{% if review_form and key in review_form.evidence.value %} checked{% endif %}> {% include 'pms/markets/comparison_evidence_label.html' %}</label></div>{% endfor %}
+</fieldset>{% endif %}
+{% if latest_conclusion %}<p><label for="comparison-correction">{% ui 'comparison_correction_reason' %}</label>
+<textarea id="comparison-correction" name="correction_reason" required maxlength="2000" rows="2">{{ review_form.correction_reason.value|default_if_none:"" }}</textarea></p>{% endif %}
+<p><label><input type="checkbox" name="complete"{% if review_form.complete.value or not review_form and latest.complete %} checked{% endif %}> {% ui 'comparison_complete' %}</label></p>
 <button class="btn primary">{% ui 'save' %}</button></form>
 <h3>{% ui 'comparison_history' %}</h3>
-{% for event in events %}<article><p>{{ event.recorded_at }} · {{ event.actor }} · {% if event.complete %}{% ui 'comparison_complete' %}{% else %}{% ui 'review_required' %}{% endif %}</p><p>{{ event.note|linebreaksbr }}</p></article>
+{% for event in events %}<article><p>{{ event.recorded_at }} · {{ event.actor }} · {% if event.complete %}{% ui 'comparison_complete' %}{% else %}{% ui 'review_required' %}{% endif %}</p>
+{% if event.conclusion %}<h4>{% ui event.conclusion %}</h4>{% endif %}
+<p>{{ event.note|linebreaksbr }}</p>
+{% if event.correction_reason %}<p><strong>{% ui 'comparison_correction_reason' %}</strong> · {{ event.correction_reason|linebreaksbr }}</p>{% endif %}
+{% if event.evidence %}<ul>{% for item in event.evidence %}<li>{% include 'pms/markets/comparison_evidence_label.html' %}</li>{% endfor %}</ul>{% endif %}</article>
 {% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</section>
 {% endblock %}

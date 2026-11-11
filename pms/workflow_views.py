@@ -30,6 +30,7 @@ def task_list(request):
 @login_required
 def task_edit(request,pk=None):
     obj=get_object_or_404(tasks_for(request.user),pk=pk) if pk else WorkTask()
+    if obj.market_comparison_id: return redirect("market-comparison-task",obj.market_comparison_id)
     if not pk: privileged(request.user)
     form=TaskForm(request.POST or None,instance=obj,initial={k:request.GET[k] for k in ("complaint","capa","recall") if k in request.GET})
     if role(request.user)=="STAFF":
@@ -43,6 +44,7 @@ def task_edit(request,pk=None):
 @login_required
 def task_detail(request,pk):
     obj=get_object_or_404(tasks_for(request.user),pk=pk)
+    if obj.market_comparison_id: return redirect("market-comparison-task",obj.market_comparison_id)
     return render(request,"pms/task_detail.html",{"item":obj})
 
 @login_required

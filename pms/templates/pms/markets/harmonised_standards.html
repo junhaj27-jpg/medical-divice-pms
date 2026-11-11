@@ -1,0 +1,14 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a> / {% ui 'hs_eu' %}</nav>
+<h1>{% ui 'hs_title' %}</h1>
+<section class="panel"><h2>{% ui 'hs_official' %}</h2>
+<ul>{% for key, url in official_lists %}<li><a href="{{ url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui key %}</a></li>{% endfor %}</ul>
+</section>
+<section class="panel"><h2>{% ui 'hs_product_assessment' %}</h2>
+<ul>{% for device in page %}<li><a href="{% url 'market-product-standards' device.pk %}">{{ device }}</a></li>{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul>
+{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+{% if page.has_other_pages %} {{ page.number }} / {{ page.paginator.num_pages }} {% endif %}
+{% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</section>
+{% endblock %}

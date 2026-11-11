@@ -52,6 +52,12 @@ def product_markets(user):
     return ProductMarket.objects.filter(market__in=allowed_markets(user)).select_related("device", "owner")
 
 
+def eu_access(user, device=None):
+    if not set(allowed_markets(user)).intersection(EU_COUNTRIES):
+        return False
+    return device is None or not scoped(user) or product_markets(user).filter(device=device, market__in=EU_COUNTRIES).exists()
+
+
 def source_scopes(market):
     return (market, "EU") if market in EU_COUNTRIES else (market,)
 

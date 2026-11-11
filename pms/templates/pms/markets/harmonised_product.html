@@ -1,0 +1,32 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-product' device.pk %}">{{ device }}</a> / <a href="{% url 'market-eu-standards' %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></nav>
+<h1>{% ui 'hs_title' %} · {{ device }}</h1>
+<form class="panel compact-form" method="post">{% csrf_token %}
+<fieldset><legend>{% ui 'hs_official' %}</legend>
+{{ form.regulation.as_field_group }}{{ form.standard_number.as_field_group }}{{ form.edition.as_field_group }}
+{{ form.eurlex_url.as_field_group }}{{ form.decision_number.as_field_group }}{{ form.decision_item.as_field_group }}
+</fieldset>
+<fieldset><legend>{% ui 'hs_product_assessment' %}</legend>
+{{ form.applicability.as_field_group }}{{ form.applicability_reason.as_field_group }}{{ form.review_date.as_field_group }}
+</fieldset>{{ form.non_field_errors }}
+<button class="btn primary">{% ui 'save' %}</button></form>
+<section class="panel"><h2>{% ui 'hs_history' %}</h2>
+{% for entry in page %}
+<article id="review-{{ entry.pk }}">
+<h3>#{{ entry.pk }} · {{ entry.regulation }} · {{ entry.standard_number }} · {{ entry.edition }}</h3>
+<p>{% ui 'review_date' %} {{ entry.review_date }} · {% ui 'reviewer' %} {{ entry.reviewer }}</p>
+<p><a href="{{ entry.eurlex_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">EUR-Lex</a> · {{ entry.decision_number }} · {{ entry.decision_item }}</p>
+<p>{% ui entry.applicability %} · {{ entry.applicability_reason|linebreaksbr }}</p>
+{% if entry.previous %}
+<h4>{% ui 'hs_previous_comparison' %} #{{ entry.previous.pk }}</h4>
+<ul>{% for field, before, after in entry.changes %}<li>{% ui field %} · {% if field == 'applicability' %}{% ui before %} → {% ui after %}{% else %}{{ before }} → {{ after }}{% endif %}</li>
+{% empty %}<li>{% ui 'hs_unchanged' %}</li>{% endfor %}</ul>
+{% endif %}
+</article>
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
+{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+{% if page.has_other_pages %} {{ page.number }} / {{ page.paginator.num_pages }} {% endif %}
+{% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</section>
+{% endblock %}

@@ -3,4 +3,6 @@
 {% if privileged %}<a class="btn" href="{% url 'release-create' item.pk %}">릴리스 등록</a>{% endif %}
 <ul>{% for release in item.software_releases.all %}<li>{{ release.version }} · {{ release.released_on|date:"Y-m-d" }}</li>{% empty %}<li>등록된 릴리스 없음</li>{% endfor %}</ul>
 </section>
-{% endif %}{% endblock %}
+{% endif %}
+{% if eu_access %}<p><a class="btn" href="{% url 'market-product-standards' item.pk %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></p>{% endif %}
+{% endblock %}

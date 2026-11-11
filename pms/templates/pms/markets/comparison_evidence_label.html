@@ -1,0 +1,4 @@
+{% load market_ui %}
+{% if item.rule_side == 'baseline' %}{% ui 'approved_baseline' %} · {% elif item.rule_side == 'proposed' %}{% ui 'draft_proposal' %} · {% endif %}
+{{ item.title }} · #{% if item.document_id %}{{ item.document_id }}{% else %}{{ item.source_id }}{% endif %} · {% ui 'version' %} {{ item.version }} · {% if item.language == 'und' %}{% ui 'comparison_unknown_language' %}{% else %}{% ui item.language %}{% endif %}{% if item.clause %} · {{ item.clause }}{% endif %}
+{% if item.kind == 'translation' %} · {% ui 'translation' %} ({% ui 'original' %} v{{ item.original_version }}){% endif %}

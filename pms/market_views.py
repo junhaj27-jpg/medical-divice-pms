@@ -100,6 +100,7 @@ def dashboard(request):
     pending = cases.filter(Q(reviewed=False) | (Q(market__in=EU_COUNTRIES) & ~Exists(reconciled)))
     return render(request, "pms/markets/dashboard.html", {
         "markets": svc.allowed_markets(request.user), "selected": selected,
+        "eu_access": svc.eu_access(request.user),
         "summary": registrations.values("market", "status").annotate(total=Count("pk")).order_by("market", "status"),
         "registrations": Paginator(registrations.order_by("market", "device__name"), 30).get_page(request.GET.get("page")),
         "expiring": registrations.filter(status="REGISTERED", expires_on__range=(today, today + timedelta(days=90)))
@@ -115,6 +116,7 @@ def product(request, pk):
     rows = svc.product_markets(request.user).filter(device=device).order_by("market")
     return render(request, "pms/markets/product.html", {
         "device": device, "rows": rows,
+        "eu_access": svc.eu_access(request.user, device),
         "available": [code for code in svc.allowed_markets(request.user) if code in COUNTRIES]
         if not svc.scoped(request.user) else (),
         "has_legacy": not svc.scoped(request.user) and ForeignApplication.objects.filter(profile__device=device).exists(),

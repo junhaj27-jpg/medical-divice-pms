@@ -16,7 +16,9 @@ def privileged(user):
 
 
 def tasks_for(user):
+    from .market_review import runs_for
     qs=WorkTask.objects.select_related("complaint","assignee","capa","recall")
+    qs=qs.filter(Q(market_comparison__isnull=True)|Q(market_comparison__run__in=runs_for(user).order_by()))
     if role(user)=="STAFF":
         # An assignment never grants access to somebody else's case.
         qs=qs.filter(Q(complaint__in=visible_complaints(user))|Q(ra_profile__isnull=False),assignee=user)

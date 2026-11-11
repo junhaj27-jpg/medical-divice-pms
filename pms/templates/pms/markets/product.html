@@ -2,6 +2,7 @@
 {% block content %}
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% if not market_scoped %} / <a href="{% url 'device-detail' device.pk %}">{% ui 'product' %}</a>{% endif %}</p>
 <h1>{{ device }} · {% ui 'registration' %}</h1>
+{% if eu_access %}<p><a class="btn" href="{% url 'market-product-standards' device.pk %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></p>{% endif %}
 <section class="panel"><table><thead><tr><th>{% ui 'market' %}</th><th>{% ui 'status' %}</th><th>{% ui 'identifier' %}</th><th>{% ui 'owner' %}</th><th>{% ui 'expires_on' %}</th></tr></thead><tbody>
 {% for row in rows %}<tr><td><a href="{% url 'market-registration' device.pk row.market %}">{% ui row.market %}</a>{% if row.is_example %} · {% ui 'is_example' %}{% endif %}</td><td>{% ui row.status %}</td>
 <td>{% if row.identifier %}{{ row.identifier }}{% elif 'identifier' in row.na_fields %}{% ui 'NA' %}{% else %}{% ui 'UNKNOWN' %}{% endif %}</td>

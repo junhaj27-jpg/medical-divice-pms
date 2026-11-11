@@ -1,0 +1,9 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<p><a href="{% url 'market-comparison-result' result.pk %}">{% ui 'comparison_detail' %} #{{ result.pk }}</a> · {% ui result.run.market %}</p>
+<h1>{{ title }}{% if task %} #{{ task.pk }}{% endif %}</h1>
+<form method="post" class="panel form-grid">{% csrf_token %}{{ form.as_p }}
+<button class="btn primary">{% ui 'save' %}</button></form>
+{% if task %}<h2>{% ui 'comparison_task_history' %}</h2>
+{% for event in task.history.all %}<p>{{ event.created_at }} · {{ event.actor }} · {{ event.after.status }}</p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}{% endif %}
+{% endblock %}

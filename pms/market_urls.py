@@ -3,12 +3,14 @@ from django.urls import path
 from . import market_views as views
 from . import market_review_views as history
 from .market_batch_views import batch_compare, offline_demo
+from .harmonised_views import standards, product_reviews
 
 urlpatterns = [
     path("markets/comparisons/<int:pk>/", history.comparison_run, name="market-comparison-run"),
     path("markets/comparisons/<int:pk>/csv/", history.comparison_run, {"download": True},
          name="market-comparison-csv"),
     path("markets/comparison-results/<int:pk>/", history.comparison_result, name="market-comparison-result"),
+    path("markets/comparison-results/<int:pk>/task/", history.comparison_task, name="market-comparison-task"),
     path("markets/api/comparison-results/<int:pk>/", history.comparison_result, {"api": True}, name="market-comparison-api"),
     path("complaints/<int:pk>/markets/<str:code>/comparisons/", history.comparison_history, name="market-comparison-history"),
     path("complaints/<int:pk>/markets/<str:code>/snapshots/legacy/", history.operating_snapshot,
@@ -19,6 +21,8 @@ urlpatterns = [
     path("markets/batch/demo/", offline_demo, name="market-batch-demo"),
     path("markets/batch/<str:code>/", batch_compare, name="market-batch-country"),
     path("markets/", views.dashboard, name="market-dashboard"),
+    path("markets/eu/harmonised-standards/", standards, name="market-eu-standards"),
+    path("devices/<int:pk>/markets/eu/harmonised-standards/", product_reviews, name="market-product-standards"),
     path("preferences/language/", views.language, name="market-language"),
     path("devices/<int:pk>/markets/", views.product, name="market-product"),
     path("devices/<int:pk>/markets/<str:code>/", views.registration, name="market-registration"),
