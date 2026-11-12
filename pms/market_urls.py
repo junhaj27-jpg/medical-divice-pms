@@ -4,6 +4,9 @@ from . import market_views as views
 from . import market_review_views as history
 from .market_batch_views import batch_compare, offline_demo
 from .harmonised_views import standards, product_reviews
+from .fda_510k_views import fda_search, fda_product_reviews
+from .fda_classification import classification
+from .fda_guidance import guidance
 
 urlpatterns = [
     path("markets/comparisons/<int:pk>/", history.comparison_run, name="market-comparison-run"),
@@ -22,6 +25,10 @@ urlpatterns = [
     path("markets/batch/<str:code>/", batch_compare, name="market-batch-country"),
     path("markets/", views.dashboard, name="market-dashboard"),
     path("markets/eu/harmonised-standards/", standards, name="market-eu-standards"),
+    path("markets/us/fda-510k/", fda_search, name="market-us-fda-510k"),
+    path("devices/<int:pk>/markets/us/fda-510k/", fda_product_reviews, name="market-product-fda-510k"),
+    path("devices/<int:pk>/markets/us/fda-classification/", classification, name="market-product-fda-classification"),
+    path("devices/<int:pk>/markets/us/fda-guidance/", guidance, name="market-product-fda-guidance"),
     path("devices/<int:pk>/markets/eu/harmonised-standards/", product_reviews, name="market-product-standards"),
     path("preferences/language/", views.language, name="market-language"),
     path("devices/<int:pk>/markets/", views.product, name="market-product"),

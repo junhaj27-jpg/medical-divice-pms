@@ -5,4 +5,5 @@
 </section>
 {% endif %}
 {% if eu_access %}<p><a class="btn" href="{% url 'market-product-standards' item.pk %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></p>{% endif %}
+{% if us_access %}<p><a class="btn" href="{% url 'market-product-fda-510k' item.pk %}">{% ui 'US' %} (US) · {% ui 'fda_510k' %}</a></p>{% endif %}
 {% endblock %}

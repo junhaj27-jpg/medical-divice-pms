@@ -52,10 +52,14 @@ def product_markets(user):
     return ProductMarket.objects.filter(market__in=allowed_markets(user)).select_related("device", "owner")
 
 
-def eu_access(user, device=None):
-    if not set(allowed_markets(user)).intersection(EU_COUNTRIES):
+def market_access(user, countries, device=None):
+    if not set(allowed_markets(user)).intersection(countries):
         return False
-    return device is None or not scoped(user) or product_markets(user).filter(device=device, market__in=EU_COUNTRIES).exists()
+    return device is None or not scoped(user) or product_markets(user).filter(device=device, market__in=countries).exists()
+
+
+def eu_access(user, device=None):
+    return market_access(user, EU_COUNTRIES, device)
 
 
 def source_scopes(market):
@@ -67,14 +71,14 @@ def evidence_for(case):
     entries = MarketEvidence.objects.filter(
         device_id=case.complaint.device_id, scope__in=source_scopes(case.market),
         is_example=case.complaint.is_example,
-    ).select_related("reviewer").prefetch_related("translations__reviewer")
+    ).exclude(document_type=MarketEvidence.FDA_GUIDANCE).select_related("reviewer").prefetch_related("translations__reviewer")
     return evidence_versions(entries)
 
 
 def evidence_versions(entries):
     groups = {}
     for source in entries.order_by("scope", "reference_key", "-version"):
-        groups.setdefault((source.scope, source.reference_key), []).append(source)
+        groups.setdefault((source.scope, source.reference_key, source.document_type), []).append(source)
     return [(versions[0], versions[1:]) for versions in groups.values()]
 
 

@@ -33,7 +33,7 @@ class HarmonisedStandardsTests(TestCase):
             "eurlex_url": "https://eur-lex.europa.eu/eli/dec_impl/2021/1182/oj",
             "decision_number": "2021/1182", "decision_item": "Example annex item 1",
             "applicability": "hs_applies", "applicability_reason": "Example rationale",
-            "review_date": "2026-10-09",
+            "review_date": "2026-10-09", "checked_on": "2026-10-08",
         }
 
     def test_menu_links_and_language(self):
@@ -63,6 +63,10 @@ class HarmonisedStandardsTests(TestCase):
         self.assertEqual(self.client.post(us_detail, self.data).status_code, 404)
         self.assertRedirects(self.client.post(self.detail, {**self.data, "reviewer": self.admin.pk}), self.detail)
         review = HarmonisedStandardReview.objects.get()
+        self.assertEqual(review.checked_on, date(2026, 10, 8))
+        duplicate = self.client.post(self.detail, self.data, follow=True)
+        self.assertContains(duplicate, "이미 등록된 근거 보기")
+        self.assertEqual(HarmonisedStandardReview.objects.count(), 1)
         self.assertEqual((review.reviewer, review.review_date), (self.reviewer, date(2026, 10, 9)))
         self.assertTrue(AuditLog.objects.filter(actor=self.reviewer, action="EU_STANDARD_REVIEW", object_id=str(review.pk)).exists())
         MarketAccess.objects.filter(pk=self.scope.pk).update(markets=["US"])
@@ -71,7 +75,7 @@ class HarmonisedStandardsTests(TestCase):
         self.assertEqual(self.client.post(self.detail, self.data).status_code, 404)
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("device-detail", args=[self.device.pk])), self.detail)
-        self.assertRedirects(self.client.post(self.detail, self.data), self.detail)
+        self.assertRedirects(self.client.post(self.detail, {**self.data, "applicability_reason": "Admin review"}), self.detail)
         self.assertEqual(HarmonisedStandardReview.objects.first().reviewer, self.admin)
 
     def test_snapshot_history_and_reference_url_validation(self):

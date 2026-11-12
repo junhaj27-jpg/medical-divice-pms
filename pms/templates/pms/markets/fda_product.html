@@ -1,0 +1,47 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-product' device.pk %}">{{ device }}</a> / <a href="{% url 'market-us-fda-510k' %}">{% ui 'US' %} (US) · {% ui 'fda_510k' %}</a></nav>
+<h1>{% ui 'fda_510k' %} · {{ device }}</h1>
+<p><a href="{{ fda_search_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_official_search' %}</a></p>
+{% if lookup_code == 'EBZ' %}<p><a href="{% url 'market-product-fda-guidance' device.pk %}">{% ui 'fda_guidance_candidate' %} · EBZ</a></p>{% endif %}
+<form class="panel compact-form" method="get">{{ lookup_form.as_p }}<button class="btn primary">{% ui 'fda_lookup' %}</button></form>
+{% if message %}<p role="status">{% ui message %}</p>{% endif %}
+{% ui 'fda_missing' as missing %}
+{% if results %}<section class="panel"><h2>{% ui 'fda_results_510k' %}</h2><ul>
+{% for row in results %}<li><strong>{{ row.k_number }}</strong> · {{ row.fda_device_name|default:missing }} · {{ row.product_code|default:missing }} · {{ row.decision_date|default:missing }} · {{ row.fda_decision|default:missing }}
+· <a href="{{ row.fda_detail_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_official_source' %}</a>
+· <a href="?{{ row.selection }}#review-form">{% ui 'fda_select_case' %}</a>
+{% if row.product_code == 'EBZ' %} · <a href="{% url 'market-product-fda-guidance' device.pk %}">{% ui 'fda_guidance_candidate' %}</a>{% endif %}</li>{% endfor %}
+</ul></section>{% endif %}
+{% if existing %}<p role="status">{% ui 'fda_already_saved' %} · {{ existing.k_number }} #{{ existing.pk }}</p>{% endif %}
+<form id="review-form" class="panel compact-form" method="post">{% csrf_token %}
+<fieldset><legend>{% ui 'fda_source' %}</legend>
+{{ form.k_number.as_field_group }}{{ form.fda_device_name.as_field_group }}{{ form.applicant_name.as_field_group }}
+{{ form.product_code.as_field_group }}{{ form.decision_date.as_field_group }}{{ form.fda_decision.as_field_group }}{{ form.fda_detail_url.as_field_group }}
+</fieldset>
+<fieldset><legend>{% ui 'fda_internal_review' %}</legend>
+{{ form.purpose.as_field_group }}{{ form.review_opinion.as_field_group }}{{ form.previous.as_field_group }}
+</fieldset>{{ form.non_field_errors }}
+<button class="btn primary">{% ui 'save' %}</button></form>
+<section class="panel"><h2>{% ui 'hs_history' %}</h2>
+{% for entry in page %}
+<article id="review-{{ entry.pk }}">
+<h3>#{{ entry.pk }} · {{ entry.k_number }} · {{ entry.fda_device_name }}</h3>
+<p>{% ui 'applicant_name' %} {{ entry.applicant_name }} · {% ui 'product_code' %} {{ entry.product_code }}</p>
+{% if entry.product_code == 'EBZ' %}<p><a href="{% url 'market-product-fda-guidance' device.pk %}">{% ui 'fda_guidance_candidate' %} · EBZ</a></p>{% endif %}
+<p>{% ui 'decision_date' %} {{ entry.decision_date }} · {% ui 'fda_decision' %} {{ entry.fda_decision }} · <a href="{{ entry.fda_detail_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_detail_url' %}</a></p>
+<p>{% ui 'reviewer' %} {{ entry.reviewer }} · {% ui 'review_date' %} {{ entry.reviewed_at|date }}</p>
+<p>{% ui 'purpose' %} · {% ui entry.purpose %}</p>
+<p><strong>{% ui 'review_opinion' %}</strong> · {{ entry.review_opinion|linebreaksbr }}</p>
+{% if entry.previous %}
+<h4>{% ui 'hs_previous_comparison' %} #{{ entry.previous.pk }}</h4>
+<ul>{% for field, before, after in entry.changes %}<li>{% ui field %} · {% if field == 'purpose' %}{% ui before %} → {% ui after %}{% else %}{{ before }} → {{ after }}{% endif %}</li>
+{% empty %}<li>{% ui 'hs_unchanged' %}</li>{% endfor %}</ul>
+{% endif %}
+</article>
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
+{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+{% if page.has_other_pages %} {{ page.number }} / {{ page.paginator.num_pages }} {% endif %}
+{% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</section>
+{% endblock %}

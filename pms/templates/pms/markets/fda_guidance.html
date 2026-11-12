@@ -1,0 +1,19 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-product' device.pk %}">{{ device }}</a> / {% ui 'US' %} / {% ui 'FDA_GUIDANCE' %}</nav>
+<section class="panel">
+<h1>{{ title }}</h1>
+<p>{% ui document.status %} · {% ui 'fda_guidance_issued' %} <time datetime="{{ document.issued_on }}">{{ document.issued_on|market_datetime }}</time> · {{ document.docket }}</p>
+<p>{% ui 'product_code' %} {{ document.product_code }} · {{ document.regulation_number }} · {% ui 'checked_on' %} {{ checked_on }}</p>
+<p>{% ui 'fda_guidance_scope' %}</p>
+<p><a href="{{ official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_official_source' %}</a> · <a href="{{ document.pdf_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_guidance_pdf' %}</a></p>
+{% if not source %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="link">{% ui 'fda_guidance_link' %}</button></form>{% endif %}
+</section>
+{% if source %}<section class="panel">
+<h2>{% ui 'evidence' %} #{{ source.pk }}</h2>
+<p>{% ui 'applicability' %} · {% if current %}{% ui current.decision %}{% else %}{% ui 'fda_guidance_pending' %}{% endif %}</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary" name="action" value="review">{% ui 'save' %}</button></form>
+<h3>{% ui 'hs_history' %}</h3>
+{% for review in reviews %}<p>{% ui review.decision %} · {{ review.reviewer }} · {{ review.reviewed_at }}<br>{{ review.rationale|linebreaksbr }}</p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
+</section>{% endif %}
+{% endblock %}

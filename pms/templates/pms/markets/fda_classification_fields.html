@@ -1,0 +1,4 @@
+{% load market_ui %}
+<h3>{{ data.product_code|default:missing }} · {{ data.device_name|default:missing }}</h3>
+<p>{% ui 'device_class' %} {{ data.device_class|default:missing }} · {% ui 'regulation_number' %} {{ data.regulation_number|default:missing }} · <a href="{{ source }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_official_source' %}</a></p>
+{% if data.product_code == 'EBZ' %}<p><a href="{% url 'market-product-fda-guidance' device.pk %}">{% ui 'fda_guidance_candidate' %} · EBZ</a></p>{% endif %}

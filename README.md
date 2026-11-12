@@ -495,6 +495,8 @@ flowchart LR
 
 ## ERD
 
+제품별 FDA 510(k) 검토, EU 조화표준, 시장별 규칙 비교와 RA 후속 업무의 관계는 [해외 인허가와 시장별 검토 ERD](docs/erd.md#해외-인허가와-시장별-검토)를 참조하세요.
+
 ```mermaid
 erDiagram
     USER ||--|| PROFILE : has

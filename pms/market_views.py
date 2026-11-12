@@ -101,6 +101,7 @@ def dashboard(request):
     return render(request, "pms/markets/dashboard.html", {
         "markets": svc.allowed_markets(request.user), "selected": selected,
         "eu_access": svc.eu_access(request.user),
+        "us_access": svc.market_access(request.user, ("US",)),
         "summary": registrations.values("market", "status").annotate(total=Count("pk")).order_by("market", "status"),
         "registrations": Paginator(registrations.order_by("market", "device__name"), 30).get_page(request.GET.get("page")),
         "expiring": registrations.filter(status="REGISTERED", expires_on__range=(today, today + timedelta(days=90)))
@@ -117,6 +118,7 @@ def product(request, pk):
     return render(request, "pms/markets/product.html", {
         "device": device, "rows": rows,
         "eu_access": svc.eu_access(request.user, device),
+        "us_access": svc.market_access(request.user, ("US",), device),
         "available": [code for code in svc.allowed_markets(request.user) if code in COUNTRIES]
         if not svc.scoped(request.user) else (),
         "has_legacy": not svc.scoped(request.user) and ForeignApplication.objects.filter(profile__device=device).exists(),
@@ -219,6 +221,8 @@ def source_page(request, source, **context):
 @require_safe
 def evidence_detail(request, pk, code, source_pk):
     source = registration_source(request, pk, code, source_pk)
+    if source.document_type == MarketEvidence.FDA_GUIDANCE:
+        return redirect("market-product-fda-guidance", pk)
     return source_page(request, source, market=code,
                        can_translate=source.scope != "EU" or not svc.scoped(request.user))
 

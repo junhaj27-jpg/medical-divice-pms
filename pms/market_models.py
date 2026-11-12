@@ -71,6 +71,7 @@ class HarmonisedStandardReview(AppendOnlyRecord):
     standard_number = models.CharField(max_length=100)
     edition = models.CharField(max_length=120)
     eurlex_url = models.URLField(max_length=500)
+    checked_on = models.DateField(null=True, blank=True)
     decision_number = models.CharField(max_length=80)
     decision_item = models.CharField(max_length=160)
     applicability = models.CharField(max_length=20, choices=APPLICABILITY)
@@ -84,7 +85,49 @@ class HarmonisedStandardReview(AppendOnlyRecord):
         indexes = [models.Index(fields=("device", "regulation", "standard_number", "-id"), name="hs_review_series")]
 
 
+class FDA510kReview(AppendOnlyRecord):
+    PURPOSES = [(code, code) for code in ("fda_own", "fda_similar", "fda_predicate")]
+
+    device = models.ForeignKey("pms.MedicalDevice", on_delete=models.PROTECT, related_name="fda_510k_reviews")
+    previous = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="revisions")
+    purpose = models.CharField(max_length=16, choices=PURPOSES)
+    k_number = models.CharField(max_length=7)
+    fda_device_name = models.CharField(max_length=250)
+    applicant_name = models.CharField(max_length=250)
+    product_code = models.CharField(max_length=3)
+    decision_date = models.DateField()
+    fda_decision = models.CharField(max_length=200)
+    fda_detail_url = models.URLField(max_length=500)
+    review_opinion = models.TextField(max_length=2000)
+    reviewer = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="fda_510k_reviews")
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-pk",)
+        indexes = [models.Index(fields=("device", "-id"), name="fda_510k_device_history")]
+
+    def __str__(self):
+        return f"#{self.pk} · {self.k_number} · {self.fda_device_name}"
+
+
+class FDAClassificationEvidence(models.Model):
+    device = models.ForeignKey("pms.MedicalDevice", on_delete=models.PROTECT, related_name="fda_classifications")
+    product_code = models.CharField(max_length=3)
+    snapshot = models.JSONField()
+    source_url = models.URLField()
+    retrieved_at = models.DateTimeField()
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewer = models.ForeignKey(USER, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    review_opinion = models.TextField(blank=True, max_length=2000)
+
+    class Meta:
+        ordering = ("-pk",)
+        constraints = [models.UniqueConstraint(fields=("device", "product_code"), name="fda_classification_device_code")]
+
+
 class MarketEvidence(AppendOnlyRecord):
+    FDA_GUIDANCE = "FDA_GUIDANCE"
+
     device = models.ForeignKey("pms.MedicalDevice", on_delete=models.PROTECT, related_name="market_evidence")
     scope = models.CharField(max_length=2, choices=EVIDENCE_SCOPES)
     regulation_document = models.ForeignKey("pms.RegulationDocument", on_delete=models.PROTECT,
@@ -100,10 +143,27 @@ class MarketEvidence(AppendOnlyRecord):
     reviewer = models.ForeignKey(USER, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     created_by = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
     is_example = models.BooleanField(default=False)
+    document_type = models.CharField(max_length=16, default="REFERENCE", choices=[
+        ("REFERENCE", "REFERENCE"), (FDA_GUIDANCE, FDA_GUIDANCE),
+    ])
+    document_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["device", "scope", "reference_key", "version"],
                                                name="market_evidence_version_unique")]
+
+
+class GuidanceApplicabilityReview(AppendOnlyRecord):
+    DECISIONS = [(code, code) for code in ("hs_applies", "hs_does_not_apply")]
+
+    evidence = models.ForeignKey(MarketEvidence, on_delete=models.PROTECT, related_name="applicability_reviews")
+    decision = models.CharField(max_length=20, choices=DECISIONS)
+    rationale = models.TextField(max_length=2000)
+    reviewer = models.ForeignKey(USER, on_delete=models.PROTECT, related_name="+")
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-pk",)
 
 
 class MarketTranslation(AppendOnlyRecord):

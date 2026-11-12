@@ -24,11 +24,13 @@ OFFICIAL_LISTS = (
     ("MDR", COMMISSION + "harmonised-standards/medical-devices_en"),
     ("IVDR", COMMISSION + "harmonised-standards/iv-diagnostic-medical-devices_en"),
 )
-OFFICIAL_FIELDS = ("edition", "eurlex_url", "decision_number", "decision_item")
+OFFICIAL_FIELDS = ("edition", "eurlex_url", "decision_number", "decision_item", "checked_on")
 PRODUCT_FIELDS = ("applicability", "applicability_reason")
 
 
 class StandardReviewForm(LocalizedForm, forms.ModelForm):
+    checked_on = forms.DateField()
+
     class Meta:
         model = HarmonisedStandardReview
         fields = ("regulation", "standard_number", *OFFICIAL_FIELDS, *PRODUCT_FIELDS, "review_date")
@@ -80,10 +82,14 @@ def product_reviews(request, pk):
             entry = form.save(commit=False)
             entry.device = device
             entry.reviewer = request.user
+            fields = ("regulation", "standard_number", *OFFICIAL_FIELDS, *PRODUCT_FIELDS, "review_date")
+            existing = device.harmonised_reviews.filter(**{field: getattr(entry, field) for field in fields}).first()
+            if existing:
+                return redirect(f"{request.path}?existing={existing.pk}#review-{existing.pk}")
             entry.save()
             audit(request.user, "EU_STANDARD_REVIEW", entry, after={
                 "device_id": device.pk, "regulation": entry.regulation, "standard_number": entry.standard_number,
-                "edition": entry.edition, "applicability": entry.applicability,
+                "edition": entry.edition, "applicability": entry.applicability, "checked_on": entry.checked_on.isoformat(),
             })
         return redirect("market-product-standards", pk)
 
@@ -100,5 +106,7 @@ def product_reviews(request, pk):
             entry.changes = [(field, getattr(entry.previous, field), getattr(entry, field))
                              for field in (*OFFICIAL_FIELDS, *PRODUCT_FIELDS)
                              if getattr(entry.previous, field) != getattr(entry, field)]
-    return render(request, "pms/markets/harmonised_product.html", {"device": device, "form": form, "page": page},
+    existing = request.GET.get("existing", "")
+    return render(request, "pms/markets/harmonised_product.html", {"device": device, "form": form, "page": page,
+                  "existing": reviews.filter(pk=existing).first() if re.fullmatch(r"[0-9]{1,18}", existing) else None},
                   status=400 if request.method == "POST" else 200)

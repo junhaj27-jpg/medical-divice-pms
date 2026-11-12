@@ -4,8 +4,9 @@
 <h1>{% ui title_key %}{% if market %} · {% ui market %}{% endif %}</h1>
 {% if registration.is_example %}<p class="badge">{% ui 'is_example' %}</p>{% endif %}
 {% if registration and registration.pk %}
+{% if market == 'US' %}<nav><a href="{% url 'market-product-fda-classification' device.pk %}">{% ui 'fda_classification' %}</a> · <a href="{% url 'market-product-fda-510k' device.pk %}">{% ui 'fda_510k' %}</a> · <a href="{% url 'market-product-fda-guidance' device.pk %}">{% ui 'FDA_GUIDANCE' %}</a></nav>{% endif %}
 <section class="panel"><h2>{% ui 'evidence' %}</h2>
-{% for source, older in evidence %}<p><strong>{% if source.scope == 'EU' %}{% ui 'EU' %}{% else %}{% ui 'national' %}{% endif %}</strong> · <a href="{% url 'market-evidence' device.pk market source.pk %}">{{ source.title }} · v{{ source.version }}</a></p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
+{% for source, older in evidence %}<p><strong>{% if source.document_type == 'FDA_GUIDANCE' %}{% ui 'FDA_GUIDANCE' %}{% elif source.scope == 'EU' %}{% ui 'EU' %}{% else %}{% ui 'national' %}{% endif %}</strong> · <a href="{% url 'market-evidence' device.pk market source.pk %}">{{ source.title }} · v{{ source.version }}</a></p>{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
 {% for scope in source_scopes %}<a class="btn" href="{% url 'market-evidence-new' device.pk market scope %}">{% ui 'new_evidence' %} · {% ui scope %}</a> {% endfor %}
 </section>{% endif %}
 <form class="panel compact-form" method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="btn primary">{% ui 'save' %}</button></form>

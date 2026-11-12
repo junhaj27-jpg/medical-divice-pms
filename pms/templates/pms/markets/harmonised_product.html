@@ -6,16 +6,19 @@
 <fieldset><legend>{% ui 'hs_official' %}</legend>
 {{ form.regulation.as_field_group }}{{ form.standard_number.as_field_group }}{{ form.edition.as_field_group }}
 {{ form.eurlex_url.as_field_group }}{{ form.decision_number.as_field_group }}{{ form.decision_item.as_field_group }}
+{{ form.checked_on.as_field_group }}
 </fieldset>
 <fieldset><legend>{% ui 'hs_product_assessment' %}</legend>
 {{ form.applicability.as_field_group }}{{ form.applicability_reason.as_field_group }}{{ form.review_date.as_field_group }}
 </fieldset>{{ form.non_field_errors }}
 <button class="btn primary">{% ui 'save' %}</button></form>
 <section class="panel"><h2>{% ui 'hs_history' %}</h2>
+{% if existing %}<p role="status">{% ui 'fda_already_saved' %} · {{ existing.standard_number }} #{{ existing.pk }}</p>{% endif %}
 {% for entry in page %}
 <article id="review-{{ entry.pk }}">
 <h3>#{{ entry.pk }} · {{ entry.regulation }} · {{ entry.standard_number }} · {{ entry.edition }}</h3>
 <p>{% ui 'review_date' %} {{ entry.review_date }} · {% ui 'reviewer' %} {{ entry.reviewer }}</p>
+{% ui 'fda_missing' as missing %}<p>{% ui 'checked_on' %} {{ entry.checked_on|default:missing }}</p>
 <p><a href="{{ entry.eurlex_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">EUR-Lex</a> · {{ entry.decision_number }} · {{ entry.decision_item }}</p>
 <p>{% ui entry.applicability %} · {{ entry.applicability_reason|linebreaksbr }}</p>
 {% if entry.previous %}

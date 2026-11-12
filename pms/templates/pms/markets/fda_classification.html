@@ -1,0 +1,35 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-product' device.pk %}">{{ device }}</a> / {% ui 'US' %}</nav>
+<h1>{% ui 'fda_classification' %} · {{ device }}</h1>
+<p><a href="{{ official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_classification_official' %}</a></p>
+<form method="get" class="panel compact-form">{{ search_form.as_p }}<button class="btn primary">{% ui 'fda_lookup' %}</button></form>
+{% if message %}<p role="status">{% ui message %}</p>{% endif %}
+{% ui 'fda_missing' as missing %}
+{% if results %}<section class="panel"><h2>{% ui 'fda_results' %}</h2>
+{% for result in results %}
+<article>
+{% include 'pms/markets/fda_classification_fields.html' with data=result.data source=result.source %}
+{% if result.code %}
+<p><a href="{% url 'market-product-fda-510k' device.pk %}?product_code={{ result.code }}">{% ui 'fda_find_510k' %}</a></p>
+{% if result.existing %}<p><a href="#evidence-{{ result.existing }}">{% ui 'fda_already_saved' %}</a></p>{% else %}
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="save"><input type="hidden" name="snapshot" value="{{ result.token }}"><button class="btn">{% ui 'save' %}</button></form>
+{% endif %}{% endif %}
+</article>
+{% endfor %}</section>{% endif %}
+<section class="panel"><h2>{% ui 'evidence' %}</h2>
+{% for record in records %}
+<article id="evidence-{{ record.pk }}">
+{% include 'pms/markets/fda_classification_fields.html' with data=record.snapshot source=record.source_url %}
+<p>{% ui 'fda_retrieved' %} {{ record.retrieved_at }} · {% if record.reviewed_at %}{% ui 'reviewed' %}{% else %}{% ui 'unreviewed' %}{% endif %}</p>
+{% if record.reviewed_at %}
+<p>{% ui 'reviewer' %} {{ record.reviewer }} · {% ui 'review_date' %} {{ record.reviewed_at }} · {{ record.review_opinion|linebreaksbr }}</p>
+{% else %}
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="review"><input type="hidden" name="evidence_id" value="{{ record.pk }}">
+{% if record.pk == review_id %}{{ review_form.as_p }}{% else %}<label>{% ui 'review_opinion' %}<textarea name="review_opinion" required maxlength="2000" rows="2"></textarea></label>{% endif %}
+<button class="btn">{% ui 'fda_finish_review' %}</button></form>
+{% endif %}
+</article>
+{% empty %}<p>{% ui 'empty' %}</p>{% endfor %}
+</section>
+{% endblock %}

@@ -12,6 +12,99 @@
 
 Approval.content_type/object_id, AuditLog.object_type/object_id, SafetyReview.links, 신호 snapshot의 evidence IDs는 논리 참조이며 FK 선을 그리지 않았다. family_key도 RuleFamilyLock.key에 대한 FK가 아니다. 기존 PMS 제출 상태와 별도로 RA 인허가에는 수동 기록 SubmissionPackage 버전이 있다. 외부 자동 제출 기능은 없다.
 
+## 해외 인허가와 시장별 검토
+
+```mermaid
+erDiagram
+    USER ||--o| MARKET_ACCESS : grants
+    MEDICAL_DEVICE ||--o{ PRODUCT_MARKET : registers
+    MEDICAL_DEVICE ||--o{ HARMONISED_STANDARD_REVIEW : assesses
+    MEDICAL_DEVICE ||--o{ FDA_510K_REVIEW : references
+    USER ||--o{ HARMONISED_STANDARD_REVIEW : reviews
+    USER ||--o{ FDA_510K_REVIEW : reviews
+    FDA_510K_REVIEW o|--o{ FDA_510K_REVIEW : previous
+    MEDICAL_DEVICE ||--o{ MARKET_EVIDENCE : scopes
+    REGULATION_DOCUMENT o|--o{ MARKET_EVIDENCE : sources
+    MARKET_EVIDENCE ||--o{ MARKET_TRANSLATION : translates
+    CUSTOMER_COMPLAINT ||--o{ CASE_MARKET : covers
+    CASE_MARKET ||--o{ MARKET_ASSESSMENT : evaluates
+    REPORTING_RULE o|--o{ MARKET_ASSESSMENT : applies
+    REPORTING_RULE ||--o{ MARKET_COMPARISON_RUN : baseline
+    REPORTING_RULE ||--o{ MARKET_COMPARISON_RUN : proposed
+    MARKET_COMPARISON_RUN ||--o{ MARKET_COMPARISON_RESULT : contains
+    CASE_MARKET ||--o{ MARKET_COMPARISON_RESULT : compares
+    MARKET_COMPARISON_RESULT ||--o{ MARKET_COMPARISON_REVIEW : records
+    MARKET_COMPARISON_RESULT o|--o| WORK_TASK : follows_up
+    USER ||--o{ MARKET_COMPARISON_REVIEW : reviews
+
+    FDA_510K_REVIEW {
+        BigAutoField id PK
+        ForeignKey device_id FK
+        ForeignKey previous_id FK "nullable"
+        ForeignKey reviewer_id FK
+        CharField purpose
+        CharField k_number
+        CharField fda_device_name
+        CharField applicant_name
+        CharField product_code
+        DateField decision_date
+        CharField fda_decision
+        URLField fda_detail_url
+        TextField review_opinion
+        DateTimeField reviewed_at
+    }
+    HARMONISED_STANDARD_REVIEW {
+        BigAutoField id PK
+        ForeignKey device_id FK
+        ForeignKey reviewer_id FK
+        CharField regulation
+        CharField standard_number
+        CharField edition
+        URLField eurlex_url
+        DateField checked_on "nullable for older reviews"
+        CharField decision_number
+        CharField decision_item
+        CharField applicability
+        TextField applicability_reason
+        DateField review_date
+        DateTimeField recorded_at
+    }
+    MARKET_COMPARISON_RUN {
+        BigAutoField id PK
+        ForeignKey baseline_id FK
+        ForeignKey proposed_id FK
+        ForeignKey actor_id FK
+        CharField market
+        DateTimeField recorded_at
+        JSONField rules
+    }
+    MARKET_COMPARISON_RESULT {
+        BigAutoField id PK
+        ForeignKey run_id FK
+        ForeignKey entry_id FK
+        JSONField snapshot
+    }
+    MARKET_COMPARISON_REVIEW {
+        BigAutoField id PK
+        ForeignKey result_id FK
+        ForeignKey actor_id FK
+        DateTimeField recorded_at
+        BooleanField complete
+        CharField note
+        CharField conclusion
+        JSONField evidence
+        CharField correction_reason
+    }
+    WORK_TASK {
+        BigAutoField id PK
+        OneToOneField market_comparison_id FK, UK "nullable"
+    }
+```
+
+- **미국 FDA 510(k)** 검토는 제품에 속하는 추가 전용 기록이다. 선택적 `previous_id`는 같은 제품의 이전 검토를 가리키며, K-number·FDA 원문 URL·내부 검토 의견 등의 차이를 보여준다. 원문 결정은 `fda_decision`, 내부 의견은 `review_opinion`에 기록한다. 미국 등록 상태와 신청 결과는 각자의 업무 모델에서 관리한다.
+- **EU 조화표준**은 공식 목록 근거와 제품 적용 판단을 같은 검토 행의 별도 필드에 기록한다. 직전 검토는 같은 제품·규정·표준 번호에서 현재 행보다 앞선 최신 행을 조회한다.
+- **시장별 규칙 비교**는 실행의 `rules`와 결과의 `snapshot`에 당시 값을 저장한다. 검토 결론과 정정은 별도 행으로 추가하고, 선택한 문서 정보는 `evidence` JSON에 보존한다. 후속 업무는 선택적 일대일 관계다. CSV는 저장된 비교 결과와 최신 검토 상태를 읽는다.
+
 ## 사용자·역할·제품·UDI·LOT
 
 ```mermaid

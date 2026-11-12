@@ -1,0 +1,12 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a> / {% ui 'US' %} (US)</nav>
+<h1>{% ui 'fda_510k' %}</h1>
+<p><a class="btn" href="{{ fda_search_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'fda_official_search' %}</a></p>
+<section class="panel"><h2>{% ui 'product' %}</h2>
+<ul>{% for device in page %}<li><a href="{% url 'market-product-fda-510k' device.pk %}">{{ device }}</a></li>{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul>
+{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+{% if page.has_other_pages %} {{ page.number }} / {{ page.paginator.num_pages }} {% endif %}
+{% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</section>
+{% endblock %}
