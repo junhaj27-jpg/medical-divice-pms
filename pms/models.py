@@ -636,3 +636,4 @@ from .ra_models import TrainingRequirement, TrainingAssignment, AuditPlan, Audit
 from . import ra_operations_models
 from . import foreign_models
 from . import market_models
+from . import dental_models

@@ -56,6 +56,7 @@ def case_results(field, term):
         except ValueError:
             row["decision_date"] = None
         row["fda_detail_url"] = FDA_DETAIL + "?" + urlencode({"db": "pmn", "id": number})
+        row["summary_listed"] = raw.get("statement_or_summary") == "Summary"
         row["selection"] = urlencode({"search_field": field, "search_term": term, "selected": number})
         rows.append(row)
     return rows

@@ -7,8 +7,12 @@ from .harmonised_views import standards, product_reviews
 from .fda_510k_views import fda_search, fda_product_reviews
 from .fda_classification import classification
 from .fda_guidance import guidance
+from .dental_views import workspace, draft_output, evidence_download
 
 urlpatterns = [
+    path("devices/<int:pk>/markets/us/dental-510k/", workspace, name="market-dental"),
+    path("devices/<int:pk>/markets/us/dental-510k/evidence/<int:document_id>/", evidence_download, name="market-dental-evidence"),
+    path("devices/<int:pk>/markets/us/dental-510k/<int:draft_id>/<str:kind>/", draft_output, name="market-dental-output"),
     path("markets/comparisons/<int:pk>/", history.comparison_run, name="market-comparison-run"),
     path("markets/comparisons/<int:pk>/csv/", history.comparison_run, {"download": True},
          name="market-comparison-csv"),

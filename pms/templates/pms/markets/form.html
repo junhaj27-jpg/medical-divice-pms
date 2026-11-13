@@ -1,5 +1,6 @@
 {% extends "pms/base.html" %}{% load market_ui %}
 {% block content %}
+{% if market == 'US' and registration.pk %}<p><a class="btn" href="{% url 'market-dental' device.pk %}">{% ui 'dental_workspace' %}</a></p>{% endif %}
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% if device %} / <a href="{% url 'market-product' device.pk %}">{{ device }}</a>{% endif %}</p>
 <h1>{% ui title_key %}{% if market %} · {% ui market %}{% endif %}</h1>
 {% if registration.is_example %}<p class="badge">{% ui 'is_example' %}</p>{% endif %}

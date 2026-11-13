@@ -1,5 +1,6 @@
 {% extends "pms/base.html" %}{% load market_ui %}
 {% block content %}
+{% if us_access %}<p><a class="btn" href="{% url 'market-dental' device.pk %}">{% ui 'dental_workspace' %}</a></p>{% endif %}
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% if not market_scoped %} / <a href="{% url 'device-detail' device.pk %}">{% ui 'product' %}</a>{% endif %}</p>
 <h1>{{ device }} · {% ui 'registration' %}</h1>
 {% if eu_access %}<p><a class="btn" href="{% url 'market-product-standards' device.pk %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></p>{% endif %}
