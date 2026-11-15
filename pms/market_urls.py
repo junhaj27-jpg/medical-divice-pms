@@ -9,8 +9,11 @@ from .fda_classification import classification
 from .fda_guidance import guidance
 from .dental_views import workspace, draft_output, evidence_download, writing_list
 from .eu_legal import documents as eu_documents
+from .fda_library import library
 
 urlpatterns = [
+    path("markets/us/fda-library/", library, name="market-fda-library"),
+    path("markets/us/fda-library/<int:pk>/", library, name="market-fda-source"),
     path("markets/eu/legal/", eu_documents, name="market-eu-documents"),
     path("markets/eu/legal/<int:pk>/", eu_documents, name="market-eu-document"),
     path("markets/eu/writing/", writing_list, {"market": "EU"}, name="market-eu-writing-list"),

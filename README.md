@@ -8,6 +8,35 @@
 
 ## 해외 인허가와 시장별 PMS
 
+### MRI/MR FDA 자료와 문서 작성
+
+**해외 인허가 → 미국 → FDA 자료 라이브러리**(`/markets/us/fda-library/`)에서 MRI/MR, 본문 검색어, MRI 촬영 장비·MRI 영상/ROI 분석 소프트웨어·MR 환경 사용 기기로 검색·필터링합니다. 공식 문서 상세에서 버전과 절·PDF 페이지를 확인한 뒤 기존 미국 작성 프로젝트에 연결합니다. 분류 LNH와 21 CFR 892.1000은 별도 출처 레코드이며 분류 상세에서 법규 레코드로 이동합니다. 표준은 번호·판본·인정 번호·인정 범위·확인일을 수동 기록하고 새 버전으로 개정합니다.
+
+`0044`–`0045`가 FDA 출처 버전과 프로젝트 연결, 세 템플릿을 추가합니다. 기존 프로젝트와 초안은 유지합니다. 두 FDA 가이드의 2023-10-10 최종본은 공식 웹 판독기로 확인한 본문(21/32 PDF 페이지)을 검색에 사용합니다. 런타임 직접 PDF 요청은 HTTP 404여서 실패 사유와 공식 PDF 링크를 함께 저장했습니다. 해시는 **저장된 출처/텍스트 레코드**의 SHA-256이며 원본 PDF 파일 해시가 아닙니다. LNH 분류, eCFR 법규, IEC 60601-2-33 판본/12-347은 메타데이터와 링크를 등록했으며 본문은 수집하지 않았습니다. 인정 표준 상세 범위·제한·전환일은 RA 확인이 필요합니다. `refresh_mri_sources`는 같은 확인 자료를 재등록해도 중복 생성하지 않으며 `--fetch`는 고정된 두 FDA PDF만 재조회합니다. 실패를 새 문서 없음으로 처리하지 않습니다.
+
+공통 **의료기기 문서 작성**(`/markets/us/writing/`)에서 세 기기 템플릿을 선택합니다. 장비의 LNH는 분류 후보이며 담당자가 적용 범위·분류·경로를 확인해야 합니다. 소프트웨어는 원본 MRI 처리와 파생 ROI 체적표 입력, 연구용 출력과 임상 주장을 구분합니다. 해당 자료 수집 체크리스트는 독립적인 FDA 제출 요건으로 확정한 목록이 아닙니다. 분류/경로 미확정 소프트웨어와 MR 환경 기기도 내부 자료 수집 DOCX와 보완 CSV를 만들 수 있지만 제출용 매핑은 RA 확인 전 보류됩니다. MRI 장비 코드를 소프트웨어에 자동 입력하지 않습니다. 510(k)는 기존 공식 DB 조회를 제품 코드/K 번호로 재사용하며 소프트웨어 후보 검색 전 사용목적·출력을 기록합니다.
+
+FDA 문서 버전·절과 제품 사양/시험/라벨 증빙을 각각 연결합니다. MR 시험·라벨 조건과 구성을 나란히 표시하고 누락·불일치를 RA 검토 대상으로 남깁니다. DOCX, 한국어 보완 목록/매트릭스/매핑 CSV는 기존 출력 구조를 사용하며 FDA 검토 근거와 제품 주장 근거를 분리합니다. 새 출처가 등록되면 과거 인용은 보존하고 관련 초안을 재검토 대상으로 표시합니다. 새로운 출처 버전을 명시적으로 연결하면 해당 항목의 현재 검토 근거만 전환되며 과거 초안 JSON은 변경하지 않습니다.
+
+PowerShell(프로젝트 루트, 격리 DB와 기존 RA 데모 계정 사용):
+
+```powershell
+$python = "$env:USERPROFILE/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
+$env:PYTHONPATH = (Resolve-Path ../deps).Path
+$env:SQLITE_PATH = Join-Path (Resolve-Path ..).Path 'mri-writing-demo.sqlite3'
+$env:PRIVATE_MEDIA_ROOT = Join-Path (Resolve-Path ..).Path 'writing-demo-media'
+$env:DEBUG = 'True'
+& $python manage.py migrate --noinput
+& $python manage.py refresh_mri_sources
+& $python manage.py seed_mri_demo --user example-hq --confirm-example-data
+& $python manage.py test pms.test_mri pms.test_writing pms.test_dental pms.test_eu_legal --noinput
+& $python manage.py runserver 127.0.0.1:8001 --noreload
+```
+
+새 빈 DB라면 먼저 `DEMO_PASSWORD`를 설정하고 `seed_market_demo`로 RA 계정을 생성합니다. 가상 자료 생성 명령은 고정된 합성 텍스트 파일만 검사 통과 fixture로 등록하며 실제 업로드 검사 절차를 바꾸지 않습니다. 로컬 검증 DB의 예시는 `/devices/8/markets/us/writing/`(MRI 장비), `/devices/9/markets/us/writing/`(NeuroAge-MAS 연구용 ROI), `/devices/10/markets/us/writing/`(MR 환경)이며 다른 DB의 ID는 달라질 수 있습니다. 라이브러리에서 원문 확인 → 프로젝트 연결 → 제품 문서/페이지 연결 → 매트릭스 → DOCX/CSV → 출처 새 버전 등록 후 재검토 표시 순서로 시연합니다. 실제 제출·분류·안전 조건이나 시험 합격을 자동 확정하지 않습니다.
+
+MRI 검증 기록(2026-11-15): 전체 Django 276건, 267 통과/9 PostgreSQL 잠금 테스트 skip/실패 0(696.265초). 마지막 템플릿 전환 보완을 포함한 MRI 집중 10건도 통과(4.815초). `check`, `makemigrations --check --dry-run`, `git diff --check` 통과. 별도 검증 DB에서 기존 초안 5건 보존 및 신규 3건 생성, 세 유형의 DOCX/CSV와 메뉴·조건 비교 표를 인증된 로컬 HTTP로 확인했다. 브라우저 제어는 Windows URL 확인 실패로 중단되어 시각적 브라우저 검증은 미완료다.
+
 ### 미국 인허가 문서 작성 AI
 
 **해외 인허가 → 미국 → 의료기기 문서 작성 AI** (`/markets/us/writing/`)에서 제품을 선택하고 게시된 템플릿을 고릅니다. Dental Curing Light는 FDA 2026-09-02 최종 가이드에 연결되고, EEG 소프트웨어와 환자 모니터는 **DEMO 자료 수집 예시**입니다. 공통 자료 수집은 분류·경로·템플릿 확인 전까지 기기별 초안 생성을 보류합니다. 기존 `/devices/<id>/markets/us/dental-510k/` 주소와 과거 초안도 계속 열립니다.

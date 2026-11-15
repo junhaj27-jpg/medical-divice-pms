@@ -1,0 +1,21 @@
+{% extends 'pms/base.html' %}{% load market_ui %}{% block content %}
+<nav><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a> / {% ui 'US' %} / <a href="{% url 'market-fda-library' %}">{% ui 'fda_library' %}</a> · <a href="{% url 'market-writing-list' %}">{% ui 'writing_ai' %}</a></nav>
+<h1>{% ui 'fda_library' %} · MRI/MR</h1>
+<form method="get"><label>{% ui 'search' %}<input name="q" value="{{ q }}" maxlength="200" placeholder="MRI/MR, LNH, heating"></label>
+<select name="device_type"><option value="">{% ui 'all' %}</option>{% for type in device_types %}<option value="{{ type }}"{% if selected_type == type %} selected{% endif %}>{% ui type %}</option>{% endfor %}</select><button>{% ui 'apply' %}</button></form>
+<p><a href="https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfStandards/search.cfm" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">FDA Recognized Consensus Standards</a> · <a href="{% url 'market-us-fda-510k' %}">FDA 510(k)</a></p>
+{% if source %}<section class="panel"><h2>{{ source.title }}</h2>
+<p>{{ source.source_type }} · {{ source.document_version }} · v{{ source.version }} · {% ui 'checked_on' %} {{ source.checked_on }}</p>
+<p>{% ui 'published_on' %} {{ source.issued_on|default:'—' }} · {% ui 'mri_revised' %} {{ source.revised_on|default:'—' }}</p>
+<p><a href="{{ source.official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'official_url' %}</a>{% if source.pdf_url %} · <a href="{{ source.pdf_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">PDF</a>{% endif %}</p>
+<p>{{ source.scope }}</p><p>{{ source.retrieval_status }} · {{ source.failure_reason }}</p><p>SHA-256 (stored record/text): {{ source.content_hash }}</p>
+{% if related_regulation %}<p><a href="{% url 'market-fda-source' related_regulation.pk %}">{{ related_regulation.title }} · v{{ related_regulation.version }}</a></p>{% endif %}
+<dl>{% for key,value in source.metadata.items %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}</dl>
+<p>{% for version in versions %}<a href="{% url 'market-fda-source' version.pk %}">v{{ version.version }} · {{ version.document_version }}</a> {% endfor %}</p>
+<ul>{% for ref in source.sections %}<li>{{ ref.clause }} · PDF p.{{ ref.page }}</li>{% endfor %}</ul>
+<h3>{% ui 'mri_link_project' %}</h3><ul>{% for project in projects %}<li><a href="{% url 'market-writing' project.device_id %}?source={{ source.pk }}">{{ project.device }} · {{ project.template }}</a></li>{% empty %}<li><a href="{% url 'market-writing-list' %}">{% ui 'writing_ai' %}</a></li>{% endfor %}</ul>
+<details><summary>{% ui 'mri_searchable_text' %}</summary>{% for page,text in body_pages %}<h4>PDF p.{{ page }}</h4><pre style="white-space:pre-wrap">{{ text }}</pre>{% empty %}<p>{% ui 'mri_link_only' %}</p>{% endfor %}</details>
+</section>{% endif %}
+<section class="panel"><ul>{% for row in sources %}<li><a href="{% url 'market-fda-source' row.pk %}">{{ row }}</a> · {{ row.source_type }} · {{ row.retrieval_status }}</li>{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul></section>
+<details class="panel"><summary>{% ui 'mri_register_revision' %}</summary><form method="post">{% csrf_token %}{{ form.as_p }}<button>{% ui 'save' %}</button></form></details>
+{% endblock %}

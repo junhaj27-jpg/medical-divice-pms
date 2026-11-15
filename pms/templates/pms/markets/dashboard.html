@@ -2,6 +2,7 @@
 {% block title %}{% ui 'markets' %} · MedWatch PMS{% endblock %}
 {% block content %}
 <h1>{% ui 'markets' %}</h1>
+{% if us_access %}<p>{% ui 'US' %} · <a href="{% url 'market-fda-library' %}">{% ui 'fda_library' %}</a></p>{% endif %}
 {% if eu_access %}<nav><a href="{% url 'market-eu-documents' %}">{% ui 'eu_legal_menu' %}</a> · <a href="{% url 'market-eu-writing-list' %}">{% ui 'eu_writing' %}</a></nav>{% endif %}
 {% if us_access %}<p><a class="btn" href="{% url 'market-writing-list' %}">{% ui 'writing_ai' %}</a></p>{% endif %}
 {% if eu_access %}<nav aria-label="{% ui 'hs_eu' %}"><span>{% ui 'hs_eu' %}</span> · <a href="{% url 'market-eu-standards' %}">{% ui 'hs_title' %}</a></nav>{% endif %}

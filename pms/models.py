@@ -638,3 +638,4 @@ from . import foreign_models
 from . import market_models
 from . import dental_models
 from . import eu_legal_models
+from . import fda_library_models

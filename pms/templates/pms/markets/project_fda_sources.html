@@ -1,0 +1,13 @@
+{% load market_ui %}
+<section class="panel"><h2>{% ui 'fda_library' %}</h2>
+<p><a href="{% url 'market-fda-library' %}?q=MRI%2FMR">{% ui 'mri_searchable_text' %}</a> · {% ui 'mri_scope_notice' %}</p>
+{% if writing_template.key == 'mri-equipment' %}<p>LNH / 21 CFR 892.1000 · {% ui 'mri_candidate_only' %}</p>{% endif %}
+{% if writing_template.key == 'mri-software' %}<p>{% ui 'mri_software_notice' %}</p>{% endif %}
+{% if selected_fda_source %}<h3>{{ selected_fda_source }}</h3>
+<form method="post">{% csrf_token %}<input type="hidden" name="source_id" value="{{ selected_fda_source.pk }}">
+<label>{% ui 'eu_checklist_item' %}<select name="section">{% for row in matrix %}<option>{{ row.section }}</option>{% endfor %}</select></label>
+<label>{% ui 'eu_clause' %}<select name="citation">{% for ref in selected_fda_source.sections %}<option value="{{ ref.clause }}|{{ ref.page }}">{{ ref.clause }} · PDF p.{{ ref.page }}</option>{% endfor %}</select></label>
+<label>{% ui 'applicability_reason' %}<textarea name="rationale" required maxlength="2000"></textarea></label><button name="action" value="fda_source">{% ui 'mri_link_project' %}</button></form>{% endif %}
+<details><summary>{% ui 'mri_select_version' %}</summary><ul>{% for source in fda_sources %}<li><a href="?source={{ source.pk }}">{{ source }}</a> · <a href="{% url 'market-fda-source' source.pk %}">{% ui 'official_url' %}</a></li>{% endfor %}</ul></details>
+{% for source in fda_links %}<p>{{ source.section }} · <a href="{% url 'market-fda-source' source.source_id %}">{{ source.title }} v{{ source.version }}</a> · {{ source.clause }} · PDF p.{{ source.page }} · {{ source.checked_on }} · {{ source.rationale }}{% if source.superseded %} · {% ui 'mri_recheck' %}{% endif %}</p>{% endfor %}
+</section>

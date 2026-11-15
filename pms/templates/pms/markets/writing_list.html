@@ -1,6 +1,7 @@
 {% extends 'pms/base.html' %}{% load market_ui %}{% block content %}
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %} / {% ui writing_market %}</a></p>
 <h1>{% if writing_market == 'EU' %}{% ui 'eu_writing' %}{% else %}{% ui 'writing_ai' %}{% endif %}</h1>
+{% if writing_market == 'US' %}<p><a href="{% url 'market-fda-library' %}">{% ui 'fda_library' %} · MRI/MR</a></p>{% endif %}
 <nav><a href="{% url 'market-writing-list' %}">US</a> · <a href="{% url 'market-eu-writing-list' %}">EU</a></nav>
 <table><thead><tr><th>제품·모델</th><th>기기 유형·버전</th><th>담당자</th><th>검토 상태</th></tr></thead><tbody>
 {% for device in devices %}<tr><td><a href="{% if writing_market == 'EU' %}{% url 'market-eu-writing' device.pk %}{% else %}{% url 'market-writing' device.pk %}{% endif %}">{{ device }}</a></td><td>{{ device.writing_project.template|default:'공통 자료 수집' }}</td>

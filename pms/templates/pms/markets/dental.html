@@ -21,9 +21,10 @@
 {% else %}<p>템플릿 출처 {{ writing_template.source_url|default:'RA 확인 필요 / DEMO' }} · {{ writing_template.checked_on }}</p>{% endif %}
 {% if writing_market == 'US' %}<p>{% if not writing_template or writing_template.key == 'dental' %}<a href="{{ law }}" rel="noreferrer" target="_blank">법규 · 21 CFR 872.6070</a> · {% endif %}<a href="{{ standards }}" rel="noreferrer" target="_blank">FDA 인정 합의표준 DB</a> · 판본·인정 범위 RA 확인 필요</p>{% else %}<p>{% ui 'eu_reference_summary' %} · <a href="{% url 'market-eu-documents' %}">{% ui 'eu_legal_menu' %}</a></p>{% endif %}
 <form method="post">{% csrf_token %}<input type="hidden" name="template_id" value="{{ writing_template.pk }}">{{ form.as_p }}<button class="btn primary" name="action" value="project">{% ui 'save' %}</button></form>
-{% if project and writing_market == 'US' %}<form method="post">{% csrf_token %}<button class="btn" name="action" value="guide">최신 등록 가이드 버전 선택</button></form>{% endif %}
+{% if project and writing_market == 'US' and writing_template.key == 'dental' %}<form method="post">{% csrf_token %}<button class="btn" name="action" value="guide">최신 등록 가이드 버전 선택</button></form>{% endif %}
 </section>
 {% if project %}
+{% if writing_market == 'US' %}{% include 'pms/markets/project_fda_sources.html' %}{% endif %}
 {% if not in_scope %}<p role="status">초안 생성 보류 · 분류·경로·템플릿과 적용 항목 RA 확인 필요. 공통 자료 수집은 근거 정리용입니다.</p>{% endif %}
 <section class="panel">
 <h2>자료 등록</h2>
@@ -35,9 +36,11 @@
 <section class="panel table-wrap"><h2>요구사항 매트릭스</h2>
 <table><thead><tr><th>법령·가이드 출처</th><th>적용 여부</th><th>제품 근거 / 문서 위치</th><th>상태</th><th>보완 조치</th><th>{% if writing_market == 'EU' %}기술문서 섹션{% else %}eSTAR 입력·첨부 검토{% endif %}</th></tr></thead><tbody>
 {% for row in matrix %}<tr><td>{% if row.source_url %}<a href="{{ row.source_url }}" target="_blank" rel="noreferrer">{{ row.source_section }} · p.{{ row.page }}</a>{% else %}{{ row.source_section }}{% endif %} {{ row.title }} · {{ row.evidence_type }}
-{% for law in row.legal_references %}<p><a href="{{ law.url }}" target="_blank" rel="noreferrer">{{ law.celex }} · {{ law.clause }}</a> · {% ui law.kind %} · {{ law.language }} · {{ law.checked_on }} · {% ui law.decision %}</p>{% endfor %}</td>
+{% for law in row.legal_references %}<p><a href="{{ law.url }}" target="_blank" rel="noreferrer">{{ law.celex }} · {{ law.clause }}</a> · {% ui law.kind %} · {{ law.language }} · {{ law.checked_on }} · {% ui law.decision %}</p>{% endfor %}
+{% for source in row.fda_references %}<p>FDA: <a href="{% url 'market-fda-source' source.source_id %}">{{ source.title }} v{{ source.version }}</a> · {{ source.clause }} · PDF p.{{ source.page }} · {{ source.checked_on }}</p>{% endfor %}</td>
 <td>{% if row.na %}해당 없음 · {{ row.na }}{% else %}검토 대상{% endif %}</td>
-<td>{% for ref in row.references %}<p><a href="{% if writing_market == 'EU' %}{% url 'market-eu-writing-evidence' device.pk ref.document_id %}{% else %}{% url 'market-dental-evidence' device.pk ref.document_id %}{% endif %}">{{ ref.citation }}</a> · {{ ref.model }}{% if ref.metric %} · {{ ref.metric }} {{ ref.value }} {{ ref.unit }}{% endif %}</p>{% empty %}—{% endfor %}</td>
+<td>{% for ref in row.references %}<p><a href="{% if writing_market == 'EU' %}{% url 'market-eu-writing-evidence' device.pk ref.document_id %}{% else %}{% url 'market-dental-evidence' device.pk ref.document_id %}{% endif %}">{{ ref.citation }}</a> · {{ ref.model }}{% if ref.metric %} · {{ ref.metric }} {{ ref.value }} {{ ref.unit }}{% endif %}
+{% if source_required %}<br>{{ ref.evidence_role }} · {{ ref.excerpt }}<br>Configuration: {{ ref.configuration }} · Conditions: {{ ref.conditions }} · Method: {{ ref.method }} · Result: {{ ref.result }}{% endif %}</p>{% empty %}—{% endfor %}</td>
 <td>{{ row.status }}</td><td>{% for gap in row.gaps %}<p>{% if gap == 'eu_missing_law' or gap == 'eu_pending' or gap == 'eu_impact_review' %}{% ui gap %}{% else %}{{ gap }}{% endif %}</p>{% endfor %}</td><td>{{ row.mapping }}</td></tr>{% endfor %}
 </tbody></table>
 <form method="post">{% csrf_token %}<label>절 <select name="section">{% for row in matrix %}<option>{{ row.section }}</option>{% endfor %}</select></label>
@@ -46,9 +49,16 @@
 {% if writing_market == 'US' %}<p><a href="{{ estar.url }}" rel="noreferrer" target="_blank">FDA eSTAR {{ estar.version }}</a> · {{ estar.checked_on }} 확인 · 입력·첨부 매핑은 RA 검토용</p>{% endif %}
 </section>
 {% if writing_market == 'US' %}
+{% for row in matrix %}{% if row.section == 'MR.LABEL' %}
+<section class="panel"><h2>{% ui 'mri_mr_comparison' %}</h2>
+<table><thead><tr><th>{% ui 'mri_test_evidence' %}</th><th>{% ui 'mri_label_evidence' %}</th></tr></thead><tbody><tr>
+<td>{% for ref in row.references %}{% if ref.evidence_role == 'test' %}<p>{{ ref.citation }} · {{ ref.model }}<br>{{ ref.excerpt }}<br>Configuration: {{ ref.configuration }} · Conditions: {{ ref.conditions }} · Result: {{ ref.result }}</p>{% endif %}{% endfor %}</td>
+<td>{% for ref in row.references %}{% if ref.evidence_role == 'label' %}<p>{{ ref.citation }} · {{ ref.model }}<br>{{ ref.excerpt }}<br>Configuration: {{ ref.configuration }} · Conditions: {{ ref.conditions }}</p>{% endif %}{% endfor %}</td>
+</tr></tbody></table><p>{{ row.status }} · {{ row.gaps|join:' / ' }}</p></section>
+{% endif %}{% endfor %}
 <section class="panel"><h2>비교기기 검토</h2>
 <p><a href="{{ fda_search }}" target="_blank" rel="noreferrer">FDA 510(k) 공식 검색</a> · <a href="{% url 'market-product-fda-510k' device.pk %}?search_field=k_number&amp;search_term={{ number|urlencode }}">제품에 FDA 후보 등록</a></p>
-<form method="get"><label>K-number <input name="k_number" value="{{ number }}" pattern="[Kk][0-9]{6}" maxlength="7" required></label><button class="btn">공식 DB 조회</button></form>
+<form method="get"><label>K-number <input name="k_number" value="{{ number }}" pattern="[Kk][0-9]{6}" maxlength="7"></label><label>{% ui 'product_code' %}<input name="product_code" value="{{ lookup_code }}" pattern="[A-Za-z]{3}" maxlength="3"></label><button class="btn">공식 DB 조회</button></form>
 {% if lookup_status %}<p role="status">{% ui lookup_status %}</p>{% endif %}
 {% for candidate in lookup %}<p>{{ candidate.k_number }} · {{ candidate.fda_device_name }} · <a href="{{ candidate.fda_detail_url }}" target="_blank" rel="noreferrer">공개 기록{% if candidate.summary_listed %} 및 Summary 확인{% endif %}</a></p>{% endfor %}
 <form method="post">{% csrf_token %}<label>K-number / DEMO ID <input name="k_number" value="{{ spec.predicate.k_number }}" maxlength="20" required></label>
@@ -66,7 +76,7 @@
 <form method="post">{% csrf_token %}<button class="btn primary" name="action" value="generate"{% if not in_scope %} disabled{% endif %}>초안 생성</button></form>
 {% for draft in drafts %}<article>
 <h3>#{{ draft.pk }} · Draft for RA Review{% if draft.snapshot.specification.example %} · DEMO{% endif %}</h3>
-<p>{{ draft.author }} · {{ draft.created_at }} · {{ draft.snapshot.guide.issued_on }} · {{ draft.snapshot.engine }}</p>
+<p>{{ draft.author }} · {{ draft.created_at }} · {{ draft.snapshot.engine }}</p>
 <p>{{ draft.snapshot.template.name }} v{{ draft.snapshot.template.version }}</p>
 {% if draft.stale %}<p role="status">재검토 필요 · {{ draft.stale|join:", " }}</p>{% endif %}
 <p><a href="{% url 'market-dental-output' device.pk draft.pk 'docx' %}">영문 DOCX</a> ·

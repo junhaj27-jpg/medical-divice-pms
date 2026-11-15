@@ -3312,6 +3312,8 @@ erDiagram
 
 ## EU 법령–제품 증빙 확장
 
+MRI/MR의 FDA 공통 출처는 `FDAReferenceVersion`(계열·버전·출처 유형·발행/개정/확인일·절/페이지·검색 본문·조회 상태·내용 해시)에 추가 전용으로 저장합니다. `ProjectFDAReference`가 `DentalProject`의 체크리스트 항목과 출처 버전/조항/페이지를 연결하며 제품별 `MarketEvidence`도 재사용합니다. `(key, version)`, `(key, content_hash)`와 프로젝트 인용 조합은 유일합니다. 초안은 출처와 제품 증빙의 당시 값을 JSON으로 보존합니다. 동일 제품의 등록 상태나 PMS 기한은 이 연결에서 변경하지 않습니다.
+
 ```mermaid
 erDiagram
     Device ||--o{ DentalProject : writing_projects

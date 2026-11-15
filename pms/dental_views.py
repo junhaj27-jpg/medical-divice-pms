@@ -15,6 +15,7 @@ from pypdf import PdfReader
 from .dental_models import DentalDraft, DentalGuide, DentalProject, WritingTemplate
 from .dental_workflow import (ESTAR, FEATURES, GUIDE, LAW, METRIC_UNITS, SECTIONS, STANDARDS, TEST_FIELDS,
                               build_snapshot, csv_export, docx_export, ready, stale_sections, template_items)
+from .dental_workflow import predicate_features
 from .fda_510k_views import FDA_SEARCH, case_results
 from .fda_classification import LookupError
 from .file_security import safe_attachment_bytes
@@ -74,6 +75,7 @@ class ProjectForm(forms.Form):
 
 
 class EvidenceForm(forms.Form):
+    evidence_role = forms.ChoiceField(label="제품 증빙 유형", required=False, choices=[("", "—"), ("specification", "제품 사양"), ("test", "시험 근거"), ("label", "라벨·IFU")])
     document = forms.ModelChoiceField(queryset=ControlledDocument.objects.none(), label="관리 문서 버전")
     section = forms.ChoiceField(label="가이드 절")
     page = forms.IntegerField(label="PDF 페이지 (텍스트 파일은 1)", min_value=1, max_value=10000)
@@ -186,7 +188,8 @@ def project_page(request, device, market="US"):
                        modern=modern,
                        template=template if modern or project else None,
                        initial=spec or {"product_name": device.name, "model": device.model_number,
-                                        "product_code": "EBZ" if market == "US" else "", "regulation": "872.6070" if market == "US" else ""})
+                                        "product_code": "EBZ" if market == "US" and (not template or template.key == "dental") else "",
+                                        "regulation": "872.6070" if market == "US" and (not template or template.key == "dental") else ""})
     docs = documents_for(device, market)
     sections = {item["id"]: [item["title"], item["page"], item["mapping"]] for item in template_items(project)} if project else SECTIONS
     evidence_form = EvidenceForm(request.POST if action == "evidence" else None, documents=docs,
@@ -212,16 +215,26 @@ def project_page(request, device, market="US"):
             raise Http404
         chosen = get_object_or_404(templates, pk=selected_id)
         prior = project.template_id
+        if chosen.key == "mri-software" and project.template and project.template.key != chosen.key:
+            project.specification["previous_classification_input"] = {
+                key: project.specification.get(key, "") for key in ("product_code", "regulation", "confirmed_pathway")}
+            for key in ("product_code", "regulation", "confirmed_pathway"):
+                project.specification[key] = ""
         project.template = chosen
         project.specification["scope_confirmed"] = False
         project.save(update_fields=["template", "specification"])
         audit(request.user, "WRITING_TEMPLATE_SWITCH", project, before={"template_id": prior}, after={"template_id": chosen.pk})
         return redirect(request.path)
-    if action == "guide" and market == "US":
+    if action == "guide" and market == "US" and (not template or template.key == "dental"):
         project.guide = guide_for()
         project.save(update_fields=["guide"])
         audit(request.user, "DENTAL_GUIDE_VERSION", project, after={"guide_id": project.guide_id})
         return redirect(request.path)
+    if action == "fda_source" and market == "US":
+        from .fda_library import link_reference
+        error = link_reference(project, request.user, request.POST)
+        if not error:
+            return redirect(request.path)
     if action == "evidence" and evidence_form.is_valid():
         data = evidence_form.cleaned_data.copy()
         doc, section = data.pop("document"), data.pop("section")
@@ -246,10 +259,11 @@ def project_page(request, device, market="US"):
     if action == "predicate" and market == "US":
         number = request.POST.get("k_number", "").strip().upper()
         saved_case = project.device.fda_510k_reviews.filter(k_number=number).first()
-        values = {key: request.POST.get(key, "").strip() for key in (*FEATURES, *(f"{key}_source" for key in FEATURES))}
+        feature_keys = predicate_features(project)
+        values = {key: request.POST.get(key, "").strip() for key in (*feature_keys, *(f"{key}_source" for key in feature_keys))}
         if len(number) <= 20 and (number.startswith("DEMO-") if spec["example"] else
                                  saved_case is not None) and all(len(v) <= 400 for v in values.values()):
-            for key in FEATURES:
+            for key in feature_keys:
                 if not values[f"{key}_source"]:
                     values[key] = ""
             spec["predicate"] = {**values, "k_number": number, "record_url": saved_case.fda_detail_url if saved_case else ""}
@@ -277,10 +291,13 @@ def project_page(request, device, market="US"):
     lookup = []
     lookup_status = ""
     number = request.GET.get("k_number", "").strip().upper()
-    if market == "US" and number and request.method == "GET":
-        if re.fullmatch(r"K[0-9]{6}", number):
+    code = request.GET.get("product_code", "").strip().upper()
+    if market == "US" and (number or code) and request.method == "GET":
+        if template and template.key == "mri-software" and not (spec.get("intended_use") and spec.get("outputs")):
+            lookup_status = "mri_software_search_review"
+        elif re.fullmatch(r"K[0-9]{6}", number) or (not number and re.fullmatch(r"[A-Z]{3}", code)):
             try:
-                lookup = case_results("k_number", number)
+                lookup = case_results("k_number" if number else "product_code", number or code)
             except LookupError:
                 lookup_status = "fda_lookup_failed"
             else:
@@ -299,6 +316,14 @@ def project_page(request, device, market="US"):
     if market == "EU" and project:
         from .eu_legal import eu_context
         eu_details = eu_context(project, request.user)
+    if market == "US":
+        from .fda_library import FDAReferenceVersion, source_snapshot
+        eu_details.update(fda_sources=FDAReferenceVersion.objects.all(),
+                          fda_links=source_snapshot(project) if project else [],
+                          source_required=bool(template and template.conditions.get("scope", "").startswith(("mri-", "mr-"))))
+        source_id = request.GET.get("source", "")
+        if re.fullmatch(r"[0-9]{1,18}", source_id):
+            eu_details["selected_fda_source"] = get_object_or_404(FDAReferenceVersion, pk=source_id)
     return render(request, "pms/markets/dental.html", {
         **eu_details, "writing_market": market, "can_us": market_access(request.user, ("US",), device),
         "can_eu": eu_access(request.user, device),
@@ -306,8 +331,8 @@ def project_page(request, device, market="US"):
         "matrix": matrix, "error": error, "in_scope": bool(project and ready(project)),
         "guide": project.guide if project else GUIDE,
         "estar": ESTAR, "law": LAW, "standards": STANDARDS, "fda_search": FDA_SEARCH, "lookup": lookup,
-        "lookup_status": lookup_status, "number": number, "features": [
-            (key, spec.get(key), predicate.get(key), predicate.get(f"{key}_source")) for key in FEATURES],
+        "lookup_status": lookup_status, "number": number, "lookup_code": code, "features": [
+            (key, spec.get(key), predicate.get(key), predicate.get(f"{key}_source")) for key in predicate_features(project)],
         "writing_template": template, "templates": templates, "modern": modern,
         "template_changes": compare_templates(template, latest_template) if template else [], "template_differences": differences,
     }, status=400 if request.method == "POST" else 200)

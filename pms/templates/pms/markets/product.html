@@ -5,6 +5,7 @@
 {% if us_access %}<p><a class="btn" href="{% url 'market-dental' device.pk %}">{% ui 'dental_workspace' %}</a></p>{% endif %}
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% if not market_scoped %} / <a href="{% url 'device-detail' device.pk %}">{% ui 'product' %}</a>{% endif %}</p>
 <h1>{{ device }} · {% ui 'registration' %}</h1>
+{% if us_access %}<p><a class="btn" href="{% url 'market-fda-library' %}">{% ui 'fda_library' %} · MRI/MR</a></p>{% endif %}
 {% if eu_access %}<p><a class="btn" href="{% url 'market-product-standards' device.pk %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></p>{% endif %}
 {% if us_access %}<p><a class="btn" href="{% url 'market-product-fda-510k' device.pk %}">{% ui 'US' %} (US) · {% ui 'fda_510k' %}</a></p>{% endif %}
 {% if us_access %}<p><a class="btn" href="{% url 'market-product-fda-classification' device.pk %}">{% ui 'US' %} (US) · {% ui 'fda_classification' %}</a></p>{% endif %}
