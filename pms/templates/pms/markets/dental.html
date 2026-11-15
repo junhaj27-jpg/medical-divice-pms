@@ -1,37 +1,51 @@
 {% extends 'pms/base.html' %}{% load market_ui %}
 {% block content %}
-<p><a href="{% url 'market-product' device.pk %}">{{ device }}</a> / {% ui 'US' %}</p>
-<h1>{% ui 'dental_workspace' %}</h1>
+<p><a href="{% url 'market-product' device.pk %}">{{ device }}</a> / {% ui writing_market %}</p>
+<nav>{% if can_us %}<a href="{% url 'market-writing' device.pk %}">US</a>{% endif %} {% if can_eu %}<a href="{% url 'market-eu-writing' device.pk %}">EU</a>{% endif %}</nav>
+<p><a href="{% if writing_market == 'EU' %}{% url 'market-eu-writing-list' %}{% else %}{% url 'market-writing-list' %}{% endif %}">{% ui 'writing_ai' %}</a></p>
+<h1>{% if writing_market == 'EU' %}{% ui 'eu_writing' %}{% elif modern %}{% ui 'writing_ai' %}{% else %}{% ui 'dental_workspace' %}{% endif %}</h1>
+{% if writing_template %}<p>{{ writing_template.name }} v{{ writing_template.version }} · {{ writing_template.pathway }}</p>
+<p>{{ writing_template.conditions.include }} · 제외 {{ writing_template.conditions.exclude }}</p>
+{% if writing_template.example %}<p>DEMO 자료 수집 템플릿 · 실제 제출 요건 및 경로 RA 확인 필요</p>{% endif %}{% endif %}
+{% if modern and not project %}<form method="get"><label>기기 유형 <select name="template">{% for item in templates %}<option value="{{ item.pk }}"{% if item.pk == writing_template.pk %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label><button>선택</button></form>{% endif %}
+{% if project %}<form method="post">{% csrf_token %}<label>선택 프로젝트의 템플릿 전환 <select name="template_id">{% for item in templates %}<option value="{{ item.pk }}"{% if item.pk == writing_template.pk %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></label><button name="action" value="template">버전 전환 후 RA 재확인</button></form>
+{% if template_changes %}<p>새 게시 버전 변경 항목 · {{ template_changes|join:', ' }}</p>
+{% if template_differences %}<table><thead><tr><th>항목</th><th>현재 버전</th><th>새 게시 버전</th></tr></thead><tbody>{% for key, before, after in template_differences %}<tr><th>{{ key }}</th><td>{{ before }}</td><td>{{ after }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{% endif %}{% endif %}
 {% if spec.example %}<p>{% ui 'is_example' %} · DEMO</p>{% endif %}
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
 <section class="panel">
 <h2>프로젝트 및 제품 사양</h2>
-<p><a href="{{ guide.url }}" rel="noreferrer" target="_blank">FDA 가이드 PDF</a> · {{ guide.issued_on }} · {{ guide.status }}</p>
+{% if not writing_template or writing_template.key == 'dental' %}<p><a href="{{ guide.url }}" rel="noreferrer" target="_blank">FDA 가이드 PDF</a> · {{ guide.issued_on }} · {{ guide.status }}</p>
 <p>확인일 {{ guide.checked_on }} · SHA-256 <code>{{ guide.sha256 }}</code></p>
-<p><a href="{{ law }}" rel="noreferrer" target="_blank">법규 · 21 CFR 872.6070</a> · <a href="{{ standards }}" rel="noreferrer" target="_blank">FDA 인정 합의표준 DB</a> · 판본·인정 범위 RA 확인 필요</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary" name="action" value="project">{% ui 'save' %}</button></form>
-{% if project %}<form method="post">{% csrf_token %}<button class="btn" name="action" value="guide">최신 등록 가이드 버전 선택</button></form>{% endif %}
+{% else %}<p>템플릿 출처 {{ writing_template.source_url|default:'RA 확인 필요 / DEMO' }} · {{ writing_template.checked_on }}</p>{% endif %}
+{% if writing_market == 'US' %}<p>{% if not writing_template or writing_template.key == 'dental' %}<a href="{{ law }}" rel="noreferrer" target="_blank">법규 · 21 CFR 872.6070</a> · {% endif %}<a href="{{ standards }}" rel="noreferrer" target="_blank">FDA 인정 합의표준 DB</a> · 판본·인정 범위 RA 확인 필요</p>{% else %}<p>{% ui 'eu_reference_summary' %} · <a href="{% url 'market-eu-documents' %}">{% ui 'eu_legal_menu' %}</a></p>{% endif %}
+<form method="post">{% csrf_token %}<input type="hidden" name="template_id" value="{{ writing_template.pk }}">{{ form.as_p }}<button class="btn primary" name="action" value="project">{% ui 'save' %}</button></form>
+{% if project and writing_market == 'US' %}<form method="post">{% csrf_token %}<button class="btn" name="action" value="guide">최신 등록 가이드 버전 선택</button></form>{% endif %}
 </section>
 {% if project %}
-{% if not in_scope %}<p role="status">초안 생성 보류 · 치과 수복용 광중합, EBZ, 21 CFR 872.6070 및 광원 확인 필요. 중합용 레이저와 미백 전용은 범위 제외입니다.</p>{% endif %}
+{% if not in_scope %}<p role="status">초안 생성 보류 · 분류·경로·템플릿과 적용 항목 RA 확인 필요. 공통 자료 수집은 근거 정리용입니다.</p>{% endif %}
 <section class="panel">
 <h2>자료 등록</h2>
+{% if writing_market == 'EU' %}{% include 'pms/markets/eu_project_laws.html' %}{% endif %}
 {% if not market_scoped %}<p><a href="{% url 'foreign-device' device.pk %}">해외 인허가 문서 관리</a></p>{% endif %}
-<p>제품의 미국 RA 프로필에 등록한 검사 통과 PDF 또는 UTF-8 문서 버전을 선택하세요.</p>
+<p>{{ writing_market }} RA 프로필에 등록한 검사 통과 PDF 또는 UTF-8 문서 버전을 선택하세요.</p>
 <form method="post">{% csrf_token %}{{ evidence_form.as_p }}<button class="btn" name="action" value="evidence">문서 근거 연결</button></form>
 </section>
 <section class="panel table-wrap"><h2>요구사항 매트릭스</h2>
-<table><thead><tr><th>가이드 출처</th><th>적용 여부</th><th>제품 근거 / 문서 위치</th><th>상태</th><th>보완 조치</th><th>eSTAR 입력·첨부 검토</th></tr></thead><tbody>
-{% for row in matrix %}<tr><td><a href="{{ project.guide.url }}#page={{ row.page|add:3 }}" target="_blank" rel="noreferrer">{{ row.section }} · p.{{ row.page }}</a> {{ row.title }}</td>
+<table><thead><tr><th>법령·가이드 출처</th><th>적용 여부</th><th>제품 근거 / 문서 위치</th><th>상태</th><th>보완 조치</th><th>{% if writing_market == 'EU' %}기술문서 섹션{% else %}eSTAR 입력·첨부 검토{% endif %}</th></tr></thead><tbody>
+{% for row in matrix %}<tr><td>{% if row.source_url %}<a href="{{ row.source_url }}" target="_blank" rel="noreferrer">{{ row.source_section }} · p.{{ row.page }}</a>{% else %}{{ row.source_section }}{% endif %} {{ row.title }} · {{ row.evidence_type }}
+{% for law in row.legal_references %}<p><a href="{{ law.url }}" target="_blank" rel="noreferrer">{{ law.celex }} · {{ law.clause }}</a> · {% ui law.kind %} · {{ law.language }} · {{ law.checked_on }} · {% ui law.decision %}</p>{% endfor %}</td>
 <td>{% if row.na %}해당 없음 · {{ row.na }}{% else %}검토 대상{% endif %}</td>
-<td>{% for ref in row.references %}<p><a href="{% url 'market-dental-evidence' device.pk ref.document_id %}">{{ ref.citation }}</a> · {{ ref.model }}{% if ref.metric %} · {{ ref.metric }} {{ ref.value }} {{ ref.unit }}{% endif %}</p>{% empty %}—{% endfor %}</td>
-<td>{{ row.status }}</td><td>{% for gap in row.gaps %}<p>{{ gap }}</p>{% endfor %}</td><td>{{ row.mapping }}</td></tr>{% endfor %}
+<td>{% for ref in row.references %}<p><a href="{% if writing_market == 'EU' %}{% url 'market-eu-writing-evidence' device.pk ref.document_id %}{% else %}{% url 'market-dental-evidence' device.pk ref.document_id %}{% endif %}">{{ ref.citation }}</a> · {{ ref.model }}{% if ref.metric %} · {{ ref.metric }} {{ ref.value }} {{ ref.unit }}{% endif %}</p>{% empty %}—{% endfor %}</td>
+<td>{{ row.status }}</td><td>{% for gap in row.gaps %}<p>{% if gap == 'eu_missing_law' or gap == 'eu_pending' or gap == 'eu_impact_review' %}{% ui gap %}{% else %}{{ gap }}{% endif %}</p>{% endfor %}</td><td>{{ row.mapping }}</td></tr>{% endfor %}
 </tbody></table>
 <form method="post">{% csrf_token %}<label>절 <select name="section">{% for row in matrix %}<option>{{ row.section }}</option>{% endfor %}</select></label>
 <label>해당 없음 사유 <input name="rationale" required maxlength="2000"></label><button class="btn" name="action" value="na">해당 없음 저장</button>
 <button class="btn" name="action" value="applicable" formnovalidate>검토 대상으로 되돌리기</button></form>
-<p><a href="{{ estar.url }}" rel="noreferrer" target="_blank">FDA eSTAR {{ estar.version }}</a> · {{ estar.checked_on }} 확인 · 입력·첨부 매핑은 RA 검토용</p>
+{% if writing_market == 'US' %}<p><a href="{{ estar.url }}" rel="noreferrer" target="_blank">FDA eSTAR {{ estar.version }}</a> · {{ estar.checked_on }} 확인 · 입력·첨부 매핑은 RA 검토용</p>{% endif %}
 </section>
+{% if writing_market == 'US' %}
 <section class="panel"><h2>비교기기 검토</h2>
 <p><a href="{{ fda_search }}" target="_blank" rel="noreferrer">FDA 510(k) 공식 검색</a> · <a href="{% url 'market-product-fda-510k' device.pk %}?search_field=k_number&amp;search_term={{ number|urlencode }}">제품에 FDA 후보 등록</a></p>
 <form method="get"><label>K-number <input name="k_number" value="{{ number }}" pattern="[Kk][0-9]{6}" maxlength="7" required></label><button class="btn">공식 DB 조회</button></form>
@@ -47,15 +61,17 @@
 <label><input type="checkbox" name="confirmed" {% if spec.predicate_confirmed %}checked{% endif %}> RA가 후보와 공개 자료를 확인함</label>
 <button class="btn" name="action" value="predicate">{% ui 'save' %}</button></form>
 </section>
+{% endif %}
 <section class="panel"><h2>초안 생성 · RA 검토 · 내보내기</h2>
 <form method="post">{% csrf_token %}<button class="btn primary" name="action" value="generate"{% if not in_scope %} disabled{% endif %}>초안 생성</button></form>
 {% for draft in drafts %}<article>
 <h3>#{{ draft.pk }} · Draft for RA Review{% if draft.snapshot.specification.example %} · DEMO{% endif %}</h3>
 <p>{{ draft.author }} · {{ draft.created_at }} · {{ draft.snapshot.guide.issued_on }} · {{ draft.snapshot.engine }}</p>
+<p>{{ draft.snapshot.template.name }} v{{ draft.snapshot.template.version }}</p>
 {% if draft.stale %}<p role="status">재검토 필요 · {{ draft.stale|join:", " }}</p>{% endif %}
 <p><a href="{% url 'market-dental-output' device.pk draft.pk 'docx' %}">영문 DOCX</a> ·
 <a href="{% url 'market-dental-output' device.pk draft.pk 'matrix' %}">매트릭스 CSV</a> ·
-<a href="{% url 'market-dental-output' device.pk draft.pk 'gaps' %}">한국어 보완 CSV</a></p>
+<a href="{% url 'market-dental-output' device.pk draft.pk 'gaps' %}">한국어 보완 CSV</a>{% if writing_market == 'US' %} · <a href="{% url 'market-dental-output' device.pk draft.pk 'mapping' %}">eSTAR 매핑표 CSV</a>{% endif %}</p>
 {% for review in draft.reviews.all %}<p>{{ review.reviewer }} · {{ review.reviewed_at }} · {{ review.note }}</p>{% endfor %}
 {% if not draft.stale %}<form method="post" action="{% url 'market-dental-output' device.pk draft.pk 'review' %}">{% csrf_token %}
 <label>검토·수정 내역 <textarea name="note" maxlength="2000" required></textarea></label><button class="btn">RA 검토 기록</button></form>{% endif %}

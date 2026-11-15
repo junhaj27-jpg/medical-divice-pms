@@ -7,12 +7,14 @@
 {{ form.regulation.as_field_group }}{{ form.standard_number.as_field_group }}{{ form.edition.as_field_group }}
 {{ form.eurlex_url.as_field_group }}{{ form.decision_number.as_field_group }}{{ form.decision_item.as_field_group }}
 {{ form.checked_on.as_field_group }}
+{{ form.oj_document.as_field_group }}{{ form.publication_scope.as_field_group }}{{ form.restrictions.as_field_group }}
 </fieldset>
 <fieldset><legend>{% ui 'hs_product_assessment' %}</legend>
 {{ form.applicability.as_field_group }}{{ form.applicability_reason.as_field_group }}{{ form.review_date.as_field_group }}
 </fieldset>{{ form.non_field_errors }}
 <button class="btn primary">{% ui 'save' %}</button></form>
 <section class="panel"><h2>{% ui 'hs_history' %}</h2>
+<p>{% ui 'eu_no_conformity' %}</p>
 {% if existing %}<p role="status">{% ui 'fda_already_saved' %} · {{ existing.standard_number }} #{{ existing.pk }}</p>{% endif %}
 {% for entry in page %}
 <article id="review-{{ entry.pk }}">
@@ -21,6 +23,7 @@
 {% ui 'fda_missing' as missing %}<p>{% ui 'checked_on' %} {{ entry.checked_on|default:missing }}</p>
 <p><a href="{{ entry.eurlex_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">EUR-Lex</a> · {{ entry.decision_number }} · {{ entry.decision_item }}</p>
 <p>{% ui entry.applicability %} · {{ entry.applicability_reason|linebreaksbr }}</p>
+<p>{% if entry.oj_document %}<a href="{% url 'market-eu-document' entry.oj_document_id %}">{{ entry.oj_document }}</a> · {% endif %}{{ entry.publication_scope }} · {{ entry.restrictions }}</p>
 {% if entry.previous %}
 <h4>{% ui 'hs_previous_comparison' %} #{{ entry.previous.pk }}</h4>
 <ul>{% for field, before, after in entry.changes %}<li>{% ui field %} · {% if field == 'applicability' %}{% ui before %} → {% ui after %}{% else %}{{ before }} → {{ after }}{% endif %}</li>

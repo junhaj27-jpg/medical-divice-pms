@@ -7,9 +7,18 @@ from .harmonised_views import standards, product_reviews
 from .fda_510k_views import fda_search, fda_product_reviews
 from .fda_classification import classification
 from .fda_guidance import guidance
-from .dental_views import workspace, draft_output, evidence_download
+from .dental_views import workspace, draft_output, evidence_download, writing_list
+from .eu_legal import documents as eu_documents
 
 urlpatterns = [
+    path("markets/eu/legal/", eu_documents, name="market-eu-documents"),
+    path("markets/eu/legal/<int:pk>/", eu_documents, name="market-eu-document"),
+    path("markets/eu/writing/", writing_list, {"market": "EU"}, name="market-eu-writing-list"),
+    path("devices/<int:pk>/markets/eu/writing/", workspace, {"market": "EU"}, name="market-eu-writing"),
+    path("devices/<int:pk>/markets/eu/writing/evidence/<int:document_id>/", evidence_download,
+         {"market": "EU"}, name="market-eu-writing-evidence"),
+    path("markets/us/writing/", writing_list, name="market-writing-list"),
+    path("devices/<int:pk>/markets/us/writing/", workspace, name="market-writing"),
     path("devices/<int:pk>/markets/us/dental-510k/", workspace, name="market-dental"),
     path("devices/<int:pk>/markets/us/dental-510k/evidence/<int:document_id>/", evidence_download, name="market-dental-evidence"),
     path("devices/<int:pk>/markets/us/dental-510k/<int:draft_id>/<str:kind>/", draft_output, name="market-dental-output"),

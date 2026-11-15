@@ -1,0 +1,14 @@
+{% load market_ui %}
+<h3>{% ui 'eu_law_clause' %}</h3>
+<p><a href="{% url 'market-eu-documents' %}">{% ui 'eu_manual_register' %}</a> · {% ui 'eu_reference_summary' %}</p>
+<form method="post">{% csrf_token %}
+<label>{% ui 'eu_checklist_item' %}<select name="section">{% for row in eu_sections %}<option>{{ row.id }}</option>{% endfor %}</select></label>
+<label>{% ui 'eu_document' %}<select name="document_id">{% for document in eu_documents %}<option value="{{ document.pk }}">{{ document }}</option>{% endfor %}</select></label>
+<label>{% ui 'eu_clause' %}<input name="clause" maxlength="240" required></label>
+<button name="action" value="law_link">{% ui 'eu_link_law' %}</button></form>
+{% for link in eu_links %}<article><p>{{ link.section }} · <a href="{% url 'market-eu-document' link.document_id %}">{{ link.document }}</a> · {{ link.clause }} · {% if link.latest %}{% ui link.latest.decision %} · {{ link.latest.reason }}{% else %}{% ui 'eu_pending' %}{% endif %}</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="link_id" value="{{ link.pk }}"><input type="hidden" name="previous" value="{{ link.latest.pk|default:0|stringformat:'s' }}">
+<label>{% ui 'applicability' %}<select name="decision"><option value="eu_pending">{% ui 'eu_pending' %}</option><option value="hs_applies">{% ui 'hs_applies' %}</option><option value="hs_does_not_apply">{% ui 'hs_does_not_apply' %}</option></select></label>
+<label>{% ui 'applicability_reason' %}<textarea name="reason" maxlength="2000" required></textarea></label>
+<button name="action" value="law_review">{% ui 'save' %}</button></form>
+<ul>{% for event in link.reviews.all %}<li>{{ event.recorded_at }} · {{ event.actor }} · {% ui event.decision %} · {{ event.reason }}</li>{% endfor %}</ul></article>{% endfor %}

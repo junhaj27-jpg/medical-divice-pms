@@ -33,7 +33,7 @@ class StandardReviewForm(LocalizedForm, forms.ModelForm):
 
     class Meta:
         model = HarmonisedStandardReview
-        fields = ("regulation", "standard_number", *OFFICIAL_FIELDS, *PRODUCT_FIELDS, "review_date")
+        fields = ("regulation", "standard_number", *OFFICIAL_FIELDS, "oj_document", "publication_scope", "restrictions", *PRODUCT_FIELDS, "review_date")
         widgets = {"applicability_reason": forms.Textarea(attrs={"rows": 3})}
 
     def clean_standard_number(self):
@@ -82,7 +82,7 @@ def product_reviews(request, pk):
             entry = form.save(commit=False)
             entry.device = device
             entry.reviewer = request.user
-            fields = ("regulation", "standard_number", *OFFICIAL_FIELDS, *PRODUCT_FIELDS, "review_date")
+            fields = ("regulation", "standard_number", *OFFICIAL_FIELDS, "oj_document", "publication_scope", "restrictions", *PRODUCT_FIELDS, "review_date")
             existing = device.harmonised_reviews.filter(**{field: getattr(entry, field) for field in fields}).first()
             if existing:
                 return redirect(f"{request.path}?existing={existing.pk}#review-{existing.pk}")
@@ -104,7 +104,7 @@ def product_reviews(request, pk):
         entry.previous = older.get(entry.previous_id)
         if entry.previous:
             entry.changes = [(field, getattr(entry.previous, field), getattr(entry, field))
-                             for field in (*OFFICIAL_FIELDS, *PRODUCT_FIELDS)
+                             for field in (*OFFICIAL_FIELDS, "oj_document", "publication_scope", "restrictions", *PRODUCT_FIELDS)
                              if getattr(entry.previous, field) != getattr(entry, field)]
     existing = request.GET.get("existing", "")
     return render(request, "pms/markets/harmonised_product.html", {"device": device, "form": form, "page": page,

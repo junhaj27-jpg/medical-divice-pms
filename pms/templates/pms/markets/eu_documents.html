@@ -1,0 +1,33 @@
+{% extends 'pms/base.html' %}{% load market_ui %}
+{% block content %}
+<nav><a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a> / {% ui 'EU' %} / <a href="{% url 'market-eu-writing-list' %}">{% ui 'eu_writing' %}</a></nav>
+<h1>{% ui 'eu_legal_menu' %}</h1>
+<p><a href="{{ today_oj }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'eu_today_oj' %}</a></p>
+<form method="post">{% csrf_token %}<button name="action" value="lookup">{% ui 'eu_lookup' %}</button></form>
+{% if message %}<p role="status">{% ui message %}</p>{% endif %}
+{% if document %}<section class="panel">
+<h2>{{ document.title }}</h2>
+<p>{{ document.celex }} · {% ui document.source_type %} · {% ui document.kind %} · {{ document.language }} · {{ document.oj_reference }}</p>
+<p>{% ui 'published_on' %} {{ document.published_on|default:'—' }} · {% ui 'eu_effective_on' %} {{ document.effective_on|default:'—' }} · {% ui 'applies_on' %} {{ document.applies_on|default:'—' }} · {% ui 'checked_on' %} {{ document.checked_on }}</p>
+<p><a href="{{ document.official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% ui 'official_url' %}</a></p>
+{% if document.parent %}<p><a href="{% url 'market-eu-document' document.parent_id %}">{{ document.parent }}</a></p>{% endif %}
+<p>{% for lang, url in language_links %}<a href="{{ url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{{ lang|upper }}</a> {% endfor %}</p>
+<p>{% ui 'eu_reference_summary' %}</p>
+{% if candidates %}<h3>{% ui 'eu_impact_candidates' %}</h3>
+<form method="post">{% csrf_token %}
+{% for link in candidates %}<p><label><input type="checkbox" name="link" value="{{ link.pk }}"> <a href="{% url 'market-eu-writing' link.project.device_id %}">{{ link.project.device }}</a> · {{ link.project.template }} · {{ link.section }} · {{ link.clause }}</label></p>{% endfor %}
+<label>{% ui 'applicability_reason' %}<textarea name="reason" required maxlength="2000"></textarea></label>
+<button name="action" value="confirm_impact">{% ui 'eu_confirm_impact' %}</button></form>
+{% endif %}
+</section>{% endif %}
+{% if confirmations %}<section class="panel"><h2>{% ui 'eu_confirm_impact' %}</h2>
+{% for event in confirmations %}<p><a href="{% url 'market-eu-writing' event.project.device_id %}">{{ event.project.device }}</a> · {{ event.section }} · {{ event.actor }} · {{ event.recorded_at }}<br>{{ event.reason }}</p>{% endfor %}
+</section>{% endif %}
+<section class="panel"><h2>{% ui 'eu_manual_register' %}</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn primary" name="action" value="register">{% ui 'save' %}</button></form>
+</section>
+<section class="panel"><h2>{% ui 'eu_registered_documents' %}</h2>
+<ul>{% for doc in page %}<li><a href="{% url 'market-eu-document' doc.pk %}">{{ doc }}</a> · {% ui doc.kind %}</li>{% empty %}<li>{% ui 'empty' %}</li>{% endfor %}</ul>
+{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}{% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</section>
+{% endblock %}

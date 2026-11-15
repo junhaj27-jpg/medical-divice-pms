@@ -2,6 +2,8 @@
 
 ## 도메인 개요
 
+미국 문서 작성은 기존 DentalProject·DentalEvidence·DentalDraft를 공통으로 재사용한다. DentalProject.template_id는 선택한 WritingTemplate 버전에 대한 선택적 FK이고, owner_id는 담당자 FK다. WritingTemplate은 key와 version으로 유일하며 기기 유형(name/key), 시장·경로, 적용·제외 조건(conditions JSON), 입력 필드(fields JSON), 체크리스트(items JSON), 공식 출처와 확인일, DRAFT/REVIEW/PUBLISHED 상태를 갖는다. 게시본을 복제해 새 버전을 만들며 프로젝트별 명시 전환 전까지 기존 버전을 유지한다. DentalDraft.snapshot에는 당시 템플릿 버전과 항목, 제품 근거 문서 버전이 저장된다.
+
 사건은 제품·UDI·선택 LOT를 참조하며 위험평가, 이상사례, CAPA, 보고서, 리콜 및 업무를 모은다. 규칙은 원문 청크를 인용하는 버전으로 관리하고 사건 적용은 당시 스냅샷을 남긴다. 외부 CSV 분석 레코드는 제품 문자열을 사용하며 내부 제품 FK로 자동 연결하지 않는다.
 
 기존 구현: 아래 물리 관계 중 두 History 테이블을 제외한 모델. 이번 추가: RiskAssessmentHistory·RegulatoryReportHistory, 삭제 보호, 제약과 조회 인덱스. RA 확장: 1~4단계의 26개 기반 모델과 실무 추적 모델 17개, 기존 WorkTask·Attachment의 사건/RA 프로필 중 하나를 택하는 문맥, 프로필·국가·조직·버전·업무·증빙의 명시 관계. 각 영역의 구현 상태는 [RA 요구사항 매트릭스](ra-requirements-matrix.md) 참조. 향후 제안: 안전 신호의 JSON 증거·조치 연결을 명시적 FK 연결 테이블로 전환, 범용 승인 대상의 명시 FK 전환. 제안은 아래 ERD에 구현처럼 표시하지 않았다.
@@ -3306,3 +3308,22 @@ erDiagram
     pms_securityreview ||--o{ pms_securityreview_tasks : "securityreview_id"
     pms_worktask ||--o{ pms_securityreview_tasks : "worktask_id"
 ```
+
+
+## EU 법령–제품 증빙 확장
+
+```mermaid
+erDiagram
+    Device ||--o{ DentalProject : writing_projects
+    WritingTemplate ||--o{ DentalProject : selected_version
+    DentalProject ||--o{ EUProjectLaw : checklist_clause
+    EULegalDocument ||--o{ EUProjectLaw : official_version
+    EULegalDocument o|--o{ EULegalDocument : amendment_correction_consolidation
+    EUProjectLaw ||--o{ EUApplicabilityReview : append_only_review
+    DentalProject ||--o{ EUImpactConfirmation : confirmed_scope
+    EULegalDocument ||--o{ EUImpactConfirmation : revision
+    DentalProject ||--o{ DentalDraft : frozen_evidence
+    EULegalDocument o|--o{ HarmonisedStandardReview : oj_publication
+```
+
+DentalProject는 기존 명칭을 재사용하며 `(device, market)`가 유일하다. 법령의 발행/발효/적용일과 언어·확인일은 분리한다. 법령/적용 검토/영향 확인은 추가 전용이다. 초안은 법령·적용 검토와 제품 증빙 버전의 스냅샷을 보존한다. 조화표준의 publication_scope/restrictions는 제품 적용 판단과 별도다.

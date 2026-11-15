@@ -8,6 +8,23 @@
 
 ## 해외 인허가와 시장별 PMS
 
+### 미국 인허가 문서 작성 AI
+
+**해외 인허가 → 미국 → 의료기기 문서 작성 AI** (`/markets/us/writing/`)에서 제품을 선택하고 게시된 템플릿을 고릅니다. Dental Curing Light는 FDA 2026-09-02 최종 가이드에 연결되고, EEG 소프트웨어와 환자 모니터는 **DEMO 자료 수집 예시**입니다. 공통 자료 수집은 분류·경로·템플릿 확인 전까지 기기별 초안 생성을 보류합니다. 기존 `/devices/<id>/markets/us/dental-510k/` 주소와 과거 초안도 계속 열립니다.
+
+`0039`–`0041`을 검증용 DB에 먼저 적용하세요. 기존 Dental 프로젝트에는 첫 Dental 템플릿을 연결하고 초안 JSON은 보존합니다. 각 초안에 템플릿 이름·버전이 기록되며, DOCX·보완 CSV·매트릭스 CSV·eSTAR 매핑 CSV를 제공합니다. 승인된 LLM 설정이 없으면 로컬 근거 선택과 발췌문 기반 초안이 작동합니다. 근거 문서는 기존 미국 RA 프로필의 검사 통과 관리 문서 버전에서 선택합니다.
+
+관리자 계정으로 `/admin/pms/writingtemplate/`에서 템플릿을 등록합니다. `fields`는 `{"software":"소프트웨어 버전"}` 형식이고, `items`의 각 항목은 `id`, `title`, `condition`(`always`, `changed`, 또는 제품 필드 ID), `evidence_type`, `source_section`, `page`, `draft_section`, `mapping`을 포함합니다. 공식 근거가 미확인인 데모는 `example`을 체크하고 출처·매핑에 RA 확인 필요를 표시합니다. `DRAFT`로 저장한 뒤 `REVIEW`, `PUBLISHED` 순으로 저장합니다. 게시본은 목록의 **새 초안 버전으로 복제** 동작으로 개정합니다. 프로젝트 화면에서 새 버전의 변경 항목을 확인하고 선택한 프로젝트만 전환하며 적용 범위를 다시 확인합니다.
+
+```powershell
+$env:SQLITE_PATH = Join-Path $PWD "db.writing-validation.sqlite3"
+python manage.py migrate --noinput
+python manage.py test pms.test_writing pms.test_dental --noinput
+python manage.py runserver 127.0.0.1:8001
+```
+
+Dental 외 기기 예시의 제품 코드와 제출 경로는 확정 값이 아닙니다. FDA 공식 분류·510(k)·가이드 검색은 기존 메뉴를 사용하며, 인정 표준 판본·범위와 실제 제출용 eSTAR 매핑은 RA가 공식 원문으로 확인합니다.
+
 **제품 상세 → 해외 인허가 → 미국 → Dental Curing Light 510(k) 문서 작성**에서 EBZ 범위를 확인하고, 미국 RA 프로필에 등록한 검사 통과 문서 버전과 페이지를 가이드 절에 연결합니다. 비교기기는 기존 FDA 510(k) 화면에서 제품에 저장한 뒤 프로젝트에서 검토합니다. 초안별 RA 검토 기록과 영문 DOCX, 매트릭스·한국어 보완 CSV를 제공합니다. 가이드 개정은 Django 데이터 마이그레이션으로 별도 `DentalGuide` 행에 등록하고 프로젝트에서 선택합니다. `python manage.py migrate` 후 사용하세요. `python manage.py test pms.test_dental --noinput`으로 예시 흐름을 검증할 수 있습니다.
 
 왼쪽 **해외 인허가** 메뉴(`/markets/`)에서 시장별 등록 상태, 90일 내 만료 예정 등록, 검토 대기 사건을 확인합니다. **제품 상세 → 해외 인허가**에서는 제품별 시장 등록을, **사건 상세 → 사건의 시장별 보고 판단**에서는 시장별 담당자, RA 판단, 기한, 검토 상태를 관리합니다. 한 사건을 여러 시장에 연결할 수 있으며, 제품의 등록 상태는 사건의 보고 상태에 영향을 주지 않습니다.
@@ -1062,3 +1079,29 @@ PostgreSQL의 동시 승인·동시 상태 변경은 실제 PostgreSQL 환경에
 ## RA 실무 추적
 
 RA 업무 메뉴에서 GMP 양식·기록, 품질시스템 밸리데이션, 회의록 후보·DHF, 소프트웨어 변경심사, 사이버보안 검토를 사용할 수 있습니다. [가상 뇌파 제품으로 시연하기](docs/ra-operational-guide.md)
+
+
+## EU EUR-Lex 근거와 기술문서 작성 (2026-11-15)
+
+해외 인허가 → 유럽연합(EU) → EUR-Lex 관보·법령 근거(`/markets/eu/legal/`)에서 오늘의 EU 관보를 열고 개별 문서의 CELEX 또는 공식 URL과 메타데이터를 수동 등록한다. 발행일·발효일·적용일은 별도이며 미확인 날짜는 비운다. 원문·개정·정정·통합본을 구분하고 동일 식별자/언어 중복은 기존 기록으로 이동한다. 공식 조회 접근이 검증되지 않아 자동 메타데이터 수집은 제공하지 않으며, 조회 불가 안내와 수동 등록을 제공한다. 언어별 원문 링크는 제공 가능 여부를 EUR-Lex에서 확인한다.
+
+EU → 의료기기 문서 작성(`/markets/eu/writing/`) 또는 제품 상세 → 해외 인허가 → EU 문서 작성에서 MDR/IVDR 또는 공통 자료 수집 템플릿을 선택한다. 법령 조항·부속서를 체크리스트 항목에 연결하고 적용 여부·사유를 검토한 뒤 해당 EU 제품 문서의 버전·페이지와 실제 발췌문을 연결한다. 규제 분류와 적합성 평가 경로는 RA가 확인한다. 법령과 제품 주장 근거를 구분한 영문 DOCX, 법령–제품 증빙 매트릭스 CSV, 한국어 참고용 보완 목록 CSV를 내려받는다. 출력에는 Draft for RA Review, 템플릿 버전 및 법령 확인일이 포함된다. 외부 LLM 없이도 동작하며 근거 없는 시험 결과는 작성하지 않는다.
+
+개정·정정 문서를 원문에 연결하면 접근 가능한 영향 후보 프로젝트/템플릿 항목을 표시한다. RA가 항목과 사유를 확인한 경우에만 재검토 대상으로 기록한다. 이전 초안의 JSON과 근거 버전 및 검토 기록은 보존한다. 조화표준에는 관련 관보 문서, 적용 범위, 제한사항을 별도로 등록하며 목록 게재만으로 제품 적합성을 확정하지 않는다.
+
+PowerShell(프로젝트 루트에서; Python 경로는 설치 환경에 맞게 조정):
+
+```powershell
+$python = "$env:USERPROFILE/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
+$env:PYTHONPATH = (Resolve-Path ../deps).Path
+# 기존 DB를 보존하려면 먼저 백업한 검증 DB를 지정
+$env:SQLITE_PATH = (Resolve-Path ../eu-writing-demo.sqlite3).Path
+$env:PRIVATE_MEDIA_ROOT = Join-Path (Resolve-Path ..).Path 'writing-demo-media'
+$env:DEBUG = 'True'
+& $python manage.py migrate --noinput
+& $python manage.py check
+& $python manage.py test pms.test_eu_legal pms.test_writing pms.test_dental --noinput
+& $python manage.py runserver 127.0.0.1:8001 --noreload
+```
+
+로컬 가상 시연: `/devices/7/markets/eu/writing/`의 DEMO-EU-01에서 법령/제품 증빙과 초안 이력을 확인하고 DOCX/CSV를 내려받는다. `/markets/eu/legal/2/`에서 개정 영향 확인 이력을 확인한다. 실제 법령 식별자와 가상 제품·시험 자료를 구분한다. 초기 MDR/IVDR 체크리스트는 Annex II/III 검토 시작점이며 최신 통합본·예외·분류별 추가 요건 확인을 대체하지 않는다. 새 스키마는 0042, EU 템플릿은 0043 마이그레이션이다. 기존 US/Dental 프로젝트 ID와 초안은 유지하며 동일 제품의 US/EU 프로젝트를 분리한다.

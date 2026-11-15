@@ -637,3 +637,4 @@ from . import ra_operations_models
 from . import foreign_models
 from . import market_models
 from . import dental_models
+from . import eu_legal_models
