@@ -75,6 +75,7 @@ class ProjectForm(forms.Form):
 
 
 class EvidenceForm(forms.Form):
+    coil = forms.CharField(label="시험 대상 RF 코일",max_length=400,required=False)
     evidence_role = forms.ChoiceField(label="제품 증빙 유형", required=False, choices=[("", "—"), ("specification", "제품 사양"), ("test", "시험 근거"), ("label", "라벨·IFU")])
     document = forms.ModelChoiceField(queryset=ControlledDocument.objects.none(), label="관리 문서 버전")
     section = forms.ChoiceField(label="가이드 절")
@@ -115,7 +116,7 @@ class EvidenceForm(forms.Form):
         normalized = " ".join(text.split())
         if " ".join(excerpt.split()) not in normalized:
             self.add_error("excerpt", "검사 통과 문서의 지정 페이지에서 발췌문을 확인할 수 없습니다.")
-        for key in ("model", "value", "unit", "software_version", *TEST_FIELDS):
+        for key in ("model", "value", "unit", "software_version", "coil", *TEST_FIELDS):
             if data.get(key) and not re.search(r"(?<![\w.])" + re.escape(" ".join(data[key].split())) + r"(?!\w)", normalized):
                 self.add_error(key, "지정 페이지에서 이 값을 확인할 수 없습니다.")
         return data
@@ -153,6 +154,10 @@ def references_for(project, documents):
                            "identity": [doc.revision, doc.primary_file_id, doc.primary_file.sha256],
                            "citation": f'{doc.number} v{doc.version} / p.{details["page"]}' + (f" / {location}" if location else ""),
                            "revised": doc.pk in superseded or details["identity"] != [doc.revision, doc.primary_file_id, doc.primary_file.sha256]})
+        if project.specification.get("registered_configuration"):
+            review=evidence.mri_reviews.filter(configuration_id=project.specification["registered_configuration"]["id"]).first()
+            references[-1]["applicability_review"]={"id":review.pk,"decision":review.decision,"rationale":review.rationale,
+                "reviewer_id":review.reviewer_id,"reviewed_at":review.reviewed_at.isoformat(),"source_identity":review.source_identity} if review else None
     return references
 
 
@@ -190,6 +195,10 @@ def project_page(request, device, market="US"):
                        initial=spec or {"product_name": device.name, "model": device.model_number,
                                         "product_code": "EBZ" if market == "US" and (not template or template.key == "dental") else "",
                                         "regulation": "872.6070" if market == "US" and (not template or template.key == "dental") else ""})
+    if spec.get("registered_configuration"):
+        for key in ("product_name","model","intended_use","target_population","users","environment","product_version",
+                    "configuration","field_strength","magnet_type","coils","modes","accessories","software","example"):
+            if key in form.fields:form.fields[key].disabled=True
     docs = documents_for(device, market)
     sections = {item["id"]: [item["title"], item["page"], item["mapping"]] for item in template_items(project)} if project else SECTIONS
     evidence_form = EvidenceForm(request.POST if action == "evidence" else None, documents=docs,
@@ -209,6 +218,14 @@ def project_page(request, device, market="US"):
         error = update_project_law(project, request)
         if not error:
             return redirect(request.path)
+    if action == "sync_product" and project.specification.get("registered_configuration"):
+        from .mri_registration import sync_product
+        sync_product(project,request.user)
+        return redirect(request.path)
+    if action == "review_mri_evidence" and project.specification.get("registered_configuration"):
+        from .mri_registration import review_evidence
+        error=review_evidence(project,request.user,request.POST)
+        if not error:return redirect(request.path)
     if action == "template":
         selected_id = request.POST.get("template_id", "")
         if not re.fullmatch(r"[0-9]{1,18}", selected_id):
@@ -273,11 +290,17 @@ def project_page(request, device, market="US"):
             return redirect(request.path)
         error = "FDA 510(k) 사례를 제품에 먼저 저장하고 확인한 값과 출처를 입력하세요."
     if action == "generate":
-        if not ready(project):
+        from .mri_registration import registration_changed, document_snapshot, DOCUMENTS
+        document_kind=request.POST.get("document_kind","all")
+        if document_kind not in ("all",*DOCUMENTS):raise Http404
+        if registration_changed(project):
+            error="제품 구성이 개정됐습니다. 최신 제품 정보를 동기화한 뒤 초안을 생성하세요."
+        elif not ready(project):
             error = "RA 범위 확인 필요: 분류·제출 경로·템플릿과 적용 항목을 확인하세요. 공통 자료 수집에서는 초안 생성을 보류합니다."
         else:
-            draft = project.drafts.create(author=request.user,
-                                           snapshot=build_snapshot(project, references_for(project, docs), use_ai=True))
+            snapshot=build_snapshot(project, references_for(project, docs), use_ai=True)
+            if project.specification.get("registered_configuration"):snapshot=document_snapshot(snapshot,document_kind)
+            draft = project.drafts.create(author=request.user,snapshot=snapshot)
             audit(request.user, "DENTAL_DRAFT", draft)
             return redirect(request.path)
 
@@ -324,6 +347,8 @@ def project_page(request, device, market="US"):
         source_id = request.GET.get("source", "")
         if re.fullmatch(r"[0-9]{1,18}", source_id):
             eu_details["selected_fda_source"] = get_object_or_404(FDAReferenceVersion, pk=source_id)
+    from .mri_registration import registration_changed, DOCUMENTS
+    eu_details.update(registration_changed=bool(project and registration_changed(project)),document_kinds=DOCUMENTS.items())
     return render(request, "pms/markets/dental.html", {
         **eu_details, "writing_market": market, "can_us": market_access(request.user, ("US",), device),
         "can_eu": eu_access(request.user, device),
@@ -357,12 +382,17 @@ def draft_output(request, pk, draft_id, kind):
         with transaction.atomic():
             review = draft.reviews.create(reviewer=request.user, note=note)
             audit(request.user, "DENTAL_DRAFT_REVIEW", review)
-        return redirect("market-eu-writing" if draft.project.market == "EU" else "market-dental", pk)
-    if request.method != "GET" or kind not in ("docx", "matrix", "gaps", "mapping"):
+        return redirect("market-eu-writing" if draft.project.market == "EU" else "market-writing" if draft.project.specification.get("registered_configuration") else "market-dental", pk)
+    if request.method != "GET" or kind not in ("docx", "matrix", "gaps", "mapping", "bundle"):
         raise Http404
+    if kind=="bundle":
+        from .mri_registration import bundle_export
+        if not draft.snapshot["specification"].get("registered_configuration"):raise Http404
+        return FileResponse(io.BytesIO(bundle_export(draft.snapshot)),as_attachment=True,filename=f"mri-{draft.pk}-ra-draft.zip")
     payload = docx_export(draft.snapshot) if kind == "docx" else csv_export(draft.snapshot, kind)
     suffix = "docx" if kind == "docx" else "csv"
-    return FileResponse(io.BytesIO(payload), as_attachment=True, filename=f"dental-{draft.pk}-{kind}.{suffix}")
+    prefix="mri" if draft.snapshot["specification"].get("registered_configuration") else "dental"
+    return FileResponse(io.BytesIO(payload), as_attachment=True, filename=f"{prefix}-{draft.pk}-{kind}.{suffix}")
 
 
 def compare_templates(current, latest):

@@ -53,7 +53,15 @@ def predicate_features(project):
 
 def submission_mapping_ready(project):
     spec = project.specification
-    return bool(spec.get("scope_confirmed") and spec.get("confirmed_pathway"))
+    confirmed=bool(spec.get("scope_confirmed") and spec.get("confirmed_pathway"))
+    if spec.get("registered_configuration"):
+        confirmed=confirmed and bool(spec.get("product_code") and spec.get("regulation"))
+    return confirmed
+
+
+def applicability_accepted(ref):
+    review=ref.get("applicability_review") or {}
+    return review.get("decision")=="accept" and review.get("source_identity")==ref.get("identity")
 
 
 def in_scope(spec):
@@ -97,6 +105,7 @@ def template_items(project):
 
 
 def stale_sections(project, snapshot, documents):
+    from .mri_registration import registration_changed
     current = {doc.pk: (doc.revision, doc.primary_file_id, doc.primary_file.sha256 if doc.primary_file else "")
                for doc in documents}
     superseded = set(ControlledDocument.objects.filter(supersedes_id__in=current).values_list("supersedes_id", flat=True))
@@ -111,7 +120,7 @@ def stale_sections(project, snapshot, documents):
         eu_laws = law_snapshot(project)
         impacts = list(project.legal_impacts.values("id", "section"))
     for row in snapshot["rows"]:
-        if (project.guide_id != snapshot["guide"]["id"] or project.specification != snapshot["specification"]
+        if (registration_changed(project) or project.guide_id != snapshot["guide"]["id"] or project.specification != snapshot["specification"]
                 or ("template" in snapshot and project.template_id != snapshot["template"]["id"])
                 or linked.get(row["section"], set()) != {ref["id"] for ref in row["references"]}
                 or any(ref["document_id"] in superseded or current.get(ref["document_id"]) != tuple(ref["identity"])
@@ -126,6 +135,11 @@ def stale_sections(project, snapshot, documents):
             from .fda_library import source_snapshot
             if [s for s in source_snapshot(project) if s["section"] == row["section"]] != row["fda_references"]:
                 changed.append(row["section"])
+        if project.specification.get("registered_configuration") and row["section"] not in changed:
+            from .dental_views import references_for
+            before={ref["id"]:(ref.get("applicability_review") or {}).get("id") for ref in row["references"]}
+            after={ref["id"]:(ref.get("applicability_review") or {}).get("id") for ref in references_for(project,documents) if ref["section"]==row["section"]}
+            if before!=after:changed.append(row["section"])
     return changed
 
 
@@ -171,7 +185,7 @@ def build_snapshot(project, references, *, use_ai=False):
                     (r.get("conditions"), r.get("configuration")) for r in tests + labels}) != 1:
                     gaps.append("MR 시험·라벨 조건 또는 구성 불일치: RA 검토 필요")
             for ref in refs:
-                if spec.get("configuration") and ref.get("configuration") and spec["configuration"] != ref["configuration"]:
+                if spec.get("configuration") and ref.get("configuration") and spec["configuration"] != ref["configuration"] and not applicability_accepted(ref):
                     gaps.append("시험 구성과 신청 제품 구성 불일치: RA 검토 필요")
         na = spec.get("not_applicable", {}).get(section, "")
         laws = [law for law in eu_laws if law["section"] == section]
@@ -194,17 +208,35 @@ def build_snapshot(project, references, *, use_ai=False):
             gaps.append("적용 조건 확인 필요: " + condition)
         if section == "III.B" and not spec.get("predicate_confirmed"):
             gaps.append("비교기기 후보와 공개 출처를 RA가 확인하세요.")
+        if section=="MRI.PRED" and not spec.get("predicate_confirmed"):
+            gaps.append("비교기기 후보와 공개 출처를 RA가 확인하세요.")
+        if spec.get("registered_configuration"):
+            keys={"MRI.USE":("intended_use","target_population","users","environment"),
+                  "MRI.SPEC":("field_strength","magnet_type","configuration"),
+                  "MRI.COIL":("coils","accessories","modes"),"MRI.SW":("software",)}.get(section,())
+            for key in keys:
+                if not spec.get(key) or not any(" ".join(str(spec[key]).split()) in " ".join(ref["excerpt"].split()) for ref in refs):
+                    gaps.append("등록 사양의 제품 증빙 확인 필요: " + key)
         if section == "IV" and not spec.get("change_details"):
             gaps.append("변경 전후 모델·사양, 시험 영향 및 판단 근거를 기록하세요.")
         for ref in refs:
-            if ref["model"].casefold() != spec["model"].casefold():
+            accepted=applicability_accepted(ref)
+            if (ref.get("applicability_review") or {}).get("decision")=="reject":
+                gaps.append("제품 증빙 적용 불가: " + ref["citation"])
+            if ref["model"].casefold() != spec["model"].casefold() and not accepted:
                 gaps.append(f'시험·자료 모델 불일치: {spec["model"]} / {ref["model"]} [{ref["citation"]}]')
             if ref["revised"]:
                 gaps.append(f'개정 근거 확인: [{ref["citation"]}]')
-            if ref.get("software_version") and ref["software_version"] != spec.get("software"):
+            if ref.get("software_version") and ref["software_version"] != spec.get("software") and not accepted:
                 gaps.append("소프트웨어 버전 불일치: " + ref["software_version"])
-        if section == "III.B" and spec.get("predicate_confirmed"):
-            missing_features = [key for key in FEATURES if not spec.get("predicate", {}).get(key)]
+            if spec.get("registered_configuration") and not accepted:
+                if ref.get("coil") and ref["coil"] != spec.get("coils"):
+                    gaps.append(f'RF 코일 불일치: {spec.get("coils", "")} / {ref["coil"]} [{ref["citation"]}]')
+                if ref.get("evidence_role")=="test" or item.get("test_required"):
+                    if not ref.get("coil"):gaps.append("시험 대상 RF 코일 근거 필요: " + ref["citation"])
+                    if not ref.get("software_version"):gaps.append("시험 대상 소프트웨어 버전 근거 필요: " + ref["citation"])
+        if section in ("III.B","MRI.PRED") and spec.get("predicate_confirmed"):
+            missing_features = [key for key in predicate_features(project) if not spec.get("predicate", {}).get(key)]
             if missing_features:
                 gaps.append("비교기기 공개 자료 확인 필요: " + ", ".join(missing_features))
         if section.startswith("III.J") and not na:
@@ -222,10 +254,13 @@ def build_snapshot(project, references, *, use_ai=False):
                     f'{ref["value"]} {ref["unit"]} [{ref["citation"]}]' for ref in metrics]
                 gaps.append("값 충돌 확인: " + " / ".join(sources))
         status = "재검토 필요" if "eu_impact_review" in gaps else "해당 없음" if na else ("RA 검토 필요" if gaps and refs else "자료 부족" if gaps else "근거 연결")
-        eligible = [ref for ref in refs if ref["model"].casefold() == spec["model"].casefold()
+        if spec.get("registered_configuration"):
+            status={"근거 연결":"증빙 연결","자료 부족":"자료 필요"}.get(status,status)
+        eligible = [ref for ref in refs if (ref["model"].casefold() == spec["model"].casefold() or applicability_accepted(ref))
                     and not ref["revised"] and ref["excerpt"]]
         rows.append({"section": section, "title": title, "page": page, "mapping": mapping, "references": refs,
                      **({"fda_references": fda_refs} if mri else {}),
+                     **({"proposed_mapping":item["mapping"]} if spec.get("registered_configuration") else {}),
                      "legal_references": laws, "impact_ids": impacts,
                      "source_section": item["source_section"], "evidence_type": item["evidence_type"],
                      "source_url": project.template.source_url if project.template else guide.url,
@@ -260,7 +295,8 @@ def build_snapshot(project, references, *, use_ai=False):
             "guide": {**GUIDE, "id": guide.pk, "url": guide.url, "sha256": guide.sha256,
                                  "issued_on": str(guide.issued_on), "status": guide.status,
                                  "checked_on": str(guide.checked_on)},
-            "estar": ESTAR, "specification": spec, "rows": rows, "engine": engine,
+            "estar": {**ESTAR,"checked_on":"2026-11-16"} if spec.get("registered_configuration") else ESTAR,
+            "specification": spec, "rows": rows, "engine": engine,
             "internal_collection": bool(project.template and project.template.conditions.get("internal_collection")),
             "submission_mapping_ready": submission_mapping_ready(project) if mri else True}
 
@@ -294,9 +330,11 @@ def csv_export(snapshot, kind):
         if "fda_references" in row:
             values[2] = " | ".join(f'FDA 근거: {s["title"]} v{s["version"]} / {s["document_version"]} / {s["clause"]} / PDF p.{s["page"]} / {s["url"]} / 확인 {s["checked_on"]} / {s["content_hash"]}' for s in row["fda_references"])
             values[3] = " | ".join("제품 증빙: " + ref["citation"] + " / " + ref.get("evidence_role", "") + " / " + ref["excerpt"] + " / " +
-                                   " / ".join(str(ref.get(key, "")) for key in ("model", *TEST_FIELDS)) for ref in row["references"])
+                                   " / ".join(str(ref.get(key, "")) for key in ("model", "coil", "software_version", *TEST_FIELDS)) +
+                                   " / RA: " + str(ref.get("applicability_review") or "") for ref in row["references"])
         if kind == "mapping":
-            values = [row["section"], row.get("draft_section", row["title"]), row["mapping"], values[3], "RA 확인 필요"]
+            mapping=row["mapping"] + (" / 후보 영역: " + row["proposed_mapping"] if row.get("proposed_mapping") else "")
+            values = [row["section"], row.get("draft_section", row["title"]), mapping, values[3], "RA 확인 필요"]
         writer.writerow(["'" + v if v.lstrip().startswith(("=", "+", "-", "@")) else v for v in values])
     return output.getvalue().encode("utf-8-sig")
 
@@ -307,7 +345,7 @@ def docx_export(snapshot):
                   f'{snapshot.get("template", {}).get("name", "Dental Curing Light")} v{snapshot.get("template", {}).get("version", 1)} — {spec["product_name"]} / {spec["model"]}',
                   f'Template source: {snapshot.get("template", {}).get("source_url", snapshot["guide"]["url"])}',
                   f'FDA recognized standards: RA verification required — {STANDARDS}',
-                  f'eSTAR preparation mapping: {snapshot["estar"]["version"]} | checked {snapshot["estar"]["checked_on"]} | {ESTAR["url"]}']
+                  f'eSTAR preparation mapping: {snapshot["estar"]["version"]} | checked {snapshot["estar"]["checked_on"]} | {snapshot["estar"]["url"]}']
     if snapshot.get("market") == "EU":
         paragraphs = paragraphs[:4]
         paragraphs.append("EU technical documentation draft — classification and conformity assessment require RA review.")
@@ -321,21 +359,25 @@ def docx_export(snapshot):
             for law in row.get("legal_references", []):
                 paragraphs.append(f'Legal review basis: {law["title"]} | {law["celex"]} | {law["kind"]} | {law["language"]} | {law["clause"]} | {law["url"]} | checked {law["checked_on"]} | {law["decision"]}')
         else:
-            paragraphs.append(f'{row["section"]} {row.get("draft_section", row["title"])} — source {row.get("source_url", snapshot["guide"]["url"])} {row.get("source_section", row["section"])} p. {row["page"]}; eSTAR: {row["mapping"]}')
+            mapping=row["mapping"]
+            if spec.get("registered_configuration") and not snapshot.get("submission_mapping_ready",True):
+                mapping="Withheld pending RA confirmation; proposed area: "+row.get("proposed_mapping","RA review")
+            paragraphs.append(f'{row["section"]} {row.get("draft_section", row["title"])} — source {row.get("source_url", snapshot["guide"]["url"])} {row.get("source_section", row["section"])} p. {row["page"]}; eSTAR: {mapping}')
         for source in row.get("fda_references", []):
             paragraphs.append(f'FDA review basis: {source["source_type"]} | {source["title"]} | v{source["version"]} | {source["document_version"]} | {source["clause"]} | PDF page {source["page"]} | {source["url"]} | checked {source["checked_on"]} | {source["content_hash"]}')
-        if row["section"] == "III.B":
+        if row["section"] in ("III.B","MRI.PRED"):
             paragraphs.append("Predicate comparison — RA confirmation of substantial equivalence required.")
             predicate = spec.get("predicate", {})
             if predicate.get("k_number"):
                 paragraphs.append(f'Candidate: {predicate["k_number"]} {predicate.get("record_url", "")}')
-            for key in FEATURES:
+            feature_keys=("intended_use","field_strength","coils","modes","software") if row["section"]=="MRI.PRED" else FEATURES
+            for key in feature_keys:
                 value = spec.get("predicate", {}).get(key, "")
                 source = spec.get("predicate", {}).get(f"{key}_source", "")
                 target_refs = [ref for ref in row["references"] if ref["id"] in row["selected"]
                                and spec.get(key) and spec[key] in ref["excerpt"]]
                 target = spec[key] + " [" + target_refs[0]["citation"] + "]" if target_refs else "Evidence needed"
-                difference = ("Recorded values differ" if spec[key] != value else "Recorded values match") if value and source and target_refs else "RA comparison required"
+                difference = ("Recorded values differ" if spec.get(key) != value else "Recorded values match") if value and source and target_refs else "RA comparison required"
                 paragraphs.append(f"{key}: subject {target}; "
                                   f"predicate {value + ' [' + source + ']' if value and source else UNKNOWN}; {difference}")
         if row["na"]:
@@ -344,12 +386,18 @@ def docx_export(snapshot):
             paragraphs.append("Evidence needed / RA review required.")
         for ref in row["references"]:
             if ref["id"] in row["selected"]:
+                if applicability_accepted(ref):
+                    review=ref["applicability_review"]
+                    paragraphs.append(f'RA applicability review #{review["id"]}: source model {ref["model"]}, source coil {ref.get("coil", "")}, source software {ref.get("software_version", "")}; target {spec["model"]}. Rationale: {review["rationale"]}')
                 paragraphs.append(f'Product evidence: {ref["excerpt"]} [{ref["citation"]}]')
                 if ref["metric"] or ("fda_references" in row and any(ref.get(k) for k in TEST_FIELDS)):
-                    paragraphs.append(" | ".join(f"{key}: {ref[key]}" for key in ("model", *TEST_FIELDS, "metric", "value", "unit")))
+                    paragraphs.append(" | ".join(f"{key}: {ref.get(key, "")}" for key in ("model", "coil", "software_version", *TEST_FIELDS, "metric", "value", "unit")))
     body = "".join('<w:p><w:r><w:t xml:space="preserve">' +
                    escape(re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", p)) + "</w:t></w:r></w:p>"
                    for p in paragraphs if p)
+    if spec.get("registered_configuration"):
+        from .mri_registration import mri_tables
+        body+=mri_tables(snapshot)
     output = io.BytesIO()
     with ZipFile(output, "w") as archive:
         archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'

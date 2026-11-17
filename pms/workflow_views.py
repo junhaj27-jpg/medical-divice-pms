@@ -45,6 +45,8 @@ def task_edit(request,pk=None):
 def task_detail(request,pk):
     obj=get_object_or_404(tasks_for(request.user),pk=pk)
     if obj.market_comparison_id: return redirect("market-comparison-task",obj.market_comparison_id)
+    incident=getattr(obj,'udi_label_incident',None)
+    if incident:return redirect('market-udi-incident',incident.serial.device_id,incident.pk)
     return render(request,"pms/task_detail.html",{"item":obj})
 
 @login_required

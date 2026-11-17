@@ -1,0 +1,8 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>UDI 라벨 PMS 오류 #{{ incident.pk }}{% if incident.serial.is_example %} · 예시{% endif %}</h1>
+<p><a href="{% url 'market-serial' device.pk incident.serial_id %}">제조번호·출고 원본 열기</a></p>
+<dl><dt>인쇄 UDI</dt><dd>{{ incident.printed_udi }}</dd><dt>스캔값</dt><dd>{{ incident.scan_value|default:'미확보' }}</dd><dt>기대 UDI</dt><dd>{{ incident.expected_udi }}</dd><dt>차이 (AI 오류·데이터 불일치 구분)</dt><dd>{{ incident.differences }}</dd><dt>연결 RA·QA 업무</dt><dd>#{{ incident.task_id }} · {{ incident.task.get_status_display }} · {{ incident.task.assignee }} · {{ incident.task.due_at }}</dd></dl>
+<h2>영향받은 출고 원본</h2>{% for link in incident.dispatch_links.all %}<p>{{ link.original }}</p>{% empty %}<p>연결 없음 · RA 확인 필요</p>{% endfor %}
+<h2>증빙 스냅샷</h2>{% for link in incident.evidence_links.all %}<p><a href="{% url 'market-udi-evidence' device.pk incident.pk link.attachment_id %}">첨부 #{{ link.attachment_id }}</a> · {{ link.original }}</p>{% empty %}<p>증빙 미연결 · RA 확인 필요</p>{% endfor %}
+<h2>후속 조치·업무 상태 기록</h2><p>통보·회수 검토를 기록하며 외부 전송이나 회수 확정은 수행하지 않습니다. 원본 출고·라벨 기록은 유지합니다.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button>새 검토 기록 저장</button></form>
+{% for row in incident.followups.all %}<article><h3>{{ row.get_action_type_display }} · {{ row.actor }} · {{ row.recorded_at }}</h3><p>{{ row.rationale }}</p><p>{{ row.corrected_udi }}</p></article>{% endfor %}
+<h2>연결 업무 변경 이력</h2>{% for row in incident.task.history.all %}<p>{{ row.created_at }} · {{ row.actor }} · {{ row.before.status }} → {{ row.after.status }}</p>{% endfor %}{% endblock %}

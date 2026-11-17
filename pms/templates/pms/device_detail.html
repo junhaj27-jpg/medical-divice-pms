@@ -6,4 +6,13 @@
 {% endif %}
 {% if eu_access %}<p><a class="btn" href="{% url 'market-product-standards' item.pk %}">{% ui 'hs_eu' %} · {% ui 'hs_title' %}</a></p>{% endif %}
 {% if us_access %}<p><a class="btn" href="{% url 'market-product-fda-510k' item.pk %}">{% ui 'US' %} (US) · {% ui 'fda_510k' %}</a></p>{% endif %}
-{% endblock %}
+{% if configuration %}<section class="panel"><h2>MRI 촬영 장비 · 모델 구성 v{{ configuration.version }}{% if configuration.is_example %} · 예시{% endif %}</h2>
+<dl><dt>사용목적</dt><dd>{{ configuration.intended_use }}</dd><dt>환자군·사용자·환경</dt><dd>{{ configuration.target_population }} · {{ configuration.users }} · {{ configuration.environment }}</dd>
+<dt>구성</dt><dd>{{ configuration.configuration_name }}</dd><dt>자장·자석</dt><dd>{{ configuration.field_strength_t|default_if_none:'미확인' }} T · {{ configuration.magnet_type }}</dd>
+<dt>RF 코일</dt><dd>{{ configuration.rf_coil|default:'미입력' }}</dd><dt>촬영 모드</dt><dd>{{ configuration.modes }}</dd><dt>액세서리</dt><dd>{{ configuration.accessories }}</dd><dt>소프트웨어</dt><dd>{{ configuration.software_version|default:'미입력' }}</dd></dl>
+{% if us_access %}<form method="post" action="{% url 'market-mri-start' item.pk %}">{% csrf_token %}<button class="btn primary">미국 인허가 문서 작성</button></form>
+<p><a href="{% url 'market-device-edit' item.pk %}">제품·모델 구성 개정</a> · <a href="{% url 'market-device-create' %}?family={{ item.pk }}">같은 장비의 다른 모델 추가</a></p>{% endif %}
+<p>앱 제품 활성 상태와 FDA 인허가 상태는 별도입니다. <a href="{% url 'market-product' item.pk %}">시장별 인허가 상태</a></p>
+<ul>{% for config in mri_family %}<li><a href="{% url 'market-device-detail' config.device_id %}">{{ config.device.model_number }}</a> · {{ config.configuration_name }} · {{ config.rf_coil }} · v{{ config.version }}</li>{% endfor %}</ul>
+</section>{% endif %}
+{% if privileged %}<p><a class="btn" href="{% url 'market-serials' item.pk %}">제조번호 발급 · GS1 UDI</a></p>{% endif %}{% endblock %}

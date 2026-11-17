@@ -1,0 +1,10 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{ device.name }} · 제조번호 발급</h1>
+<p>GTIN-14는 선행 0을 포함한 문자열입니다. 실제 제품에 부여된 번호만 입력하세요. 예시: 09506000134352 (안내·테스트 전용).</p>
+<section class="panel"><h2>제품 GTIN-14</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="gtin">{{ gtin_form.as_p }}<button>GTIN 저장</button></form>
+<p>GTIN을 바꿔도 이전 발급 당시 GTIN과 UDI는 보존됩니다. 기존 UDI 자유 입력값은 GTIN으로 자동 확정하지 않습니다.</p></section>
+<section class="panel"><h2>제조번호 발급</h2><p>현재 GTIN: {{ device.gtin_14|default:'미지정' }} · AI (01) · (11) · (21)은 고정입니다.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>제조번호 발급</button></form><p>중복 클릭·재전송은 같은 요청 키로 기존 결과를 반환합니다. 새 번호는 목록 화면을 다시 열어 발급하세요.</p></section>
+<table><thead><tr><th>제품</th><th>발급 당시 GTIN</th><th>제조일</th><th>제조번호</th><th>발급자</th><th>발급 시각</th><th>상태</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.device }}{% if row.is_example %} · 예시{% endif %}</td><td>{{ row.gtin_14|default:'GTIN 미지정' }}</td><td>{{ row.manufactured_on|date:'Y-m-d'|default:'미확인' }}</td><td><a href="{% url 'market-serial' device.pk row.pk %}">{{ row.serial_number }}</a></td><td>{{ row.issued_by|default:'기존 자료·발급자 미확인' }}</td><td>{{ row.issued_at|default:'미확인' }}</td><td>{{ row.status }}</td></tr>{% empty %}<tr><td colspan="7">발급 기록 없음</td></tr>{% endfor %}</tbody></table><p>최근 100건. 기존 중복은 report_serial_duplicates 명령으로 LOT 식별자를 확인하세요.</p>
+<section class="panel"><h2>라벨 PMS 검토 관할 준비</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="profile"><select name="market">{% for market in profile_markets %}<option>{{ market }}</option>{% endfor %}</select><button>기존 관할 사용 또는 검토 프로필 등록</button></form><p>시장 인허가·보고 상태는 변경하지 않습니다.</p></section>{% endblock %}

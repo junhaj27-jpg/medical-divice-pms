@@ -10,6 +10,8 @@ __pycache__/
 private_media/
 .test-tmp/
 .test-media/
+mri-registration-test-*/
+mri_registration_test_*/
 tmp*/
 /work/erd-validation/
 /work/ra-platform/

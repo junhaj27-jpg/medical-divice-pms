@@ -10,8 +10,22 @@ from .fda_guidance import guidance
 from .dental_views import workspace, draft_output, evidence_download, writing_list
 from .eu_legal import documents as eu_documents
 from .fda_library import library
+from . import views as product_views
+from . import mri_registration
+from . import serial_views
 
 urlpatterns = [
+    path('devices/<int:pk>/serials/',serial_views.serials,name='market-serials'),
+    path('devices/<int:pk>/serials/api/',serial_views.serials,{'api':True},name='market-serial-api'),
+    path('devices/<int:pk>/serials/<int:serial_id>/',serial_views.detail,name='market-serial'),
+    path('devices/<int:pk>/serials/<int:serial_id>/evidence/new/',serial_views.upload,name='market-serial-upload'),
+    path('devices/<int:pk>/udi-incidents/<int:incident_id>/',serial_views.incident_detail,name='market-udi-incident'),
+    path('devices/<int:pk>/udi-incidents/<int:incident_id>/evidence/<int:attachment_id>/',serial_views.incident_evidence,name='market-udi-evidence'),
+    path("markets/us/devices/new/",product_views.device_create,name="market-device-create"),
+    path("markets/us/devices/<int:pk>/",product_views.device_detail,name="market-device-detail"),
+    path("markets/us/devices/<int:pk>/edit/",product_views.device_create,name="market-device-edit"),
+    path("devices/<int:pk>/markets/us/mri/start/",mri_registration.start,name="market-mri-start"),
+    path("devices/<int:pk>/markets/us/mri/documents/new/",mri_registration.upload_document,name="market-mri-upload"),
     path("markets/us/fda-library/", library, name="market-fda-library"),
     path("markets/us/fda-library/<int:pk>/", library, name="market-fda-source"),
     path("markets/eu/legal/", eu_documents, name="market-eu-documents"),

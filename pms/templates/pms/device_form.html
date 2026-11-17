@@ -1,0 +1,9 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{ title }}</h1>
+<form method="post" class="panel">{% csrf_token %}{{ form.non_field_errors }}
+{% for field in form %}{% if field.name == 'intended_use' %}<fieldset id="mri-fields"><legend>MRI 촬영 장비 · 모델별 구성과 사용목적</legend><p>미국 FDA 분류·인허가 상태는 제품 등록과 별도로 RA가 검토합니다.</p>{% endif %}
+<p>{{ field.errors }}{% if not field.is_hidden %}{{ field.label_tag }}{% endif %}{{ field }}</p>
+{% if forloop.last %}</fieldset>{% endif %}{% endfor %}
+<button class="btn primary">저장</button></form>
+<script>const select=document.getElementById('id_product_type');const group=document.getElementById('mri-fields');function toggleMRI(){group.hidden=select.value!=='MRI';}select.addEventListener('change',toggleMRI);toggleMRI();</script>
+{% endblock %}

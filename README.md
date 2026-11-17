@@ -8,7 +8,36 @@
 
 ## 해외 인허가와 시장별 PMS
 
+### MRI 장비 등록 → 미국 문서 작성 (2026-11-16)
+
+기존 **제품 등록**(`/devices/new/`)의 제품 유형에 **MRI 촬영 장비**를 선택한다. 해외 시장 담당자는 **해외 인허가 → 미국 → MRI 촬영 장비 등록**(`/markets/us/devices/new/?type=MRI`)을 사용한다. 제품·제조사·모델, 사용목적·환자군·사용자·환경과 모델 구성 식별명, 자장 세기(T), 자석, RF 코일, 촬영 모드, 구성품/액세서리, 소프트웨어를 입력한다. 자장 미확인 값은 비울 수 있다. 모델별 구성은 `MRIConfiguration`의 추가 전용 버전으로 보존한다. **같은 장비의 다른 모델 추가**로 제품군을 연결하되, 모델마다 제품 레코드와 미국 작성 프로젝트가 분리된다. 앱 제품 활성 상태와 시장 인허가 상태는 별도다.
+
+제품 상세의 **미국 인허가 문서 작성** 버튼은 등록 사양을 가져와 기존 프로젝트를 열거나 MRI 템플릿 v2 프로젝트를 생성한다. MRI 가이드/분류는 검토 참고 근거로 연결하며 LNH·분류·제출 경로를 자동 확정하지 않는다. 분류 미확정 상태에서도 내부 초안을 만들고 보완 목록을 확인할 수 있다. 게시된 v1 템플릿과 과거 초안은 유지된다. 사양 수정은 제품 상세의 **제품·모델 구성 개정**에서 수행하며 작성 화면의 **최신 제품 정보 동기화**로 반영하고 분류/경로를 재확인한다. 기존 초안은 동기화로 바뀌지 않으며 재검토 표시가 붙는다.
+
+**사양서·시험성적서·라벨/IFU 등록**에서 문서번호·버전과 PDF 또는 UTF-8 파일을 등록한다. 기존 파일 형식·해시·악성코드 검사를 그대로 적용하며 검사 통과 파일만 연결할 수 있다. 실제 업로드에는 운영자가 설정한 `ANTIVIRUS_COMMAND`가 필요하다. 검사 미설정·실패 파일은 초안 근거로 사용할 수 없다. 각 체크리스트에서 문서 버전·페이지/표·발췌문과 시험 모델·RF 코일·소프트웨어 버전·구성·조건·방법·기준·결과를 연결한다. 모델/코일/소프트웨어 불일치는 기본적으로 제외하며 RA 적용 검토와 사유를 별도 이력으로 기록할 수 있다. 적용을 확인해도 원래 시험 대상과 적용 사유를 함께 출력하고, 개정되거나 무결성을 확인하지 못한 문서는 계속 보류한다.
+
+작성 화면에서 Device Description/모델·구성품, Predicate Comparison, Performance Summary, Labeling/IFU를 개별 생성하거나 전체 생성한다. DOCX에는 근거와 검토 표가 포함되고, 전체 ZIP에는 네 DOCX와 매트릭스·한국어 보완·eSTAR 매핑 CSV가 들어간다. eSTAR 공식 페이지에서 확인한 **nIVD 7.1 / 확인일 2026-11-16**을 새 MRI 초안에 고정하며 매핑은 RA 검토용 후보 영역이다. 모든 출력은 Draft for RA Review다. 등록 정보만으로 기술적 주장이나 시험 합격을 작성하지 않으며 선택된 제품 증빙만 인용한다.
+
+별도 검증 DB에서 실행하는 PowerShell:
+
+```powershell
+$python = "$env:USERPROFILE/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
+$env:PYTHONPATH = (Resolve-Path ../deps).Path
+$env:SQLITE_PATH = Join-Path (Resolve-Path ..).Path 'mri-registration-demo.sqlite3'
+$env:PRIVATE_MEDIA_ROOT = Join-Path (Resolve-Path ..).Path 'writing-demo-media'
+$env:DEBUG = 'True'
+& $python manage.py migrate --noinput
+& $python manage.py seed_registered_mri_demo --user example-hq --confirm-example-data
+& $python manage.py check
+& $python manage.py test pms.test_mri_registration pms.test_mri pms.test_dental --noinput
+& $python manage.py runserver 127.0.0.1:8001 --noreload
+```
+
+`0046`은 제품 유형·모델 구성·증빙 적용 검토 이력, `0047`은 MRI 템플릿 v2를 추가한다. 빈 DB에는 먼저 `DEMO_PASSWORD` 설정 후 `seed_market_demo`로 RA 계정을 만든다. 예시 생성 명령은 고정된 합성 파일만 fixture로 등록하며 실제 파일 검사 설정은 변경하지 않는다. 현재 검증 DB의 모델 A는 `/markets/us/devices/11/`, 모델 B는 `/markets/us/devices/12/`; 작성 화면은 `/devices/11/markets/us/writing/`, `/devices/12/markets/us/writing/`다. 모델 B는 코일·소프트웨어가 다른 모델 A의 가상 시험 자료를 연결해 불일치와 보완 목록을 확인하는 사례다. 다른 DB의 ID는 달라질 수 있다.
+
 ### MRI/MR FDA 자료와 문서 작성
+
+MRI 장비 등록 연결 검증(2026-11-16): 전체 Django 284건, 275 통과/9 PostgreSQL 잠금 테스트 skip/실패 0(1220.834초). 마지막 등록·출력·Dental 회귀 9건 및 시장별 접근 추가 1건 통과. 기존 초안 8건의 JSON 보존, 실제 인증 HTTP POST/CSRF를 통한 프로젝트 열기·근거 연결·초안·RA 검토와 DOCX/CSV/ZIP 다운로드를 확인했다. 영문 Word 표/인용과 한국어 보완 CSV를 검사했으며 실제 브라우저·Word 시각 렌더링과 실제 악성코드 검사기는 별도 확인 대상이다. 초기 테스트의 권한 제한 임시 폴더 정리는 승인 정책상 실행하지 못했으며 이후 테스트는 작업 폴더 내 fixture 방식으로 통과했다.
 
 **해외 인허가 → 미국 → FDA 자료 라이브러리**(`/markets/us/fda-library/`)에서 MRI/MR, 본문 검색어, MRI 촬영 장비·MRI 영상/ROI 분석 소프트웨어·MR 환경 사용 기기로 검색·필터링합니다. 공식 문서 상세에서 버전과 절·PDF 페이지를 확인한 뒤 기존 미국 작성 프로젝트에 연결합니다. 분류 LNH와 21 CFR 892.1000은 별도 출처 레코드이며 분류 상세에서 법규 레코드로 이동합니다. 표준은 번호·판본·인정 번호·인정 범위·확인일을 수동 기록하고 새 버전으로 개정합니다.
 
@@ -1134,3 +1163,34 @@ $env:DEBUG = 'True'
 ```
 
 로컬 가상 시연: `/devices/7/markets/eu/writing/`의 DEMO-EU-01에서 법령/제품 증빙과 초안 이력을 확인하고 DOCX/CSV를 내려받는다. `/markets/eu/legal/2/`에서 개정 영향 확인 이력을 확인한다. 실제 법령 식별자와 가상 제품·시험 자료를 구분한다. 초기 MDR/IVDR 체크리스트는 Annex II/III 검토 시작점이며 최신 통합본·예외·분류별 추가 요건 확인을 대체하지 않는다. 새 스키마는 0042, EU 템플릿은 0043 마이그레이션이다. 기존 US/Dental 프로젝트 ID와 초안은 유지하며 동일 제품의 US/EU 프로젝트를 분리한다.
+# 제조번호 발급 및 GS1 UDI
+
+제품 상세 또는 해외 인허가의 제품 상세 → **제조번호 발급 · GS1 UDI**. MRI 외 제품도 같은 화면을 사용합니다. GTIN-14를 등록하고 **실제 제조일**을 입력하면 서버의 `secrets` 난수로 대문자·숫자 10자리 번호를 발급합니다. 발급 시점의 GTIN·제조일·발급자·요청 키는 원장에 고정됩니다. 현재 GTIN을 수정해도 이전 UDI는 바뀌지 않습니다. 같은 폼의 재전송은 같은 결과를 반환하며, 새 번호는 목록 화면을 다시 열어 발급합니다. API: `POST /devices/<id>/serials/api/` (`gtin_snapshot`, `manufactured_on: YYYY-MM-DD`, UUID `request_key`; 세션 인증·CSRF 적용).
+
+GTIN·제조번호 DB 고유 제약은 제품 복제에도 적용됩니다. 기존 LOT 제조번호는 삭제·변경하지 않고 원본 참조로 이관하며, GTIN을 확인할 수 없으면 **GTIN 미지정**, 기존 중복은 **RA 확인 필요**로 표시합니다. 중복의 LOT ID는 아래 읽기 전용 명령으로 확인합니다. 기존 자유 형식 UDI를 GTIN으로 추정하지 않습니다. 수동 LOT 등록도 동일 원장을 사용하며, 발급된 번호를 해당 제품의 LOT에 최초 연결할 수 있습니다.
+
+표시 범위는 사람이 읽는 `(01)GTIN(11)YYMMDD(21)Serial` 및 이 필드 순서의 디코딩된 스캔 문자열 검증입니다. 괄호·AI는 고정이며 바코드 생성·인코딩은 지원하지 않습니다. **AI 오류**와 **AI 뒤 데이터 값 불일치**를 별도로 표시합니다. 공식 기준: [GS1 AI 사전](https://ref.gs1.org/ai/), [GS1 General Specifications](https://www.gs1.org/docs/barcodes/GS1_General_Specifications.pdf). 안내용 GTIN·제조번호는 운영 기본값으로 사용하지 않습니다.
+
+제조번호 상세에서 실제 출고 참조를 추가하고 **출고 라벨 PMS 오류 등록**으로 인쇄값·선택적 스캔값·기대값·차이·출고·검사 통과 증빙을 묶어 기존 `WorkTask` 검토 업무를 생성합니다. 검토 관할이 없으면 발급 목록에서 제품의 시장을 선택해 먼저 등록합니다. 증빙 업로드는 기존 악성코드 검사 설정을 사용하며 미통과 파일은 연결하지 않습니다. 기존 LOT의 `distributed_quantity`는 집계 수량일 뿐 실제 출고 날짜로 변환하지 않습니다. 후속 조치는 원본을 덮어쓰지 않는 정정/통보/회수 검토 이력으로 추가합니다. 외부 통보나 회수 확정은 자동 수행하지 않습니다.
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms'
+$py = 'C:\Users\정준하\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$env:PYTHONPATH = (Resolve-Path ..\deps).Path + ';' + (Resolve-Path ..\rule-direct).Path
+$env:SQLITE_PATH = (Join-Path (Resolve-Path ..) 'udi-validation.sqlite3') # 검증 DB
+$env:PRIVATE_MEDIA_ROOT = (Join-Path (Resolve-Path ..) 'writing-demo-media') # 기존 데모 증빙 경로
+& $py manage.py migrate --noinput
+& $py manage.py report_serial_duplicates
+& $py manage.py check
+& $py manage.py test pms.test_serials pms.test_serial_migration --noinput
+# 실제 동시 요청은 메모리 SQLite 대신 파일 DB에서 확인
+$env:SQLITE_TEST_PATH = (Join-Path (Resolve-Path ..) 'udi-concurrency-test.sqlite3')
+& $py manage.py test pms.test_serials.SerialConcurrencyTests --noinput
+Remove-Item Env:SQLITE_TEST_PATH
+$env:DEBUG = 'True'
+& $py manage.py runserver 127.0.0.1:8001 --noreload
+```
+
+2026-11-16 로컬 검증: 복사한 검증 DB에 0048/0049 마이그레이션 적용 완료. 파일 기반 SQLite에서 제조번호·이관·기존 업무 테스트 **40건 통과(32.327초)**; 서로 다른 요청과 같은 요청의 동시 발급도 실제 스레드로 실행했습니다. 초기 파일 DB 회귀에서 기존 PDF 테스트의 직접 `response.close()`가 테스트 트랜잭션 연결을 닫는 문제를 확인해, 스트리밍 응답을 끝까지 읽고 PDF 헤더를 검사하도록 테스트를 수정한 뒤 재검증했습니다. 실제 서버의 RA 세션·CSRF 요청으로 발급/재전송/별개 요청/AI 오류/출고/정정 이력/업무 재열기/기존 LOT 목록을 확인했고 기존 문서 초안 **16개 스냅샷이 유지**됐습니다. 시연: `/markets/us/devices/11/` → 제조번호 발급 · GS1 UDI → 실제 제조일 입력 → 발급 결과 → 라벨 검증 또는 출고 라벨 PMS 오류 등록. 이는 DEMO 제품의 예시 기록입니다.
+
+전체 Django 실행 결과: **296건, 1839.338초, 실패 0, 건너뜀 11**(PostgreSQL 전용 9건, 메모리 SQLite의 제조번호 동시성 2건). 건너뛴 제조번호 동시성은 위 파일 DB 회귀에서 별도로 통과했습니다. 후속 입력 형식·GTIN 미지정 자료 연결 검사 2건도 통과(0.231초). `check`, `makemigrations --check --dry-run`, `git diff --check` 모두 통과했습니다. 기존 제품 12개·시장 등록 15개·문서 초안 16개의 기존 열 값도 원본 DB와 대조해 보존을 확인했습니다. PostgreSQL·실제 라벨 프린터/스캐너 및 브라우저 클립보드의 수동 검증은 별도로 필요합니다.

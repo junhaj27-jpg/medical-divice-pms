@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from .forms import AdverseEventForm, AttachmentForm, CAPAForm, ComplaintForm, DeviceForm, LotForm, RecallForm, ReportForm, RiskForm
 from .models import *
 from .forms import SoftwareImpactForm, SoftwareReleaseForm
+from .mri_models import MRIConfiguration
 from .software_tracking import software_summary
 from .file_security import normalized_name, scan_attachment, safe_attachment_bytes
 from io import BytesIO
@@ -167,18 +168,53 @@ def approval_decide(request,pk,approval_pk):
 def device_list(request): return render(request,"pms/object_list.html",{"title":"의료기기","items":MedicalDevice.objects.select_related("manufacturer"),"headers":["제품명","모델","제조사"]})
 @login_required
 def device_detail(request,pk):
-    from .market_service import eu_access, market_access
+    from .market_service import eu_access, market_access, scoped
     item=get_object_or_404(MedicalDevice.objects.select_related("manufacturer"),pk=pk)
+    if scoped(request.user) and not market_access(request.user,("US",),item):
+        from django.http import Http404
+        raise Http404
     cases=visible_complaints(request.user)
+    if scoped(request.user):
+        from .market_service import case_markets
+        cases=cases.filter(pk__in=case_markets(request.user).values("complaint_id"))
     recalls=item.recalls.all()
-    if role(request.user)=="STAFF": recalls=recalls.filter(complaint__in=cases)
-    return render(request,"pms/device_detail.html",{"item":item,"complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count(),"privileged":role(request.user) in ("RA_QA","ADMIN"),"eu_access":eu_access(request.user,item),"us_access":market_access(request.user,("US",),item)})
+    if role(request.user)=="STAFF" or scoped(request.user): recalls=recalls.filter(complaint__in=cases)
+    configuration=item.mri_configurations.first()
+    family_configs=MRIConfiguration.objects.filter(family_id=configuration.family_id).select_related("device") if configuration else MRIConfiguration.objects.none()
+    if scoped(request.user):
+        from .market_service import product_markets
+        family_configs=family_configs.filter(device_id__in=product_markets(request.user).filter(market="US").values("device_id"))
+    return render(request,"pms/device_detail.html",{"item":item,"configuration":configuration,
+        "mri_family":family_configs,
+        "complaint_count":cases.filter(device=item).count(),"recall_count":recalls.count(),"privileged":role(request.user) in ("RA_QA","ADMIN"),"eu_access":eu_access(request.user,item),"us_access":market_access(request.user,("US",),item)})
 @login_required
 @raqa_required
-def device_create(request):
-    form=DeviceForm(request.POST or None)
-    if form.is_valid(): obj=form.save(); audit(request.user,"CREATE",obj,after={"model_number":obj.model_number}); return redirect("device-detail",obj.pk)
-    return render(request,"pms/form.html",{"form":form,"title":"의료기기 등록"})
+@transaction.atomic
+def device_create(request,pk=None):
+    from .market_service import scoped,market_access
+    from .market_models import ProductMarket
+    is_scoped=scoped(request.user)
+    if is_scoped and not market_access(request.user,("US",)):raise PermissionDenied
+    obj=get_object_or_404(MedicalDevice.objects.select_for_update(),pk=pk) if pk else MedicalDevice()
+    if pk and is_scoped and (obj.product_type!="MRI" or not market_access(request.user,("US",),obj)):raise PermissionDenied
+    initial={"product_type":"MRI"} if request.GET.get("type")=="MRI" or request.resolver_match.url_name.startswith("market-") else {}
+    if request.GET.get("family", "").isdigit():
+        family=get_object_or_404(MedicalDevice,pk=request.GET["family"],product_type="MRI")
+        if is_scoped and not market_access(request.user,("US",),family):raise PermissionDenied
+        config=family.mri_configurations.first()
+        if config:
+            initial.update({key:getattr(config,key) for key in DeviceForm.mri_fields()})
+            initial.update(product_type="MRI",manufacturer=family.manufacturer_id,name=family.name,family=config.family_id)
+    form=DeviceForm(request.POST or None,user=request.user,instance=obj,initial=initial)
+    if form.is_valid():
+        if is_scoped and form.cleaned_data.get("product_type")!="MRI":raise PermissionDenied
+        saved=form.save()
+        if saved.product_type=="MRI":
+            ProductMarket.objects.get_or_create(device=saved,market="US",defaults={"owner":request.user,"is_example":form.cleaned_data["is_example"]})
+        audit(request.user,"UPDATE" if pk else "CREATE",saved,after={"model_number":saved.model_number,
+            "configuration_id":saved.mri_configurations.first().pk if saved.product_type=="MRI" else None})
+        return redirect("market-device-detail" if is_scoped else "device-detail",saved.pk)
+    return render(request,"pms/device_form.html",{"form":form,"title":"의료기기·모델 구성 수정" if pk else "의료기기 등록"})
 @login_required
 def lot_list(request): return render(request,"pms/lot_list.html",{"items":ProductLot.objects.select_related("device","udi")})
 @login_required
@@ -192,7 +228,10 @@ def lot_detail(request,pk):
 @raqa_required
 def lot_create(request):
     form=LotForm(request.POST or None)
-    if form.is_valid(): obj=form.save(); audit(request.user,"CREATE",obj,after={"lot_number":obj.lot_number}); return redirect("lot-detail",obj.pk)
+    if form.is_valid():
+        try:
+            obj=form.save(); audit(request.user,"CREATE",obj,after={"lot_number":obj.lot_number}); return redirect("lot-detail",obj.pk)
+        except ValidationError as exc:form.add_error(None,exc)
     return render(request,"pms/form.html",{"form":form,"title":"UDI·LOT·시리얼 등록"})
 @login_required
 def adverse_list(request): return render(request,"pms/adverse_list.html",{"items":AdverseEvent.objects.filter(complaint__in=visible_complaints(request.user)).select_related("complaint")})

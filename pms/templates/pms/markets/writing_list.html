@@ -1,6 +1,7 @@
 {% extends 'pms/base.html' %}{% load market_ui %}{% block content %}
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %} / {% ui writing_market %}</a></p>
 <h1>{% if writing_market == 'EU' %}{% ui 'eu_writing' %}{% else %}{% ui 'writing_ai' %}{% endif %}</h1>
+{% if writing_market == 'US' %}<p><a class="btn" href="{% url 'market-device-create' %}?type=MRI">MRI 촬영 장비 등록</a></p>{% endif %}
 {% if writing_market == 'US' %}<p><a href="{% url 'market-fda-library' %}">{% ui 'fda_library' %} · MRI/MR</a></p>{% endif %}
 <nav><a href="{% url 'market-writing-list' %}">US</a> · <a href="{% url 'market-eu-writing-list' %}">EU</a></nav>
 <table><thead><tr><th>제품·모델</th><th>기기 유형·버전</th><th>담당자</th><th>검토 상태</th></tr></thead><tbody>

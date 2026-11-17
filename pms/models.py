@@ -7,6 +7,7 @@ from django.core.validators import FileExtensionValidator, MaxValueValidator, Mi
 from django.db import models, transaction
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
+from .gs1 import validate_gtin14
 from django.utils import timezone
 from .history import AppendOnlyRecord
 from .market_models import LANGUAGES
@@ -70,8 +71,10 @@ class MedicalDevice(TimeStamped):
     class ProductType(models.TextChoices):
         HARDWARE = "HARDWARE", "하드웨어"
         SOFTWARE = "SOFTWARE", "소프트웨어"
+        MRI = "MRI", "MRI 촬영 장비"
 
     product_type = models.CharField("제품 유형", max_length=12, choices=ProductType.choices, blank=True)
+    gtin_14=models.CharField("GTIN-14",max_length=14,blank=True,validators=[validate_gtin14],help_text="GS1 GTIN-14 · 선행 0 포함 · 미등록 시 비움")
 
     manufacturer=models.ForeignKey(Manufacturer,on_delete=models.PROTECT,related_name="devices"); name=models.CharField(max_length=200); model_number=models.CharField(max_length=100); risk_class=models.CharField(max_length=20,blank=True); active=models.BooleanField(default=True)
     class Meta: unique_together=("manufacturer","model_number")
@@ -93,12 +96,23 @@ class UDI(TimeStamped):
     device=models.ForeignKey(MedicalDevice,on_delete=models.CASCADE,related_name="udis"); device_identifier=models.CharField(max_length=100,unique=True)
     def __str__(self): return self.device_identifier
 class ProductLot(TimeStamped):
+    serial_identity=models.ForeignKey("ManufacturingSerial",null=True,blank=True,editable=False,on_delete=models.PROTECT,related_name="linked_lots")
     device=models.ForeignKey(MedicalDevice,on_delete=models.CASCADE,related_name="lots"); udi=models.ForeignKey(UDI,on_delete=models.PROTECT,related_name="lots"); lot_number=models.CharField(max_length=100); serial_number=models.CharField(max_length=100,blank=True); manufactured_on=models.DateField(null=True,blank=True); expires_on=models.DateField(null=True,blank=True); distributed_quantity=models.PositiveIntegerField(default=0)
     class Meta: unique_together=("udi","lot_number","serial_number")
     def clean(self):
         super().clean()
         if self.udi_id and self.device_id and self.udi.device_id!=self.device_id: raise ValidationError("UDI는 선택한 의료기기에 속해야 합니다.")
     def __str__(self): return f"{self.lot_number} / {self.serial_number or '-'}"
+    def save(self,*args,**kwargs):
+        from .serial_service import prepare_lot,lot_snapshot
+        from .serial_models import SerialLotReference
+        with transaction.atomic():
+            record=prepare_lot(self)
+            if record:
+                self.serial_identity=record
+                if kwargs.get("update_fields") is not None:kwargs["update_fields"]=set(kwargs["update_fields"])|{"serial_identity"}
+            super().save(*args,**kwargs)
+            if record:SerialLotReference.objects.get_or_create(serial=record,lot=self,defaults={"original":lot_snapshot(self)})
 
 class CustomerComplaint(TimeStamped):
     intake_release = models.ForeignKey(SoftwareRelease, verbose_name="접수 버전", on_delete=models.PROTECT, null=True, blank=True, related_name="intake_cases")
@@ -639,3 +653,5 @@ from . import market_models
 from . import dental_models
 from . import eu_legal_models
 from . import fda_library_models
+from . import mri_models
+from . import serial_models

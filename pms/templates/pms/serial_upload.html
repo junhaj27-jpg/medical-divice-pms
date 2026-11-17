@@ -1,0 +1,1 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>UDI 라벨 오류 증빙 등록</h1><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button>등록·파일 검사</button></form><p>기존 파일 검사 정책을 적용합니다. 검사 통과 전에는 라벨 오류 근거로 연결되지 않습니다.</p>{% endblock %}

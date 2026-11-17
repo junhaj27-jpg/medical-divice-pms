@@ -162,7 +162,10 @@ class WorkflowTests(Base):
         self.assertEqual((first.version,second.version),(1,2));self.assertEqual(first.snapshot['complaint']['title'],'case');self.assertEqual(Path(first.file.path).read_bytes(),original)
         self.assertEqual(first.sha256,hashlib.sha256(original).hexdigest())
         self.client.force_login(self.staff);self.assertEqual(self.client.get(reverse('artifact-download',args=[first.pk])).status_code,403)
-        self.client.force_login(self.raqa);response=self.client.get(reverse('artifact-download',args=[first.pk]));self.assertEqual(response.status_code,200);response.close()
+        self.client.force_login(self.raqa);response=self.client.get(reverse('artifact-download',args=[first.pk]));self.assertEqual(response.status_code,200)
+        # Consume the test client's streaming wrapper: direct response.close() bypasses
+        # its request_finished guard and closes file-backed SQLite TestCase transactions.
+        self.assertTrue(b''.join(response.streaming_content).startswith(b'%PDF-'))
         attachment.scan_status='QUARANTINED';attachment.save()
         self.assertEqual(self.client.get(reverse('artifact-download',args=[first.pk])).status_code,403)
     def test_timezone_task_boundary_and_form(self):

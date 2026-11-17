@@ -13,6 +13,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 if os.getenv("DB_ENGINE") == "postgresql":
     DATABASES={"default":{"ENGINE":"django.db.backends.postgresql","NAME":os.getenv("DB_NAME","pms"),"USER":os.getenv("DB_USER","pms"),"PASSWORD":os.getenv("DB_PASSWORD","pms"),"HOST":os.getenv("DB_HOST","db"),"PORT":os.getenv("DB_PORT","5432")}}
 else: DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3","NAME":os.getenv("SQLITE_PATH",str(BASE_DIR/"db.sqlite3"))}}
+if DATABASES['default']['ENGINE']=='django.db.backends.sqlite3' and os.getenv('SQLITE_TEST_PATH'):
+    DATABASES['default']['TEST']={'NAME':os.environ['SQLITE_TEST_PATH']}
 AUTH_PASSWORD_VALIDATORS=[{"NAME":"django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},{"NAME":"django.contrib.auth.password_validation.MinimumLengthValidator"},{"NAME":"django.contrib.auth.password_validation.CommonPasswordValidator"}]
 LANGUAGE_CODE="ko-kr"; TIME_ZONE="Asia/Seoul"; USE_I18N=True; USE_TZ=True
 STATIC_URL="static/"; STATIC_ROOT=Path(os.getenv("PMS_STATIC_ROOT",str(BASE_DIR/"staticfiles"))); STATICFILES_DIRS=[BASE_DIR/"static"]

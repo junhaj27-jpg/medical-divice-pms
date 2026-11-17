@@ -3312,6 +3312,8 @@ erDiagram
 
 ## EU 법령–제품 증빙 확장
 
+MRI 장비 등록: `MedicalDevice.product_type=MRI`이고 `MedicalDevice → MRIConfiguration`은 모델별 추가 전용 구성 버전이다. `MRIConfiguration.family`는 동일 장비 제품군의 기준 제품을 참조한다. `DentalProject.specification.registered_configuration`은 선택 당시 제품·제조사·모델·구성 값을 고정한다. `DentalEvidence → MRIApplicabilityReview → MRIConfiguration`은 시험 모델/코일/소프트웨어 적용 판단, 원본 식별자·해시, 검토자·시각·사유를 보존한다. 새로운 구성은 과거 적용 검토를 자동 승계하지 않는다. FDA 상태는 기존 `ProductMarket`, 출력 버전은 기존 `DentalDraft`/`DentalDraftReview`를 재사용한다.
+
 MRI/MR의 FDA 공통 출처는 `FDAReferenceVersion`(계열·버전·출처 유형·발행/개정/확인일·절/페이지·검색 본문·조회 상태·내용 해시)에 추가 전용으로 저장합니다. `ProjectFDAReference`가 `DentalProject`의 체크리스트 항목과 출처 버전/조항/페이지를 연결하며 제품별 `MarketEvidence`도 재사용합니다. `(key, version)`, `(key, content_hash)`와 프로젝트 인용 조합은 유일합니다. 초안은 출처와 제품 증빙의 당시 값을 JSON으로 보존합니다. 동일 제품의 등록 상태나 PMS 기한은 이 연결에서 변경하지 않습니다.
 
 ```mermaid
@@ -3329,3 +3331,8 @@ erDiagram
 ```
 
 DentalProject는 기존 명칭을 재사용하며 `(device, market)`가 유일하다. 법령의 발행/발효/적용일과 언어·확인일은 분리한다. 법령/적용 검토/영향 확인은 추가 전용이다. 초안은 법령·적용 검토와 제품 증빙 버전의 스냅샷을 보존한다. 조화표준의 publication_scope/restrictions는 제품 적용 판단과 별도다.
+# 제조번호·GS1 UDI 원장
+
+`MedicalDevice.gtin_14`는 문자열이며, `GTINNamespace`는 GTIN 단위 발급 동시성을 직렬화합니다. `ManufacturingSerial`은 제품 FK와 발급 당시 GTIN·실제 제조일·번호·발급자·시각·요청 키를 보존합니다. 비어 있지 않은 `(gtin_14, serial_number)` 및 발급 요청 UUID는 DB 고유 제약입니다. 기존 중복은 하나의 키를 예약하고 `SerialLotReference`로 모든 원본 LOT를 보존하며, GTIN 미지정 자료는 임의 병합하지 않습니다. `ProductLot.serial_identity`는 원장 참조이며 원래 번호를 대체하지 않습니다.
+
+`ManufacturingSerial → SerialDispatchRecord → UDILabelIncidentDispatch`는 출고 원본과 오류 시점의 참조 스냅샷을 연결합니다. `UDILabelIncident`는 인쇄값·스캔값·기대값·차이를 보존하고 기존 RA `WorkTask`에 연결됩니다. `UDILabelIncidentEvidence`는 기존 검사 통과 첨부와 해시를 참조합니다. `UDILabelFollowup` 및 기존 `TaskHistory`는 후속 정정·검토 상태를 추가 기록하며 원본 출고와 라벨 오류를 덮어쓰지 않습니다.

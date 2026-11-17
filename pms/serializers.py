@@ -9,6 +9,14 @@ class UDISerializer(serializers.ModelSerializer):
     class Meta: model=UDI; fields="__all__"
 class LotSerializer(serializers.ModelSerializer):
     class Meta: model=ProductLot; fields="__all__"
+    def create(self,data):
+        from django.core.exceptions import ValidationError
+        try:return super().create(data)
+        except ValidationError as exc:raise serializers.ValidationError(exc.messages)
+    def update(self,instance,data):
+        from django.core.exceptions import ValidationError
+        try:return super().update(instance,data)
+        except ValidationError as exc:raise serializers.ValidationError(exc.messages)
 class ComplaintSerializer(serializers.ModelSerializer):
     reporter=serializers.PrimaryKeyRelatedField(read_only=True); risk_level=serializers.CharField(source="risk_assessment.level",read_only=True)
     class Meta: model=CustomerComplaint; fields="__all__"; read_only_fields=("status","version","affected_releases","impact_rationale")

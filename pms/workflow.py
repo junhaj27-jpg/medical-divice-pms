@@ -17,8 +17,12 @@ def privileged(user):
 
 def tasks_for(user):
     from .market_review import runs_for
+    from .market_service import product_markets,allowed_markets,scoped
     qs=WorkTask.objects.select_related("complaint","assignee","capa","recall")
     qs=qs.filter(Q(market_comparison__isnull=True)|Q(market_comparison__run__in=runs_for(user).order_by()))
+    if scoped(user):
+        qs=qs.filter(Q(udi_label_incident__isnull=True)|Q(udi_label_incident__serial__device_id__in=product_markets(user).values('device_id'),ra_profile__jurisdiction__in=allowed_markets(user)))
+    elif role(user) not in ('RA_QA','ADMIN'):qs=qs.filter(udi_label_incident__isnull=True)
     if role(user)=="STAFF":
         # An assignment never grants access to somebody else's case.
         qs=qs.filter(Q(complaint__in=visible_complaints(user))|Q(ra_profile__isnull=False),assignee=user)

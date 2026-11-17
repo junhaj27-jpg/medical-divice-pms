@@ -1,0 +1,16 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>{{ device.name }} · {{ serial.serial_number }}{% if serial.is_example %} · 예시{% endif %}</h1>
+<p><a href="{% url 'market-serials' device.pk %}">제조번호 발급·목록</a> · {{ serial.status }}</p>
+<dl><dt>(01) GTIN-14</dt><dd>{{ serial.gtin_14|default:'미지정' }}</dd><dt>(11) 실제 제조일</dt><dd>{{ serial.manufactured_on|date:'Y-m-d'|default:'미확인' }} · AI 데이터: {{ serial.manufactured_on|date:'ymd'|default:'미확인' }}</dd><dt>(21) 제조번호</dt><dd>{{ serial.serial_number }}</dd><dt>발급자·발급 시각</dt><dd>{{ serial.issued_by|default:'미확인' }} · {{ serial.issued_at|default:'미확인' }}</dd></dl>
+<section class="panel"><h2>사람이 읽는 GS1 UDI</h2><input id="udi-hri" readonly value="{{ serial.expected_udi }}" style="width:100%"><button type="button" onclick="const e=document.getElementById('udi-hri');e.select();if(navigator.clipboard){navigator.clipboard.writeText(e.value).catch(()=>document.execCommand('copy'))}else{document.execCommand('copy')}">UDI 복사</button>
+<p>괄호 표시는 바코드 인코딩 데이터가 아닙니다. 바코드 생성은 지원하지 않습니다. 스캔 검증은 디코딩된 01·11·21 고정 순서만 지원합니다.</p></section>
+{% if serial.expected_udi %}
+<section class="panel"><h2>라벨 검증</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="validate"><label>인쇄 UDI 또는 디코딩된 스캔값 <input name="printed_udi" maxlength="500" required></label><button>검증</button></form>
+{% if result %}<p>일치: {{ result.valid|yesno:'예,아니오' }}</p><h3>AI 오류</h3>{{ result.ai_errors }}<h3>AI 뒤 데이터 값 불일치</h3>{{ result.value_errors }}<h3>형식 오류</h3>{{ result.format_errors }}{% endif %}</section>
+<section class="panel"><h2>출고 기록 추가</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="dispatch">{{ dispatch_form.as_p }}<button>출고 이력 추가</button></form><p>기존 LOT 출고수량은 집계값입니다. 실제 출고일·출고 참조번호를 확인한 경우에만 새 이력을 추가하세요.</p>
+{% for row in serial.dispatches.all %}<p>#{{ row.pk }} · {{ row.dispatched_on }} · {{ row.reference }} · {{ row.printed_udi }} · {{ row.recorded_by }}</p>{% empty %}<p>출고 이력 없음</p>{% endfor %}</section>
+<section class="panel"><h2>출고 라벨 PMS 오류 등록</h2><p><a href="{% url 'market-serial-upload' device.pk serial.pk %}">증빙 파일 등록</a> · 검토 관할이 없으면 발급 목록에서 먼저 추가하세요.</p><p>기대 UDI는 발급 당시 스냅샷을 사용합니다. 증빙은 기존 RA·QA 문서 첨부의 검사 통과 자료를 선택하세요.</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="incident">{{ incident_form.as_p }}<button>라벨 오류·RA 검토 업무 등록</button></form></section>
+{% else %}<p>GTIN·제조일 또는 기존 중복을 RA가 확인해야 합니다. 원본 제조번호는 변경하지 않습니다.</p>{% endif %}
+<h2>라벨 PMS 이력</h2>{% for row in incidents %}<p><a href="{% url 'market-udi-incident' device.pk row.pk %}">오류 #{{ row.pk }} · {{ row.recorded_at }}</a></p>{% empty %}<p>기록 없음</p>{% endfor %}
+<h2>기존 LOT 원본 참조</h2>{% for ref in lot_references %}<p>LOT #{{ ref.lot_id }} · {{ ref.original }}</p>{% empty %}<p>연결 없음</p>{% endfor %}
+{% endblock %}

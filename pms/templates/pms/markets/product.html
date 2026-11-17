@@ -18,4 +18,4 @@
 {% empty %}<tr><td colspan="5">{% ui 'empty' %}</td></tr>{% endfor %}</tbody></table></section>
 {% if available %}<section class="panel"><h2>{% ui 'add_market' %}</h2>{% for code in available %}<a class="btn" href="{% url 'market-registration' device.pk code %}">{% ui code %}</a> {% endfor %}</section>{% endif %}
 {% if has_legacy %}<p><a href="{% url 'foreign-device' device.pk %}">{% ui 'legacy_foreign' %}</a></p>{% endif %}
-{% endblock %}
+<p><a class="btn" href="{% url 'market-serials' device.pk %}">제조번호 발급 · GS1 UDI</a></p>{% endblock %}

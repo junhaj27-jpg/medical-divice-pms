@@ -16,7 +16,7 @@ from .test_dental import DentalTests
 
 class MRITests(DentalTests):
     def create_project(self, key, confirmed=True):
-        self.template = WritingTemplate.objects.get(key=key)
+        self.template = WritingTemplate.objects.filter(key=key).order_by("-version").first()
         self.workspace = reverse("market-writing", args=[self.device.pk])
         payload = {**self.spec, "template_id":self.template.pk,"users":"Research staff","environment":"Research laboratory",
             "product_version":"DEMO-v1", "product_code":"LNH" if key == "mri-equipment" else "",
