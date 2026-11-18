@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "description": "Relevance judgements fixed before the first actual model query. Small local source-coverage evaluation, not clinical/legal validation.",
+  "questions": [
+    {"id":"mri-510k","query":"MRI 기기의 미국 510(k) 관련 문서를 찾아줘","jurisdiction":"US","relevant":{"kind":"fda","key":"mrdd","pages":[4,5]}},
+    {"id":"mdr-serious","query":"EU MDR에서 중대한 사고 보고 관련 조항을 찾아줘","jurisdiction":"EU","relevant":{"kind":"eu","celex":"32017R0745","section":"Article 87"}},
+    {"id":"mri-description","query":"MRI 촬영 장비의 구성품과 코일 설명 자료는 무엇을 준비해야 하나요?","jurisdiction":"US","relevant":{"kind":"fda","key":"mrdd","pages":[8,9,10]}},
+    {"id":"mr-heating","query":"MR 환경에서 사용하는 기기의 발열 시험 관련 근거를 찾아줘","jurisdiction":"US","relevant":{"kind":"fda","key":"mr-environment","pages":[11,12,13,14]}},
+    {"id":"mri-labeling","query":"MRI 진단 장비의 라벨과 사용설명서 권고 내용을 찾아줘","jurisdiction":"US","relevant":{"kind":"fda","key":"mrdd","pages":[17]}}
+  ]
+}

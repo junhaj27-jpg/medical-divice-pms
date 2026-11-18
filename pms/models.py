@@ -460,6 +460,7 @@ class LoginBucket(models.Model):
 
 
 class RegulationDocument(TimeStamped):
+    language=models.CharField(max_length=10,default='und',blank=True)
     title=models.CharField("문서명",max_length=240)
     issuer=models.CharField("발행 기관",max_length=200)
     jurisdiction=models.CharField("관할 국가·지역",max_length=120,db_index=True)
@@ -497,7 +498,7 @@ class RegulationDocument(TimeStamped):
     def save(self,*args,**kwargs):
         if self.pk:
             old=type(self).objects.get(pk=self.pk)
-            protected=("title","issuer","jurisdiction","device_id","scope_description","document_number","edition","published_on","effective_on","official_url","file","original_name","uploaded_by_id","visibility","is_example","sha256")
+            protected=("title","issuer","jurisdiction","device_id","scope_description","document_number","edition","published_on","effective_on","official_url","file","original_name","uploaded_by_id","visibility","is_example","sha256","language")
             if any(getattr(old,key)!=getattr(self,key) for key in protected):
                 raise ValidationError("문서 원본·출처·접근 범위는 변경할 수 없습니다. 새 문서 버전을 등록하세요.")
         return super().save(*args,**kwargs)
@@ -655,3 +656,4 @@ from . import eu_legal_models
 from . import fda_library_models
 from . import mri_models
 from . import serial_models
+from . import search_models

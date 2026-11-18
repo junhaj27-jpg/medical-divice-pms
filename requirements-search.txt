@@ -1,0 +1,5 @@
+# Optional, isolated local retrieval dependencies; app startup works without them.
+torch==2.6.0
+transformers==4.51.3
+huggingface-hub==0.30.2
+safetensors==0.5.3

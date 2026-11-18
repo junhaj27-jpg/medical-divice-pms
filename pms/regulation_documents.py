@@ -45,6 +45,18 @@ def tokens(text):
     return output
 
 
+def keyword_rank(query,entries):
+    """Reuse the same portable token/term-frequency ranker for authorized source passages."""
+    terms=set(tokens(query))
+    frequency=Counter(term for _,words in entries for term in terms if term in set(words))
+    result=[]
+    for item,words in entries:
+        tf=Counter(words)
+        score=sum(math.log(1+(len(entries)+1)/(frequency[t]+1))*tf[t]/(tf[t]+1.2) for t in terms if tf[t])
+        if score:result.append((score,item))
+    return sorted(result,key=lambda row:-row[0])
+
+
 @transaction.atomic
 def register_document(document,user):
     require_author(user)
@@ -130,13 +142,8 @@ def search_evidence(user,query,jurisdiction="",device_id=None,edition="",as_of=N
     index=RegulationChunk.objects.filter(document__in=docs).select_related("document").order_by("pk")
     if index.count()>settings.REGULATION_SEARCH_CHUNKS: raise ValidationError("검색 색인 범위를 초과합니다. 문서·관할·버전 필터로 범위를 좁히세요.")
     chunks=list(index)
-    terms=set(tokens(query));frequency=Counter(term for chunk in chunks for term in terms if term in set(chunk.search_tokens))
-    scored=[]
-    for chunk in chunks:
-        tf=Counter(chunk.search_tokens)
-        score=sum(math.log(1+(len(chunks)+1)/(frequency[t]+1))*tf[t]/(tf[t]+1.2) for t in terms if tf[t])
-        if not terms and document_id: score=1
-        if score: scored.append((score,chunk))
+    scored=keyword_rank(query,[(chunk,chunk.search_tokens) for chunk in chunks])
+    if not tokens(query) and document_id:scored=[(1,chunk) for chunk in chunks]
     scored.sort(key=lambda x:(-x[0],x[1].document_id,x[1].sequence))
     result=[];checked={}
     for score,chunk in scored:

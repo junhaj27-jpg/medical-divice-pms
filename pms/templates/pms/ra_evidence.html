@@ -1,4 +1,4 @@
-{% extends 'pms/base.html' %}{% block content %}
+{% extends 'pms/base.html' %}{% block content %}{% if market_workspace %}<p><a href="{% url 'market-source-search' %}">AI 원문 검색 · 로컬 Hugging Face</a></p>{% endif %}
 <h1>근거 기반 RA 도우미</h1><p>검색은 로컬에서 수행합니다. 문서의 적용 가능성·최신 여부는 자동 확정하지 않습니다.</p>
 <form method="post">{% csrf_token %}{{ form.as_p }}<button>근거 검색</button></form>
 {% if result %}

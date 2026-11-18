@@ -1,0 +1,3 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>원문 검색·근거 채택 이력</h1><p><a href="{% url 'market-source-search' %}">새 검색</a></p>
+<h2>연결된 검토 근거</h2>{% for row in adoptions %}<p><a href="{% url 'market-search-adoption' row.pk %}">#{{ row.pk }} · {{ row.snapshot.title }} · {{ row.snapshot.version }}</a> · {{ row.actor }} · {{ row.recorded_at }} · {% if row.draft_id %}문서 초안 #{{ row.draft_id }}{% else %}RA 검토 #{{ row.review_id }}{% endif %}</p>{% empty %}<p>접근 가능한 채택 근거 없음</p>{% endfor %}
+<h2>내 검색 결과 스냅샷</h2>{% for row in events %}<p><a href="{% url 'market-search-execution' row.pk %}">실행 #{{ row.pk }}</a> · {{ row.recorded_at }} · {{ row.snapshot.engine }} · {{ row.snapshot.results|length }}개</p>{% empty %}<p>접근 가능한 이력 없음</p>{% endfor %}{% endblock %}

@@ -46,7 +46,7 @@
 <h3>{% ui 'comparison_history' %}</h3>
 {% for event in events %}<article><p>{{ event.recorded_at }} · {{ event.actor }} · {% if event.complete %}{% ui 'comparison_complete' %}{% else %}{% ui 'review_required' %}{% endif %}</p>
 {% if event.conclusion %}<h4>{% ui event.conclusion %}</h4>{% endif %}
-<p>{{ event.note|linebreaksbr }}</p>
+<p>{{ event.note|linebreaksbr }}</p><p><a href="{% url 'market-search-history' %}?review={{ event.pk }}">이 검토에 채택한 검색 근거</a></p>
 {% if event.correction_reason %}<p><strong>{% ui 'comparison_correction_reason' %}</strong> · {{ event.correction_reason|linebreaksbr }}</p>{% endif %}
 {% if event.evidence %}<ul>{% for item in event.evidence %}<li>{% include 'pms/markets/comparison_evidence_label.html' %}</li>{% endfor %}</ul>{% endif %}</article>
 {% empty %}<p>{% ui 'empty' %}</p>{% endfor %}</section>

@@ -13,8 +13,20 @@ from .fda_library import library
 from . import views as product_views
 from . import mri_registration
 from . import serial_views
+from .source_search_views import source_search,source_document
+from . import search_history_views as search_history
 
 urlpatterns = [
+    path('markets/ai-search/',source_search,name='market-source-search'),
+    path('markets/ai-search/eu/<int:pk>/',search_history.manage_eu,name='market-search-eu-manage'),
+    path('markets/ai-search/eu/text/<int:pk>/',search_history.eu_text,name='market-search-eu-text'),
+    path('markets/ai-search/eu/text/<int:pk>/original/',search_history.eu_text,{'download':True},name='market-search-eu-original'),
+    path('markets/ai-search/executions/<int:pk>/',search_history.execution_detail,name='market-search-execution'),
+    path('markets/ai-search/history/',search_history.history,name='market-search-history'),
+    path('markets/ai-search/adoptions/<int:pk>/',search_history.adoption_detail,name='market-search-adoption'),
+    path('markets/api/ai-search/',source_search,{'api':True},name='market-source-search-api'),
+    path('markets/ai-search/documents/<int:pk>/',source_document,name='market-source-document'),
+    path('markets/ai-search/documents/<int:pk>/original/',source_document,{'download':True},name='market-source-original'),
     path('devices/<int:pk>/serials/',serial_views.serials,name='market-serials'),
     path('devices/<int:pk>/serials/api/',serial_views.serials,{'api':True},name='market-serial-api'),
     path('devices/<int:pk>/serials/<int:serial_id>/',serial_views.detail,name='market-serial'),

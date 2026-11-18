@@ -1,0 +1,17 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>AI 원문 검색 · FDA / EU</h1><p><a href="{% url 'market-search-history' %}">검색·근거 채택 이력</a></p>{% for status in eu_status %}<section class="panel"><a href="{% url 'market-search-eu-manage' status.document.pk %}">{{ status.document.celex }} · 공식 본문 수집·파일 가져오기</a><p>최근 성공 {{ status.success.attempted_at|default:'없음' }} · 현재 게시 {% if status.head.active_text %}text-v{{ status.head.active_text.version }}{% else %}없음{% endif %}</p></section>{% endfor %}
+<p>한국어 질문으로 저장된 공개 원문과 접근 가능한 규정 문서를 검색합니다. 로컬 임베딩만 사용하며 질문·본문을 외부 추론 API로 전송하지 않습니다. 법령의 최신성·적용 여부는 RA 검토가 필요합니다.</p>
+<p>{% if us_access %}<a href="{% url 'market-fda-library' %}">FDA 자료 라이브러리</a>{% endif %} {% if eu_access %}<a href="{% url 'market-eu-documents' %}">EU 관보·법령 근거</a>{% endif %}</p><form method="get" class="panel">{{ form.as_p }}<button class="btn primary">검색 실행</button></form>
+{% if result %}<section class="panel"><h2>실제 검색 방식: {{ result.engine }}</h2>
+<p>실행 #{{ result.execution_id }} · 장치 {{ result.device|default:'미사용' }} · 재정렬 실제 적용 {{ result.reranker_applied|yesno:'예,아니오' }}</p><p>후보 {{ result.candidate_count }}개 · 결과 {{ result.results|length }}개</p>
+{% if result.model_id %}<p>{{ result.model_id }} · 고정 리비전 {{ result.revision }}</p>{% endif %}
+{% if reason %}<p role="status">키워드 대체 실행: {{ reason }} ({{ result.fallback_reason }})</p>{% endif %}
+{% if reranker_reason %}<p>{{ reranker_reason }}</p>{% endif %}
+<p>검색은 보고 규칙·승인·사건 스냅샷을 변경하지 않습니다. 관련 조항인지 공식 원문에서 확인하세요.</p></section>
+{% for row in result.results %}<article class="panel"><h2>{{ forloop.counter }}. {{ row.title }}{% if row.is_example %} · 예시{% endif %}</h2>
+<p>{{ row.jurisdiction }} · {{ row.document_type }} · 문서 ID {{ row.document_id }} · {{ row.kind }} · {{ row.version }}</p>
+<p>{{ row.section|default:'절·조항 미확인' }}{% if row.page %} · PDF {{ row.page }}쪽{% endif %} · 시행일 {{ row.effective_on|default:'미확인' }}</p>
+{% if row.coverage %}<p>저장 범위: {{ row.coverage }}</p>{% endif %}<p>관련도 점수 {{ row.relevance_score }} · {{ row.score_type }} (확률·준수 판단이 아님) · 언어 {{ row.language }} · 수집 {{ row.collected_at }}</p><blockquote>{{ row.text }}</blockquote><p><a href="{% url 'market-search-execution' result.execution_id %}?key={{ row.key|urlencode }}">이 근거를 검토·초안에 연결</a></p>
+{% if row.official_url %}<a href="{{ row.official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">공식 원문 열기</a>{% else %}<span>공식 원문 URL 미확인</span>{% endif %}
+ · <a href="{{ row.location_url }}">저장 문서·버전 확인</a></article>{% empty %}<p>검색 결과가 없습니다. 조회 실패를 의미하지는 않습니다. 저장 본문·접근 범위·버전과 검색어를 확인하세요.</p>{% endfor %}{% endif %}
+{% endblock %}

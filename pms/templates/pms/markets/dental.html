@@ -94,7 +94,7 @@
 <p><a href="{% url 'market-dental-output' device.pk draft.pk 'docx' %}">영문 DOCX</a> ·
 <a href="{% url 'market-dental-output' device.pk draft.pk 'matrix' %}">매트릭스 CSV</a> ·
 <a href="{% url 'market-dental-output' device.pk draft.pk 'gaps' %}">한국어 보완 CSV</a>{% if writing_market == 'US' %} · <a href="{% url 'market-dental-output' device.pk draft.pk 'mapping' %}">eSTAR 매핑표 CSV</a>{% endif %}</p>
-{% for review in draft.reviews.all %}<p>{{ review.reviewer }} · {{ review.reviewed_at }} · {{ review.note }}</p>{% endfor %}
+<p><a href="{% url 'market-search-history' %}?draft={{ draft.pk }}">이 초안에 채택한 검색 근거</a></p>{% for review in draft.reviews.all %}<p>{{ review.reviewer }} · {{ review.reviewed_at }} · {{ review.note }}</p>{% endfor %}
 {% if not draft.stale %}<form method="post" action="{% url 'market-dental-output' device.pk draft.pk 'review' %}">{% csrf_token %}
 <label>검토·수정 내역 <textarea name="note" maxlength="2000" required></textarea></label><button class="btn">RA 검토 기록</button></form>{% endif %}
 </article>{% endfor %}

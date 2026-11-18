@@ -12,6 +12,8 @@ private_media/
 .test-media/
 mri-registration-test-*/
 mri_registration_test_*/
+.model-cache/
+.hf-deps/
 tmp*/
 /work/erd-validation/
 /work/ra-platform/

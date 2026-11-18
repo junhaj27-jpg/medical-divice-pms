@@ -6,9 +6,11 @@ from .regulation_documents import documents_for
 
 
 class RegulationForm(StyledForm):
+    language=forms.ChoiceField(label='원문 언어',required=False,choices=[('und','미확인'),('en','English'),('ko','한국어'),('de','Deutsch'),('fr','Français'),('es','Español'),('it','Italiano')])
+    def clean_language(self):return self.cleaned_data.get('language') or 'und'
     class Meta:
         model=RegulationDocument
-        fields=("title","issuer","jurisdiction","device","scope_description","document_number","edition","published_on","effective_on","official_url","file","visibility","is_example")
+        fields=("title","issuer","jurisdiction","language","device","scope_description","document_number","edition","published_on","effective_on","official_url","file","visibility","is_example")
         widgets={key:forms.DateInput(attrs={"type":"date"}) for key in ("published_on","effective_on")}
         help_texts={"file":"PDF 또는 UTF-8 TXT. 검사 통과 후 추출하며 스캔 PDF는 OCR이 필요할 수 있습니다."}
 

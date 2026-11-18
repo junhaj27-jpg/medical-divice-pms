@@ -1,0 +1,4 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>{{ text.document.title }} · text-v{{ text.version }}</h1>
+<p>{{ text.document.celex }} · {{ text.document.language }} · 수집 {{ text.retrieved_at }} · {{ text.source_method }}</p>
+<p>{{ text.scope_description }} · SHA-256 {{ text.original_hash }}</p><p><a href="{% url 'market-search-eu-manage' text.document_id %}">게시 상태·수집 이력</a> · <a href="{{ text.official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">공식 원문</a>{% if text.original_file %} · <a href="{% url 'market-search-eu-original' text.pk %}">수집 당시 원본 파일</a>{% endif %}</p>
+{% for part in text.sections %}<section class="panel"><h2>{{ part.section }}{% if part.page %} · PDF {{ part.page }}쪽{% endif %}</h2><pre style="white-space:pre-wrap">{{ part.text }}</pre></section>{% endfor %}{% endblock %}

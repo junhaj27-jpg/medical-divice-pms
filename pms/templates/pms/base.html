@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{% static 'css/regulatory.css' %}">
   <link rel="stylesheet" href="{% static 'css/assistant_launcher.css' %}">
     <link rel="stylesheet" href="{% static 'css/sidebar.css' %}?v=3">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  {% if not source_search_local_only %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endif %}
 </head>
 <body>
   <header>
@@ -25,7 +25,7 @@
         <button>{% ui 'save' %}</button>
       </form>
       {% endif %}
-      {% if market_workspace %}<a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a>{% endif %}
+      {% if market_workspace %}<a href="{% url 'market-dashboard' %}">{% ui 'markets' %}</a><a href="{% url 'market-source-search' %}">{% ui 'source_ai_search' %}</a>{% endif %}
       {% if not market_scoped %}
       <a href="/">{% ui 'dashboard' %}</a>
       <a href="/complaints/">{% ui 'complaints' %}</a>

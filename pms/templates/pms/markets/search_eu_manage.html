@@ -1,0 +1,11 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>EU 공식 본문 수집·파일 가져오기</h1>
+<p>{{ doc.title }} · {{ doc.celex }} · {{ doc.language }} · <a href="{{ doc.official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">공식 문서</a></p>
+<p><a href="{% url 'market-source-search' %}">AI 원문 검색</a> · <a href="{% url 'market-eu-document' doc.pk %}">기존 EU 관리 화면</a></p>
+<section class="panel"><h2>현재 사용 버전</h2>{% if head.active_text %}<p><a href="{% url 'market-search-eu-text' head.active_text_id %}">text-v{{ head.active_text.version }}</a> · 게시 {{ head.published_at }}</p>{% else %}<p>게시된 정상 색인 없음</p>{% endif %}
+<p>최근 성공 수집: {{ success.attempted_at|default:'없음' }} · {{ success.method }}</p><p>가장 최근 추출본: {% if latest %}text-v{{ latest.version }}{% else %}없음{% endif %}</p>
+<p>새 본문은 색인 전체 검증이 끝난 뒤 게시합니다. 실패·중단 중에는 기존 게시 버전을 유지합니다. 과거 판본 필터와 채택 근거는 보존합니다.</p></section>
+{% if message %}<p role="status">{{ message }}</p>{% endif %}
+<form method="post" enctype="multipart/form-data" class="panel">{% csrf_token %}{{ form.as_p }}<button name="action" value="fetch">공식 경로 자동 수집</button> <button name="action" value="import">공식 파일 검증·가져오기</button></form>
+<p>가져오기는 영문 공식 HTML/PDF의 CELEX/법령 번호·언어·원문/통합본 판본을 확인합니다. 일치하지 않거나 본문이 비면 저장하지 않습니다. PDF 추출이 불가능하면 OCR 후 원문과 대조한 규정 문서를 기존 등록 절차로 관리하세요.</p>
+<p>색인·게시 명령: <code>python manage.py index_source_search --user 로그인계정 --jurisdiction EU</code></p>
+<h2>최근 수집 이력</h2><table><thead><tr><th>시각</th><th>경로</th><th>상태</th><th>HTTP</th><th>시도</th><th>대기초</th><th>사유</th></tr></thead><tbody>{% for row in attempts %}<tr><td>{{ row.attempted_at }}</td><td>{{ row.method }}</td><td>{{ row.status }}</td><td>{{ row.http_status|default_if_none:'—' }}</td><td>{{ row.attempt }}</td><td>{{ row.wait_seconds }}</td><td>{{ row.detail }}</td></tr>{% empty %}<tr><td>이력 없음</td></tr>{% endfor %}</tbody></table>{% endblock %}

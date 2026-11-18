@@ -1194,3 +1194,116 @@ $env:DEBUG = 'True'
 2026-11-16 로컬 검증: 복사한 검증 DB에 0048/0049 마이그레이션 적용 완료. 파일 기반 SQLite에서 제조번호·이관·기존 업무 테스트 **40건 통과(32.327초)**; 서로 다른 요청과 같은 요청의 동시 발급도 실제 스레드로 실행했습니다. 초기 파일 DB 회귀에서 기존 PDF 테스트의 직접 `response.close()`가 테스트 트랜잭션 연결을 닫는 문제를 확인해, 스트리밍 응답을 끝까지 읽고 PDF 헤더를 검사하도록 테스트를 수정한 뒤 재검증했습니다. 실제 서버의 RA 세션·CSRF 요청으로 발급/재전송/별개 요청/AI 오류/출고/정정 이력/업무 재열기/기존 LOT 목록을 확인했고 기존 문서 초안 **16개 스냅샷이 유지**됐습니다. 시연: `/markets/us/devices/11/` → 제조번호 발급 · GS1 UDI → 실제 제조일 입력 → 발급 결과 → 라벨 검증 또는 출고 라벨 PMS 오류 등록. 이는 DEMO 제품의 예시 기록입니다.
 
 전체 Django 실행 결과: **296건, 1839.338초, 실패 0, 건너뜀 11**(PostgreSQL 전용 9건, 메모리 SQLite의 제조번호 동시성 2건). 건너뛴 제조번호 동시성은 위 파일 DB 회귀에서 별도로 통과했습니다. 후속 입력 형식·GTIN 미지정 자료 연결 검사 2건도 통과(0.231초). `check`, `makemigrations --check --dry-run`, `git diff --check` 모두 통과했습니다. 기존 제품 12개·시장 등록 15개·문서 초안 16개의 기존 열 값도 원본 DB와 대조해 보존을 확인했습니다. PostgreSQL·실제 라벨 프린터/스캐너 및 브라우저 클립보드의 수동 검증은 별도로 필요합니다.
+# AI 원문 검색 · 로컬 Hugging Face (2026-11-17)
+
+**공통 메뉴 → AI 원문 검색** (`/markets/ai-search/`), 기존 규정 근거 검색·RA 도우미의 연결 버튼에서 실행한다. 읽기 전용 API는 `GET /markets/api/ai-search/?query=...&mode=ai&jurisdiction=US`이다. RA/QA·관리자 세션 인증을 사용한다. `mode=keyword`로 같은 질문·후보 범위의 기존 키워드 순위를 확인할 수 있다. 기본 결과 5개(최대 20개), 관할·문서 판본 및 선택적 업로드 문서 ID 필터를 지원한다. 결과는 문서 종류/ID/버전/절/페이지/발췌/공식 링크를 표시하며 없는 시행일은 **미확인**이다. 화면 언어 변경은 저장된 질문·버전 필터를 보존한다.
+
+`RegulationDocument`/`RegulationChunk`의 기존 파일 검사·해시·공개 범위와 제품·시장 권한, FDA 자료 라이브러리의 `verified_text` 페이지를 재사용한다. 메타데이터·링크만 있는 출처는 본문 검색으로 위장하지 않는다. EU의 기존 `EULegalDocument`에는 본문이 없어, 명시적 수집 명령으로 `EULegalTextVersion`에 선택 조항과 원본 해시·수집 시각을 보존한다. 조회 실패는 오류와 감사 이력으로 기록하며 **새 문서 없음**으로 처리하지 않는다. 업로드 규정은 기존 검사·추출 과정을 통과해야 한다. 국가 범위 계정의 검색 결과 원문 열기·다운로드도 별도 읽기 전용 경로에서 권한과 파일 해시를 재확인한다.
+
+모델은 [BAAI/bge-m3 공식 카드](https://huggingface.co/BAAI/bge-m3)의 dense CLS 임베딩을 로컬 CPU에서 정규화해 사용한다. 이번 MVP는 최대 512 토큰, 1,000자 구간과 120자 겹침, JSON 벡터 및 코사인 순위로 구현한다. 기존 키워드 토큰·TF 순위 함수는 공유하며, 양쪽 순위를 **RRF(k=60)**로 합친다(서로 다른 점수를 더하지 않음). 후보 50개씩, 선택적 재정렬 20개다. 별도 벡터 서버는 필요하지 않으며 기본 10,000개 후보 제한을 넘으면 필터를 요구한다. `SourceSearchPassage`와 임베딩은 검색 전용 파생 데이터이며 PMS 판단·승인·사건 스냅샷에 연결하거나 자동 반영하지 않는다.
+
+| 설정 | 기본값 |
+|---|---|
+| `SOURCE_SEARCH_MODEL_ID` | `BAAI/bge-m3` |
+| `SOURCE_SEARCH_REVISION` | `5617a9f61b028005a4858fdac845db406aefb181` |
+| `SOURCE_SEARCH_RERANKER_ID` | `BAAI/bge-reranker-v2-m3` |
+| `SOURCE_SEARCH_RERANKER_REVISION` | `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e` |
+| `SOURCE_SEARCH_RERANKER_ENABLED` | `False` |
+| `SOURCE_SEARCH_CACHE` | `.model-cache` (Git 제외) |
+| `SOURCE_SEARCH_MAX_TOKENS` / `BATCH_SIZE` / `TORCH_THREADS` | `512` / `2` / `4` (`SOURCE_SEARCH_` 접두사) |
+
+모델 ID와 **40자리 고정 SHA**를 설정하며 `main` 같은 유동 리비전은 거부한다. 준비 명령에서만 공개 가중치를 다운로드하고 LFS SHA-256·파일 크기를 확인한다. 검색은 준비된 캐시 경로와 `local_files_only=True`, `trust_remote_code=False`, `weights_only=True`로 실행한다. 질의·문서 본문을 외부 추론 API에 보내지 않으며 문서 안의 지시문도 실행하지 않는다. 새 검색 화면은 기존 외부 Chart.js CDN도 로드하지 않는다. 모델·전체 후보의 해당 리비전 색인·벡터 검증에 실패하면 키워드 검색으로 전환하고 실제 엔진·사유를 표시한다. 재정렬만 실패하면 RRF를 유지한다. [선택적 재정렬 모델 공식 카드](https://huggingface.co/BAAI/bge-reranker-v2-m3).
+
+일반 환경은 가상환경에서 기본 `requirements.txt`와 선택 `requirements-search.txt`를 설치한다. 모델 준비와 원문 수집에만 네트워크가 필요하다. 현재 로컬 검증 환경의 PowerShell 명령:
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms'
+$py = 'C:\Users\정준하\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+# 선택 패키지가 없는 최초 환경에서만 설치한다. 기존 앱 의존성과 별도 경로다.
+& $py -m pip install --no-cache-dir --disable-pip-version-check --target ..\hf-deps -r requirements-search.txt
+$env:PYTHONPATH = (Resolve-Path ..\hf-deps).Path + ';' + (Resolve-Path ..\deps).Path + ';' + (Resolve-Path ..\rule-direct).Path
+$env:SQLITE_PATH = (Join-Path (Resolve-Path ..) 'hf-search-validation.sqlite3') # 기존 데모 DB 복사본
+$env:PRIVATE_MEDIA_ROOT = (Join-Path (Resolve-Path ..) 'writing-demo-media')
+$env:SOURCE_SEARCH_CACHE = (Join-Path (Resolve-Path ..) 'hf-cache')
+& $py manage.py migrate --noinput
+& $py manage.py prepare_source_models
+# 먼저 본문이 있는 자료만 토큰/구간 색인을 만들 수도 있다.
+& $py manage.py index_source_search --user example-hq --lexical-only
+& $py manage.py index_source_search --user example-hq
+# EU 자료 ID와 조항을 확인한 운영자만 명시적으로 수집한다.
+& $py manage.py fetch_eu_search_text --user example-hq --document 1 --articles 87,88,89
+& $py manage.py index_source_search --user example-hq
+$env:HF_HUB_OFFLINE = '1'
+$env:HF_HUB_DISABLE_TELEMETRY = '1'
+$env:DEBUG = 'True'
+& $py manage.py runserver 127.0.0.1:8001 --noreload
+```
+
+재정렬은 기본 비활성이다. 필요할 때만 `prepare_source_models --reranker`를 실행하고 `SOURCE_SEARCH_RERANKER_ENABLED=True`를 설정한 뒤 서버를 재시작한다. 가중치는 Git에 넣지 않는다. 원문 개정은 기존 출처 화면에서 새 버전으로 등록한 뒤 같은 색인 명령을 재실행한다. 동일 구간·모델·리비전·처리 프로필은 재사용하며, 과거 출처·임베딩 버전은 덮어쓰지 않는다. 현재 모델 프로필을 바꾸면 새 색인을 생성해야 한다. 최초 검색에는 모델 로딩 시간이 포함된다.
+
+검증과 평가:
+
+```powershell
+$env:SQLITE_TEST_PATH = (Join-Path (Resolve-Path ..) 'hf-search-tests.sqlite3')
+& $py manage.py test pms.test_source_search pms.test_regulatory pms.test_ra_assistant --noinput --keepdb
+Remove-Item Env:SQLITE_TEST_PATH
+& $py manage.py check
+& $py manage.py makemigrations --check --dry-run
+& $py manage.py evaluate_source_search --user example-hq --verify-offline --output ..\..\outputs\hf-search-evaluation.json
+```
+
+**실제 검증 결과(2026-11-17):** 0050 마이그레이션을 복사 DB에 적용했다. 관련 Django 테스트 **55건 모두 통과(68.686초)**. 중복·변경 버전만 색인, 버전 필터, 개인·시장 권한과 철회 후 원문 접근, 변조 파일 차단, 모델 미가용·재정렬 실패 대체 실행, 기존 규칙·사건 스냅샷 보존을 검사했다. 모델 패키지를 제외한 실제 실행에서도 `keyword / model_load_failed`로 전환됐다. 실제 모델 색인 후 재실행 결과는 **197개 구간, 생성 0, 임베딩 0, 재사용 197**이다. 실제 RA 세션으로 로컬 HTTP API/HTML을 실행해 `hybrid_rrf` 5개 결과와 원문 링크를 확인했다. 소켓 연결을 차단한 평가에서도 실제 모델 검색이 동작했다. 재정렬 모델의 실제 가중치 실행은 하지 않았고 경로·실패 처리는 모의 테스트했다.
+
+`pms/search_evaluation.json`에 모델 검색 전에 한국어 질문 5개와 관련 조항을 지정했다. 실제 저장 본문으로 평가 가능한 질문은 FDA 4개이며, 같은 후보·질문에서 **키워드 hit@5=1/4(25%), AI 결합=2/4(50%)**였다. 이는 작은 로컬 평가이지 일반 정확도·인허가 판단 성능이 아니다. MRI 510(k) 질문은 올바른 MRDD 문서를 반환했지만, 사전에 지정한 도입/적용 범위(PDF 4·5쪽)가 top 5에 없어 엄격한 조항 기준에서는 미적중이다. 초기 AI 질의는 로딩 포함 약 33초, 이후 평가 질의는 약 0.55~0.94초였다. 추가 전문가 평가·목차/절 식별 품질 개선이 필요하다.
+
+**EU 실제 조회 제한:** 현재 EUR-Lex 직접 조회가 HTTP 202와 빈 본문을 반환해 MDR Article 87~89를 저장하지 못했다. 기존 EU 메타데이터·공식 링크는 유지되며, 대표 EU 질문은 **평가 불가(저장 본문 없음)**로 표시해 적중률 분모에 섞지 않았다. 평가 범위는 5개 질문 중 4개(80%)다. 본문 확보 후 수집 명령을 재실행하거나, 권한 있는 RA/관리자가 기존 규정 문서 등록에서 공식 PDF/TXT를 검사·추출한 후 색인할 수 있다. 이번 작업에서 EU 실제 본문 검색 성능을 입증했다고 주장하지 않는다. 전체 질문별 순위·사용 엔진·버전·원문 URL은 평가 JSON에 기록한다.
+
+
+## AI 원문 검색 후속 검증 (2026-11-18)
+
+이 절은 위 11월 17일의 EU 수집 실패·재정렬 미실행 기록을 갱신한다. 실제 EUR-Lex MDR 원문 PDF에서 Article 87~89를 추출하고 BGE-M3로 19개 구간을 색인했다. FDA 197개와 합쳐 216개 구간이다. HTML 응답의 식별자 검증 실패 후 **동일 CELEX 공식 PDF 자동 경로**가 성공했다. 동일 공식 PDF의 파일 가져오기도 실행해 중복 본문 0건과 활성 색인 보존을 확인했다. Publications Office 공식 상세 페이지에서 실제 제공하는 영어 PDF 링크도 확인했으며, 추측한 문서 UUID를 사용하지 않는다.
+
+EU 관보·법령 근거 → 개별 문서 → **AI 원문 검색 · 공식 PDF/HTML 가져오기 및 수집 이력**, 또는 `/markets/ai-search/eu/1/`. CELEX·원문 언어·판본·공식 URL을 확인하고 파일을 올린다. 현재 자동 조항 식별은 **영어 Article 형식**이며, 다른 언어는 기존 규정 문서 업로드·검사 흐름을 사용한다. 파일에서 식별자·언어·원문/통합본 판본을 확인하지 못하면 거부한다. `HTTP_202`, `EMPTY_BODY`, `BLOCKED_PAGE`, `IDENTITY_MISMATCH`, `PDF_EXTRACTION_FAILED` 등을 별도로 기록한다. 경로당 최대 3회, Retry-After 반영, 30초를 넘는 지연은 즉시 재시도하지 않고 이력에 보류를 남긴다. 자동 실패 시 아래 공식 파일 경로를 사용한다.
+
+본문은 먼저 불변 버전으로 준비하고 전체 벡터 검증 성공 후 DB 트랜잭션으로 활성 포인터를 전환한다. 실패·중단 중에는 마지막 정상 본문을 검색한다. 문서별 잠금, 내용 해시·고유 제약, 모델/리비전별 재사용으로 중복을 막는다. 더 최신 본문이 준비된 상태에서 이전 빌드가 늦게 끝나도 이전 판본을 게시하지 않는다. 미완료 구간은 검색 후보에 포함하지 않는다.
+
+검색 결과에는 관련도 점수(확률 아님), 언어·버전·수집 시각을 표시한다. 재정렬은 토큰 창을 겹쳐 전체 후보 본문을 계산하며 조용히 잘라내지 않는다. 임베딩 토큰 예산 초과는 오류·키워드 대체 실행으로 표시한다. `SOURCE_SEARCH_DEVICE=cpu`, `SOURCE_SEARCH_RERANK_BATCH_SIZE=2`, `SOURCE_SEARCH_CHUNK_CHARS=1000`을 설정할 수 있다. 검색 후보에 관할·언어·버전·기존 접근 권한을 먼저 적용한다.
+
+결과의 **이 근거를 검토·초안에 연결** → 기존 RA 비교 검토 또는 문서 초안을 선택 → 채택 사유 저장. 연결 시점 발췌·문서 버전·검색 엔진을 별도 불변 이력에 고정한다. 기존 초안/운영 사건 스냅샷은 수정하지 않는다. **검색·근거 채택 이력**에서 당시 근거와 현재 접근 가능한 본문의 차이를 열 수 있다. 검색 이력은 질문 원문 대신 해시·필터·반환 결과·사용 엔진을 기록한다. 연결 대상과 원문에 대한 현재 권한도 다시 검사한다.
+
+현재 로컬 환경에서 사용한 실행 순서 (`.venv`는 기존 런타임 의존성을 재사용하는 가상환경):
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms'
+$py = (Resolve-Path '.\.venv\Scripts\python.exe').Path
+$env:PYTHONPATH = (Resolve-Path ..\hf-deps).Path + ';' + (Resolve-Path ..\deps).Path + ';' + (Resolve-Path ..\rule-direct).Path
+$env:PYTHONIOENCODING = 'utf-8'
+$env:SQLITE_PATH = (Join-Path (Resolve-Path ..) 'hf-search-eu-validation.sqlite3')
+$env:PRIVATE_MEDIA_ROOT = (Join-Path (Resolve-Path ..) 'writing-demo-media')
+$env:SOURCE_SEARCH_CACHE = (Join-Path (Resolve-Path ..) 'hf-cache')
+$env:SOURCE_SEARCH_DEVICE = 'cpu'
+$env:SOURCE_SEARCH_RERANKER_ENABLED = 'True'
+$env:SOURCE_SEARCH_RERANK_BATCH_SIZE = '2'
+& $py manage.py migrate --noinput
+# 준비 단계에만 네트워크 사용. 이미 검증된 가중치는 재사용한다.
+& $py manage.py prepare_source_models
+& $py manage.py prepare_source_models --reranker
+& $py manage.py fetch_eu_search_text --user example-hq --document 1 --articles 87,88,89
+# 자동 수집 실패 시: 공식 사이트에서 같은 영어 원문 PDF를 내려받아 아래 파일 경로 지정
+# & $py manage.py fetch_eu_search_text --user example-hq --document 1 --articles 87,88,89 --input-file 'C:\path\MDR-32017R0745-EN.pdf' --source-url 'https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A32017R0745'
+& $py manage.py index_source_search --user example-hq
+$env:HF_HUB_OFFLINE = '1'
+$env:HF_HUB_DISABLE_TELEMETRY = '1'
+$env:DEBUG = 'True'
+& $py manage.py runserver 127.0.0.1:8001 --noreload
+# 서버 확인 후 Ctrl+C 또는 같은 환경의 두 번째 PowerShell에서 평가
+& $py manage.py evaluate_source_search --user example-hq --verify-offline --baseline ..\..\outputs\hf-search-evaluation-before-eu-reranker.json --output ..\..\outputs\hf-search-evaluation-after-eu-reranker.json
+& $py manage.py check
+& $py manage.py makemigrations --check --dry-run
+& $py manage.py test pms.test_source_search pms.test_search_acquisition pms.test_regulatory pms.test_ra_assistant --noinput --keepdb
+git diff --check
+```
+
+새 환경은 먼저 일반 가상환경에서 `requirements.txt`와 `requirements-search.txt`를 설치한다. 위 `hf-deps`/`deps` 경로는 현재 검증 환경에만 해당한다. 모델 준비 후 검색·재정렬은 캐시와 `local_files_only`로 실행한다. 원본 공식 PDF와 가중치는 Git에 포함하지 않는다. 파일 가져오기 입력은 CELEX **32017R0745**, 영어 **en**, **2017년 관보 게재 원문**이어야 하며 통합본은 별도 문서로 등록한다. 원문 링크: https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A32017R0745
+
+실가중치 평가: 기존 5개 질문·정답 조항을 변경하지 않았고, 모든 방식에 동일 후보 집합/필터를 사용했다. 정답 ID·해설은 평가 판정에만 사용하며 색인과 질의에 넣지 않았다. 평가 가능한 질문은 이전 4/5에서 **5/5**로 늘었다. 키워드 **2/5(40%)**, 결합 **3/5(60%)**, 결합+실가중치 재정렬 **4/5(80%)**. FDA만 비교하면 이전 1/4·2/4와 이번 1/4·2/4가 동일하며 재정렬은 3/4다. EU 한 질문은 세 방식 모두 적중했다. 작은 고정 평가이며 일반 성능 보장은 아니다. 실제 BGE-M3 및 reranker 고정 SHA와 질문별 상위5·시간·재정렬 전후 순위는 `outputs/hf-search-evaluation-after-eu-reranker.json`에 보존한다. 이전 결과는 `outputs/hf-search-evaluation-before-eu-reranker.json`이며 원래 평가 파일도 덮어쓰지 않았다. 모델 준비·원문 재수집 시 공식 사이트의 응답은 달라질 수 있다.
