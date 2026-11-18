@@ -371,6 +371,11 @@ def draft_output(request, pk, draft_id, kind):
     draft = get_object_or_404(DentalDraft.objects.select_related("project"), pk=draft_id, project__device=device)
     if not writing_access(request.user, device, draft.project.market):
         raise Http404
+    if hasattr(draft, 'ra_revision'):
+        # Authored drafts share DentalDraft storage; always use their version-aware review/export.
+        revision=draft.ra_revision
+        if kind == 'review':return redirect('market-ra-document',pk=revision.pk)
+        if kind in ('docx','gaps','matrix','mapping'):return redirect('market-ra-document-output',pk=revision.pk,output='docx' if kind=='docx' else 'csv')
     docs = documents_for(device, draft.project.market)
     referenced = {ref["document_id"] for row in draft.snapshot["rows"] for ref in row["references"]}
     if not referenced.issubset(set(docs.values_list("pk", flat=True))):

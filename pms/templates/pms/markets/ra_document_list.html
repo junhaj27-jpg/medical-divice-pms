@@ -1,0 +1,5 @@
+{% extends 'pms/base.html' %}{% block content %}
+<h1>근거 기반 RA 문서 작성</h1><p><a href="{% url 'market-source-search' %}">AI 원문 검색</a> · <a href="{% url 'market-ra-impacts' %}">원문 개정 영향 검토</a></p>
+<p>규정 근거와 제품 증빙을 구분하며 등록 상태·보고 기한을 변경하지 않습니다. 분류 미확정 제품도 내부 초안으로 자료를 정리할 수 있습니다.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}<section class="panel"><h2>등록 기기로 시작</h2><form method="post">{% csrf_token %}{{ form.as_p }}<button>제품 정보로 초안 저장</button></form></section>
+{% for document in documents %}<article class="panel"><h2>{{ document }}</h2>{% if document.latest %}<a href="{% url 'market-ra-document' document.latest.pk %}">문서 v{{ document.latest.number }} 열기</a>{% endif %}</article>{% empty %}<p>저장한 문서가 없습니다. 먼저 제품의 판매 시장을 등록하세요.</p>{% endfor %}{% endblock %}

@@ -1,4 +1,4 @@
-{% extends 'pms/base.html' %}{% block content %}<h1>검색 실행 #{{ event.pk }} · 근거 채택</h1><p>{{ event.recorded_at }} · {{ event.actor }} · {{ event.snapshot.engine }}</p>
+{% extends 'pms/base.html' %}{% block content %}<p><a href="{% url 'market-ra-documents' %}">근거 기반 RA 문서 작성</a> · <a href="{% url 'market-ra-impacts' %}">원문 개정 영향 검토</a></p><h1>검색 실행 #{{ event.pk }} · 근거 채택</h1><p>{{ event.recorded_at }} · {{ event.actor }} · {{ event.snapshot.engine }}</p>
 <p>검색어 원문은 복제하지 않고 해시만 보존합니다. 근거 채택은 보고 판단·기한·규칙 승인이나 기존 초안 본문을 변경하지 않습니다.</p>
 {% for row in event.snapshot.results %}<section class="panel"><h2>{{ forloop.counter }}. {{ row.title }}</h2><p>{{ row.version }} · {{ row.section }} · 수집 {{ row.collected_at }}</p><blockquote>{{ row.text }}</blockquote><p><a href="?key={{ row.key|urlencode }}">이 근거를 선택</a></p></section>{% endfor %}
 <form method="post" class="panel">{% csrf_token %}{{ form.as_p }}<button>기존 검토 기록 또는 문서 초안에 연결</button></form><p><a href="{% url 'market-search-history' %}">검색·채택 이력</a></p>{% endblock %}

@@ -235,6 +235,7 @@ class AuditLog(AppendOnlyRecord):
     actor=models.ForeignKey(User,on_delete=models.PROTECT,null=True,blank=True); action=models.CharField(max_length=30); object_type=models.CharField(max_length=80,blank=True); object_id=models.CharField(max_length=80,blank=True); before=models.JSONField(default=dict,blank=True); after=models.JSONField(default=dict,blank=True); ip_address=models.GenericIPAddressField(null=True,blank=True); created_at=models.DateTimeField(auto_now_add=True)
     class Meta: ordering=["-created_at"]
 class Notification(TimeStamped):
+    work_task=models.ForeignKey("WorkTask",null=True,blank=True,on_delete=models.PROTECT,related_name="notifications")
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name="notifications"); title=models.CharField(max_length=200); message=models.TextField(); level=models.CharField(max_length=10,default="INFO"); due_at=models.DateTimeField(null=True,blank=True); read_at=models.DateTimeField(null=True,blank=True)
     dedupe_key=models.CharField(max_length=200,unique=True,null=True,blank=True)
 class AssistantConversation(TimeStamped):
@@ -657,3 +658,7 @@ from . import fda_library_models
 from . import mri_models
 from . import serial_models
 from . import search_models
+
+from . import dossier_models
+
+from . import review_task_models

@@ -354,6 +354,12 @@ def docx_export(snapshot):
     if snapshot.get("template", {}).get("name", "").startswith("MRI image"):
         paragraphs.append("Software collection checklist is not a determination that MR scanner requirements apply. Research outputs and clinical claims require separate review.")
     for row in snapshot["rows"]:
+        if row.get("authored_paragraph"):
+            paragraphs.extend([row["section"]+" "+row["title"],row.get("body", ""),"Product information above is declared data; product claims require controlled product evidence."])
+            for ref in row.get("search_references", []):
+                paragraphs.append(f"Regulatory review basis (not product performance evidence): {ref['kind']} document {ref['document_id']} / source {ref['source_id']} / {ref['version']} / {ref['section']} / {ref['official_url']} / collected {ref.get('collected_at','')}\n{ref['text']}")
+            for gap in row.get("gaps", []):paragraphs.append("Additional input / RA review: "+str(gap))
+            continue
         if snapshot.get("market") == "EU":
             paragraphs.append(f'{row["section"]} {row.get("draft_section", row["title"])}')
             for law in row.get("legal_references", []):

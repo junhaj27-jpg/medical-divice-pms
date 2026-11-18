@@ -72,7 +72,8 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class=NotificationSerializer
     def get_queryset(self):
         if getattr(self,"swagger_fake_view",False): return Notification.objects.none()
-        return Notification.objects.filter(user=self.request.user)
+        from .review_task_views import notifications_for
+        return notifications_for(self.request.user)
 class AuditViewSet(viewsets.ReadOnlyModelViewSet): queryset=AuditLog.objects.all(); serializer_class=AuditSerializer; permission_classes=[IsAdminRole]; filterset_fields=["action","object_type","actor"]
 class AttachmentViewSet(AuditedViewSet):
     queryset=Attachment.objects.none(); serializer_class=AttachmentSerializer; permission_classes=[IsAuthenticated]

@@ -16,7 +16,32 @@ from . import serial_views
 from .source_search_views import source_search,source_document
 from . import search_history_views as search_history
 
+from . import dossier_views as dossier
+
+from . import review_task_views as task_reviews
+from .workflow_views import task_list as my_tasks, task_detail as scoped_task_detail
+
 urlpatterns = [
+    path("markets/tasks/",my_tasks,name="market-task-list"),
+    path("markets/tasks/<int:pk>/",scoped_task_detail,name="market-task-detail"),
+    path("markets/notifications/",task_reviews.notifications,name="market-notifications"),
+    path("api/my-tasks/",my_tasks,{"api":True},name="market-my-tasks-api"),
+    path("review-tasks/new/<str:kind>/<int:pk>/",task_reviews.create,name="market-review-task-create"),
+    path("review-tasks/<int:pk>/",task_reviews.detail,name="market-review-task-detail"),
+    path("review-tasks/<int:pk>/evidence/<int:download>/",task_reviews.detail,name="market-review-task-evidence"),
+    path("api/review-tasks/new/<str:kind>/<int:pk>/",task_reviews.create,{"api":True},name="market-review-task-create-api"),
+    path("api/review-tasks/<int:pk>/",task_reviews.detail,{"api":True},name="market-review-task-api"),
+    path("notifications/",task_reviews.notifications,name="notifications"),
+    path("notifications/<int:pk>/read/",task_reviews.notifications,name="market-notification-read"),
+    path("api/task-notifications/",task_reviews.notifications,{"api":True},name="market-review-notifications-api"),
+    path("api/task-notifications/<int:pk>/read/",task_reviews.notifications,{"api":True},name="market-review-notification-read-api"),
+    path("markets/ra-documents/",dossier.listing,name="market-ra-documents"),
+    path("markets/api/ra-documents/",dossier.listing,{"api":True},name="market-ra-documents-api"),
+    path("markets/ra-documents/impacts/",dossier.impact_list,name="market-ra-impacts"),
+    path("markets/api/ra-documents/impacts/",dossier.impact_list,{"api":True},name="market-ra-impacts-api"),
+    path("markets/ra-documents/<int:pk>/",dossier.detail,name="market-ra-document"),
+    path("markets/api/ra-documents/<int:pk>/",dossier.detail,{"api":True},name="market-ra-document-api"),
+    path("markets/ra-documents/<int:pk>/<str:output>/",dossier.detail,name="market-ra-document-output"),
     path('markets/ai-search/',source_search,name='market-source-search'),
     path('markets/ai-search/eu/<int:pk>/',search_history.manage_eu,name='market-search-eu-manage'),
     path('markets/ai-search/eu/text/<int:pk>/',search_history.eu_text,name='market-search-eu-text'),

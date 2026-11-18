@@ -1307,3 +1307,100 @@ git diff --check
 새 환경은 먼저 일반 가상환경에서 `requirements.txt`와 `requirements-search.txt`를 설치한다. 위 `hf-deps`/`deps` 경로는 현재 검증 환경에만 해당한다. 모델 준비 후 검색·재정렬은 캐시와 `local_files_only`로 실행한다. 원본 공식 PDF와 가중치는 Git에 포함하지 않는다. 파일 가져오기 입력은 CELEX **32017R0745**, 영어 **en**, **2017년 관보 게재 원문**이어야 하며 통합본은 별도 문서로 등록한다. 원문 링크: https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A32017R0745
 
 실가중치 평가: 기존 5개 질문·정답 조항을 변경하지 않았고, 모든 방식에 동일 후보 집합/필터를 사용했다. 정답 ID·해설은 평가 판정에만 사용하며 색인과 질의에 넣지 않았다. 평가 가능한 질문은 이전 4/5에서 **5/5**로 늘었다. 키워드 **2/5(40%)**, 결합 **3/5(60%)**, 결합+실가중치 재정렬 **4/5(80%)**. FDA만 비교하면 이전 1/4·2/4와 이번 1/4·2/4가 동일하며 재정렬은 3/4다. EU 한 질문은 세 방식 모두 적중했다. 작은 고정 평가이며 일반 성능 보장은 아니다. 실제 BGE-M3 및 reranker 고정 SHA와 질문별 상위5·시간·재정렬 전후 순위는 `outputs/hf-search-evaluation-after-eu-reranker.json`에 보존한다. 이전 결과는 `outputs/hf-search-evaluation-before-eu-reranker.json`이며 원래 평가 파일도 덮어쓰지 않았다. 모델 준비·원문 재수집 시 공식 사이트의 응답은 달라질 수 있다.
+
+
+## 검색 근거 → RA 문서 작성·검증·검토 (2026-11-18)
+
+**AI 원문 검색 / 의료기기 문서 작성 → 근거 기반 RA 문서 작성** (`/markets/ra-documents/`). 기존 `DentalProject`와 게시된 `WritingTemplate`, 불변 `DentalDraft`, 제품 증빙·시장 권한·감사 로그·DOCX 패키지 출력을 재사용한다. 0052는 문서 컨테이너·버전·검증·검토·원문 영향 판단 이력을 추가하며 과거 초안을 이관하거나 수정하지 않는다.
+
+1. 등록 기기, 기존 템플릿, 문서 유형(전체/설명/성능/라벨), 등록 판매 국가, 작성 언어(영어/한국어), 작성 사유를 선택해 내부 초안을 저장한다. 기존 프로젝트가 있으면 같은 템플릿을 사용한다. 제품 정보·증빙 수정은 연결된 기존 작성 화면에서 한다.
+2. **근거 검색·채택**에서 원문을 검색하고 현재 화면의 초안 ID에 채택한다. 돌아와 해당 문단의 채택 근거를 선택하고 사유와 함께 **새 버전**으로 저장한다. 규정 원문은 제품 성능의 증거로 사용하지 않는다.
+3. 검증을 실행하면 오류/추가 입력/담당자 적합성 검토 항목에서 해당 문단으로 이동한다. 제품 필수 정보, 대상 모델, 명시적 `Model:` 값, 인용의 원문 버전·조항·발췌·URL, 제품 증빙 개정과 원문 변경을 검사한다. 자유 서술의 의미·수치·임상적 적합성을 자동 보증하지 않으며 담당자 검토로 남긴다. 없는 성능·합격·적합성 결론을 생성하지 않는다.
+4. 검토 요청 → 수정 요청 → 새 버전 수정·재검증 → 검토 요청 → 검토 완료. 현재 내용에 대한 검증이 필요하고 검증 오류가 있으면 완료할 수 없다. 담당자 확인과 사유는 필수다. 내부 문서 검토 완료는 FDA/EU 제출 승인이나 제품 등록 확정을 뜻하지 않는다. 남은 담당자 보완 항목은 화면·출력에 유지한다.
+5. **원문 개정 영향 검토** (`/markets/ra-documents/impacts/`)에서 조항 차이와 영향받은 문서 버전·기존 RA 검토 근거를 연다. 검토 필요/수정 진행/검토 완료와 사유를 누적 기록한다. 새 원문이 게시되면 당시 스냅샷은 고정되고 최신 본문과 비교한다. 삭제된 조항은 확인 불가로 표시한다. 영향 판단을 완료하지 않은 승인 문서는 재검토 필요로 표시한다.
+6. DOCX 또는 UTF-8 BOM CSV를 내려받는다. 문서/템플릿 버전, 현재 검토 상태, 문단별 원문 ID·버전·조항·발췌·공식 URL·수집 시각을 포함한다. 모든 출력은 **Draft for RA Review**다. 기존 PDF 기능은 일반 RA 보고서용이며 이번 작성 화면은 DOCX/CSV를 지원한다.
+
+본문·근거 변경은 항상 새 `DentalDraft`로 저장한다. 과거 검증/검토 결과와 수정 사유를 각 버전에서 조회할 수 있다. 최신 제품·증빙 반영 버튼도 새 버전을 생성하며 기존 본문은 유지하므로 바뀐 제품 값은 본문에서 직접 수정한다. 버전 번호·마지막 검토 이벤트를 비교해 동시 저장 충돌을 거부한다. 권한은 HTML/API/내보내기/영향 조회에서 모두 재검사한다. 생성형 모델이 없어도 동작하며 승인된 기존 AI 설정이 있을 때만 기존 근거 선택 어댑터를 호출한다. Hugging Face 임베딩 모델은 문서 생성 모델로 사용하지 않는다.
+
+API (세션 인증·CSRF): `GET/POST /markets/api/ra-documents/`, `GET/POST /markets/api/ra-documents/<revision_id>/`, `GET/POST /markets/api/ra-documents/impacts/`. 개정 요청은 `action=revise`, `expected=<현재 버전>`, `reason`, 문단별 `body_<section>`, `model_<section>`, `refs_<section>=[채택 ID]`; 검증은 `action=validate`; 검토는 `action=review`, `state`, `expected_review=<마지막 이벤트 ID 또는 0>`, `reason`, 완료 시 `acknowledged=true`. 제품 증빙 갱신은 `action=refresh`, `expected`, `reason`이다. 호출자가 문서 스냅샷을 임의 JSON으로 교체할 수 없고 서버가 기존 버전과 접근 가능한 채택 근거로 새 버전을 구성한다.
+
+현재 환경 PowerShell (검증용 복사 DB, 운영 DB를 덮어쓰지 않음):
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms'
+$py = (Resolve-Path .\.venv\Scripts\python.exe).Path
+$env:PYTHONPATH = (Resolve-Path ..\hf-deps).Path + ';' + (Resolve-Path ..\deps).Path + ';' + (Resolve-Path ..\rule-direct).Path
+$env:PYTHONIOENCODING = 'utf-8'
+$env:SQLITE_PATH = (Join-Path (Resolve-Path ..) 'ra-document-validation.sqlite3')
+$env:PRIVATE_MEDIA_ROOT = (Join-Path (Resolve-Path ..) 'writing-demo-media')
+$env:SOURCE_SEARCH_CACHE = (Join-Path (Resolve-Path ..) 'hf-cache')
+$env:SOURCE_SEARCH_RERANKER_ENABLED = 'True'
+$env:HF_HUB_OFFLINE = '1'
+$env:DEBUG = 'True'
+& $py manage.py migrate --noinput
+& $py manage.py check
+& $py manage.py makemigrations --check --dry-run
+& $py manage.py runserver 127.0.0.1:8001 --noreload
+# 별도 PowerShell에서 같은 환경 설정 후 회귀 실행
+$env:SQLITE_TEST_PATH = (Join-Path (Resolve-Path ..) 'hf-search-regression-file.sqlite3')
+& $py manage.py test pms.test_dossier pms.test_source_search pms.test_search_acquisition pms.test_writing pms.test_dental pms.test_eu_legal pms.test_regulatory pms.test_ra_assistant pms.test_market_review pms.test_mri_registration --keepdb --noinput
+git diff --check
+```
+
+실제 로컬 HTTP 시연은 `DEMO-MRI-REGISTERED-A`(기존 제품 ID 11) → 문서 ID 1, 최종 문서 버전 3(`/markets/ra-documents/3/`)에서 수행했다. 실제 BGE-M3 결합 검색 → 실제 FDA MRDD 공개 원문 채택 → 문단 연결 → 검증 → 수정 요청 → 수정본 → 검토 완료 → DOCX/CSV 다운로드를 확인했다. 다운로드 및 HTTP 실행 기록은 작업공간 `outputs/ra-document-demo/`에 별도 보존한다. 규정 본문은 실제 공식 자료이며 제품·검토 판단은 DEMO 예시다. 원문 개정·없는 인용·권한 철회는 가상 테스트 DB 회귀로 검증하고 실제 FDA 원문을 가짜 개정으로 바꾸지 않는다. 출력 검증은 DOCX XML/ZIP과 CSV 본문·출처를 대조하며 Microsoft Word의 인쇄 페이지 배치는 별도 확인 대상이다.
+
+최종 로컬 회귀: **113건 모두 통과(90.305초, 실패·건너뜀 0)**. 새 문서 흐름 17건과 기존 검색·EU·Dental·Writing·RA·시장 비교·MRI 회귀를 포함한다. `check`, `makemigrations --check --dry-run`, `git diff --check` 통과. 검증용 복사 DB에 0052 적용 후 기존 초안 16개·프로젝트 10개·제품 12개·시장 등록 15개·보고 규칙 8개·사건 3개·시장별 판단 6개의 기존 값을 대조해 보존을 확인했다. 전체 Django 테스트 전체 집합을 실행한 결과로 표현하지 않는다.
+
+
+## 검토 업무·기한·앱 내 알림 (2026-11-18)
+
+기존 `WorkTask`, `TaskHistory`, `Attachment`, `Notification`, CAPA 미흡 평가의 기존 `followup`, `notify_tasks` 명령을 재사용한다. **0053**은 업무별 원인·완료 기준·기한 계산 스냅샷·수행 회차·완료자·증빙 연결과 nullable 알림 업무 FK를 추가한다. 기존 업무를 임의 재분류하지 않는다. `task:<업무ID>:<사용자ID>:...` 형식이 확실한 기존 알림만 해당 업무와 연결하고 기존 본문·시간·읽음 값은 유지한다. 0052 미적용 환경은 `migrate`가 앞선 문서 작성 마이그레이션도 순서대로 적용한다.
+
+화면 진입:
+
+- **근거 기반 RA 문서 작성 → 검토 이력의 검토 요청 → 담당 업무 생성·열기**. 당시 검토 요청 이벤트와 문서 버전을 고정한다.
+- **원문 개정 영향 검토 → 변경 영향 담당 업무 생성·열기**. 이전/현재 판본·조항·발췌·공식 URL·차이 지문을 고정한다. 기존 RA 비교 검토/초안에 채택한 근거의 변경 영향도 연결한다.
+- **CAPA 상세 → 효과성 평가 → 검토 업무 생성·열기 → 해당 사건 시장 선택**. 기존 미흡 평가의 재조치 업무가 있으면 재사용한다. 다른 시장의 기존 업무를 조용히 재연결하지 않는다.
+- 공통 메뉴 **내 할 일** `/markets/tasks/`: 기본 본인 담당 업무, 허용 범위의 전체 담당 업무 선택 가능. 진행 중/검토 대기/임박/초과 및 제품·담당자·상태·마감일 범위 필터. `/markets/notifications/`에서 업무로 이동하고 읽음 처리한다. 기존 국가 제한 계정의 레거시 경로 차단은 유지하고 권한 검사된 시장 업무 경로를 제공한다.
+- 상세 `/review-tasks/<task_id>/`: 담당자/기한/완료 기준 수정, 진행/검토/수정 요청, 증빙 연결, 완료, 완료 후 재개. 기한 변경은 사유와 이전·이후 값을 이력에 남긴다. 새 수행 회차에는 증빙을 다시 확인·연결해야 하며 이전 완료 이력은 보존한다. 업무 완료는 문서 승인·규칙 승인·제품 등록·사건 보고 기한을 자동 변경하지 않는다.
+
+수동 기한은 시간대를 포함한 일시로 저장하며 **MANUAL**로 표시한다. 규칙 계산은 동일 제품·시장에 적용할 승인/시행 버전과 승인 이력의 현재 내용 일치를 확인한 뒤 기존 Python `calculate_deadline`을 사용한다. **RULE**, 규칙 ID·버전, 원래 기준 시각, 시간대, 제외한 주말·등록 휴일, 휴일 확인 범위, 원문과 계산 당시 스냅샷을 저장한다. 운영 규칙이나 보고 사건을 변경하지 않으며 규정 개정만으로 기존 업무 기한을 재계산하지 않는다. 예시 규칙은 `DEMO-` 제품에만 사용한다.
+
+완료에는 완료 기준 확인·검토 의견·현재 회차의 검사 통과 증빙이 필요하다. 파일은 기존 업로드 검사·SHA-256 검증을 사용한다. 검사 미설정/실패/격리 파일은 완료 증빙으로 사용할 수 없다. 파일 업로드 후 **증빙 연결**에서 검사 통과 항목을 선택한다. 검토 업무는 기존 일반 편집 경로에서 직접 완료할 수 없으며 최신 업무 버전과 변경 사유를 요구한다. 실제 두 스레드의 동시 수정에서 한 변경만 저장되고 다른 사용자는 충돌 안내를 받는지 회귀 검증한다.
+
+업무·기한·증빙 API는 세션 인증과 CSRF를 사용한다.
+
+- `GET /api/my-tasks/` (`all=1`, `product`, `assignee`, `status`, `start`, `end`, `filter=progress|review|soon|overdue`)
+- `POST /api/review-tasks/new/DOCUMENT/<review_event_id>/` 또는 `IMPACT/<revision_id>/`, `ADOPTION_IMPACT/<adoption_id>/`, `CAPA/<evaluation_id>/`.
+- 생성: `assignee`, `title`, `criteria`, `priority`, `deadline_mode=MANUAL|RULE`, `due_at` 또는 `basis_at`+`rule_id`. 영향 업무는 `section`+`source_fingerprint`, CAPA/기존 채택 영향은 `country`를 명시한다. 동일 원인·대상은 DB 고유 키와 제품 잠금으로 재사용한다.
+- `GET/POST /api/review-tasks/<task_id>/`: `action=edit|start|request_review|request_changes|evidence|complete|reopen`, `expected=<최신 버전>`, `reason`. 증빙은 `evidence_ids=[ID]`, 완료는 추가로 `comment`, `criteria_confirmed=true`. 업로드는 multipart `action=upload`, `file`이다.
+- `GET /api/task-notifications/`, `POST /api/task-notifications/<id>/read/`. 알림 소유자와 현재 관련 업무 접근 권한을 함께 검사한다. 담당자 지정/검토 요청/수정 요청은 업무 이벤트별, 임박/초과는 업무·담당자·기한·상태·수행 회차별로 중복을 막는다.
+
+현재 Windows 검증 환경:
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms'
+$py = (Resolve-Path .\.venv\Scripts\python.exe).Path
+$env:PYTHONPATH = (Resolve-Path ..\deps).Path + ';' + (Resolve-Path ..\rule-direct).Path
+$env:PYTHONIOENCODING = 'utf-8'
+$env:SQLITE_PATH = (Join-Path (Resolve-Path ..) 'review-task-validation.sqlite3')
+$env:PRIVATE_MEDIA_ROOT = (Join-Path (Resolve-Path ..) 'writing-demo-media')
+& $py manage.py migrate --noinput
+& $py manage.py check
+& $py manage.py makemigrations --check --dry-run
+& $py manage.py notify_tasks
+& $py manage.py notify_tasks # 같은 조건의 중복 생성 0
+$env:DEBUG = 'True'
+& $py manage.py runserver 127.0.0.1:8001 --noreload
+# 별도 PowerShell: 같은 환경 설정 후 회귀 실행 (독립 테스트 DB)
+$env:SQLITE_TEST_PATH = (Join-Path (Resolve-Path ..) 'review-task-test.sqlite3')
+$env:PDF_KOREAN_FONT = 'C:/Windows/Fonts/malgun.ttf'
+& $py manage.py test pms.test_review_tasks pms.test_workflow pms.test_market_workspace pms.test_ra_platform pms.test_dossier pms.test_source_search pms.test_search_acquisition pms.test_writing pms.test_dental pms.test_eu_legal pms.test_market_review pms.test_mri_registration --noinput
+git diff --check
+```
+
+이 프로젝트에는 상주 스케줄러가 없으므로 기존 `notify_tasks`를 운영자가 주기 실행한다. Windows 작업 스케줄러에서 30분 간격으로 `powershell.exe -NoProfile -File "<저장소>\scripts\check_review_tasks.ps1" -DatabasePath "<운영 DB 절대 경로>"`를 실행할 수 있다. 스크립트는 기존 DB가 실제로 존재하는지 확인한다. 이번 작업에서 운영 예약 작업을 설치하거나 외부 통보를 수행하지 않았다. Linux는 기존 앱 환경/DB 설정으로 cron 또는 서비스 타이머에서 `/srv/venv/bin/python manage.py notify_tasks`를 실행한다. 멀티 인스턴스는 한 스케줄러를 권장하며 DB 고유 키로 동일 알림의 중복 저장을 방지한다.
+
+실제 로컬 시연: `DEMO-MRI-REGISTERED-A` → 문서 개정 #4의 검토 요청 → 본사 `example-hq`가 업무 #4 생성 → `example-overseas`에게 배정 → 해당 계정의 앱 내 알림·읽음 확인 → 수정 요청 → 기존 검사 통과 예시 제품 증빙 #8 연결 → 완료 → 재개 → 2회차 증빙 재확인 후 재완료. `/review-tasks/4/`에서 원인·기한·의견·회차·완료 이력을 확인한다. 실행 기록/화면 HTML은 작업공간 `outputs/review-task-demo/`에 보존한다. 실제 HTTP 시연에서는 기존 검사 통과 예시 파일을 연결했으며 새 업로드의 악성코드 검사 성공을 주장하지 않는다. 규정 변경·달력 계산·CAPA 재조치는 가상 원문/규칙/평가의 DB 회귀 테스트로 별도 검증한다. 실제 규정을 가짜 개정으로 덮어쓰지 않는다.
+
+검증 결과: 새 파일 DB에 마이그레이션부터 적용한 확대 회귀 **156건 모두 통과(50.598초, 실패·건너뜀 0)**. 마지막 CAPA 후속 연결·파일 격리/변조·페이지 처리 보완 후 검토 업무 테스트 **20건 재실행 통과(2.797초)**. 실제 두 스레드의 동일 버전 저장은 1건 저장·1건 충돌로 처리됐다. 초기 재사용 테스트 DB에서는 앞선 TransactionTestCase의 flush로 이관 템플릿이 없어 회귀가 실패했고, 새 DB에서 재실행해 구분했다. PDF 회귀의 폰트 미설정 건너뜀도 맑은 고딕 경로를 지정한 최종 실행에서 통과했다. 기존 업무 3개·업무 이력 6개·초안 19개와 제품·시장 등록·보고 규칙·사건의 기존 열 값 보존을 대조했다. `notify_tasks` 실제 반복 실행은 3건 생성 후 0건, PowerShell 점검 스크립트도 실행 성공했다. `check`, 마이그레이션 변경 검사, `git diff --check` 통과. 전체 Django 테스트 전체 집합·PostgreSQL 배포·운영 스케줄러 설치·새 업로드의 실제 악성코드 검사기 성공은 이번 검증 범위가 아니다.

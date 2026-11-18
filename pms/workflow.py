@@ -21,11 +21,15 @@ def tasks_for(user):
     qs=WorkTask.objects.select_related("complaint","assignee","capa","recall")
     qs=qs.filter(Q(market_comparison__isnull=True)|Q(market_comparison__run__in=runs_for(user).order_by()))
     if scoped(user):
+        from .market_service import case_markets
+        qs=qs.filter(Q(complaint__in=case_markets(user).values('complaint_id'))|Q(ra_profile__device_id__in=product_markets(user).values('device_id'),ra_profile__jurisdiction__in=allowed_markets(user)))
         qs=qs.filter(Q(udi_label_incident__isnull=True)|Q(udi_label_incident__serial__device_id__in=product_markets(user).values('device_id'),ra_profile__jurisdiction__in=allowed_markets(user)))
     elif role(user) not in ('RA_QA','ADMIN'):qs=qs.filter(udi_label_incident__isnull=True)
     if role(user)=="STAFF":
         # An assignment never grants access to somebody else's case.
         qs=qs.filter(Q(complaint__in=visible_complaints(user))|Q(ra_profile__isnull=False),assignee=user)
+    from .review_tasks import authorized_context_ids
+    qs=qs.filter(Q(review_context__isnull=True)|Q(pk__in=authorized_context_ids(user)))
     return qs
 
 
@@ -36,6 +40,7 @@ def task_state(obj):
 
 @transaction.atomic
 def save_task(obj,user):
+    if obj.pk and hasattr(obj,'review_context') and not getattr(obj,'_review_task_write',False):raise ValidationError('검토 업무 화면에서 사유·증빙과 버전을 지정하세요.')
     if obj.ra_profile_id:
         from .ra_models import RegulatoryProfile
         RegulatoryProfile.objects.select_for_update().get(pk=obj.ra_profile_id)
@@ -51,7 +56,7 @@ def save_task(obj,user):
     if not timezone.is_aware(obj.due_at): raise ValidationError("마감 시각에는 시간대가 필요합니다.")
     obj.full_clean(); obj.save()
     after=task_state(obj)
-    if before!=after:
+    if before!=after and not getattr(obj,"_review_task_history",False):
         TaskHistory.objects.create(task=obj,actor=user,before=before,after=after)
         audit(user,"TASK_CHANGE",obj,before,after)
     return obj
@@ -61,8 +66,13 @@ def notify_tasks(now=None):
     now=now or timezone.now(); horizon=now+timedelta(days=settings.TASK_DUE_SOON_DAYS); count=0
     for task in WorkTask.objects.filter(due_at__lte=horizon).exclude(status="DONE").iterator():
         kind="OVERDUE" if task.due_at<now else "SOON"
-        key=f"task:{task.pk}:{task.assignee_id}:{task.due_at.isoformat()}:{kind}"
-        _,created=Notification.objects.get_or_create(dedupe_key=key,defaults={"user":task.assignee,"title":f"업무 {'기한 초과' if kind=='OVERDUE' else '마감 임박'}: {task.title}"[:200],"message":f"업무 #{task.pk} / {timezone.localtime(task.due_at):%Y-%m-%d %H:%M %Z}","level":"WARNING","due_at":task.due_at})
+        context=getattr(task,'review_context',None)
+        if context:
+            from .review_tasks import accessible
+            if not accessible(task.assignee,context):continue
+        suffix=f':cycle-{context.cycle}' if context else ''
+        key=f"task:{task.pk}:{task.assignee_id}:{task.due_at.isoformat()}:{kind}{suffix}"
+        _,created=Notification.objects.get_or_create(dedupe_key=key,defaults={"work_task":task,"user":task.assignee,"title":f"업무 {'기한 초과' if kind=='OVERDUE' else '마감 임박'}: {task.title}"[:200],"message":f"업무 #{task.pk} / {timezone.localtime(task.due_at):%Y-%m-%d %H:%M %Z}","level":"WARNING","due_at":task.due_at})
         count+=int(created)
     return count
 

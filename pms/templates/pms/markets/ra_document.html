@@ -1,0 +1,28 @@
+{% extends 'pms/base.html' %}{% block content %}
+<nav><a href="{% url 'market-ra-documents' %}">RA 문서 작성</a> / <a href="{% url 'market-source-search' %}">근거 검색·채택</a> / <a href="{% url 'market-ra-impacts' %}">원문 개정 영향</a></nav>
+<p>{% if document.project.market == 'US' %}<a href="{% url 'market-writing' document.project.device_id %}">제품 정보·제품 증빙 수정</a>{% else %}<a href="{% url 'market-eu-writing' document.project.device_id %}">제품 정보·제품 증빙 수정</a>{% endif %}</p><h1>{{ document.project.device }} · 문서 v{{ revision.number }}</h1><p>Draft for RA Review · {{ state }} · {{ document.country }} · {{ document.language }} · {{ document.project.template }} · {{ revision.actor }} · {{ revision.created_at }}</p>
+{% if revision.draft.snapshot.specification.example %}<strong>예시 제품 자료 · 실제 규정 원문과 구분</strong>{% endif %}
+<p>작성 엔진: {{ revision.draft.snapshot.authoring_engine }}. 규정 인용은 검토 근거이며 제품 성능 증빙이 아닙니다. 내용 적합성과 제출 요건 충족은 RA가 확인합니다.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<p><a href="{% url 'market-ra-document-output' revision.pk 'docx' %}">DOCX 다운로드</a> · <a href="{% url 'market-ra-document-output' revision.pk 'csv' %}">근거 매트릭스 CSV</a></p>
+<section class="panel"><h2>검증 결과</h2><form method="post">{% csrf_token %}<button name="action" value="validate">현재 버전 다시 검증</button></form>
+{% if validation %}<p>검증 #{{ validation.pk }} · {{ validation.actor }} · {{ validation.created_at }}</p>{% for item in validation.findings %}<p><a href="#{{ item.anchor }}">{{ item.severity }} · {{ item.section }} · {{ item.code }}: {{ item.message }}</a></p>{% endfor %}{% else %}<p>저장 후 검증을 실행하세요.</p>{% endif %}
+<details><summary>이전 검증 결과</summary>{% for run in validations %}<p>#{{ run.pk }} · {{ run.created_at }} · {{ run.findings|length }}개</p>{% for item in run.findings %}<p>{{ item.section }} · {{ item.code }} · {{ item.message }}</p>{% endfor %}{% endfor %}</details></section>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="revise"><input type="hidden" name="expected" value="{{ revision.number }}">
+{% for row in rows %}<section class="panel" id="section-{{ row.section }}"><h2>{{ row.section }} · {{ row.title }}</h2>
+<label>문단 대상 모델<input name="model_{{ row.section }}" value="{{ row.product_model }}" maxlength="100"></label>
+<label>본문 ({{ document.language }})<textarea name="body_{{ row.section }}" rows="6" maxlength="12000">{{ row.body }}</textarea></label>
+<label>이 문단에 연결할 채택 근거 (복수 선택)<select multiple name="refs_{{ row.section }}" size="4">{% for choice in row.ref_choices %}<option value="{{ choice.id }}" {% if choice.selected %}selected{% endif %}>{{ choice.label }}</option>{% endfor %}</select></label>
+<p>검색 결과에서 기존 초안 #{{ revision.draft_id }}에 근거를 채택한 뒤 이 화면을 새로 열면 선택할 수 있습니다.</p>
+{% for ref in row.search_references %}<details><summary>규정 근거: {{ ref.title }} · {{ ref.version }} · {{ ref.section }}</summary><p>문서 ID {{ ref.document_id }} · 원문 버전 ID {{ ref.source_id }} · 수집 {{ ref.collected_at }}</p><blockquote>{{ ref.text }}</blockquote><a href="{{ ref.official_url }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">공식 원문</a></details>{% endfor %}
+{% for ref in row.references %}<p>제품 증빙: {{ ref.citation }} · 대상 모델 {{ ref.model }} · {{ ref.excerpt }}</p>{% empty %}<p>추가 입력 필요: 이 항목의 제품 증빙을 기존 자료 등록 화면에서 연결하세요.</p>{% endfor %}
+{% for gap in row.gaps %}<p>추가 입력 필요: {{ gap }}</p>{% endfor %}</section>{% endfor %}
+<label>수정 사유<input name="reason" required maxlength="2000"></label><button>수정 내용을 새 버전으로 저장</button></form>
+<section class="panel"><h2>최신 제품 정보·증빙 반영</h2><p>제품 입력을 수정한 뒤 새 버전으로 반영합니다. 기존 본문과 채택 근거는 유지되므로 달라진 제품 값은 본문에서도 수정·검증하세요.</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="refresh"><input type="hidden" name="expected" value="{{ revision.number }}"><input name="reason" required placeholder="반영 사유"><button>최신 제품 정보·증빙으로 새 버전</button></form></section><section class="panel"><h2>검토 흐름</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="review"><input type="hidden" name="expected_review" value="{{ expected_review }}">
+<select name="state"><option value="REQUESTED">검토 요청</option><option value="CHANGES_REQUESTED">수정 요청</option><option value="APPROVED">검토 완료</option></select>
+<label>담당자 적합성 검토 확인<input type="checkbox" name="acknowledged">제품 주장·규정 적용·남은 보완 항목을 검토함 (내부 문서 검토이며 제출 승인 아님)</label>
+<label>검토 판단 사유<textarea name="reason" required maxlength="2000"></textarea></label><button>검토 이력 추가</button></form>
+{% for event in events %}<p>{{ event.state }} · {{ event.actor }} · {{ event.created_at }} · {{ event.reason }}{% if event.state == "REQUESTED" %} · <a href="{% url 'market-review-task-create' 'DOCUMENT' event.pk %}">담당 업무 생성·열기</a>{% endif %}</p>{% endfor %}</section>
+<section class="panel"><h2>원문 변경</h2>{% for impact in impacts %}<p>{{ impact.section }} · {{ impact.state }} · <a href="{% url 'market-ra-impacts' %}">차이·영향 검토 열기</a></p>{% empty %}<p>접근 가능한 게시 원문에서 확인된 변경 없음.</p>{% endfor %}</section>
+<h2>문서 버전과 수정 내용</h2>{% for version in versions %}<p><a href="{% url 'market-ra-document' version.pk %}">v{{ version.number }}</a> · {{ version.actor }} · {{ version.created_at }} · {{ version.reason }}</p>{% endfor %}{% for change in changes %}<h3>{{ change.section }}</h3><pre>{{ change.diff }}</pre>{% endfor %}
+{% endblock %}

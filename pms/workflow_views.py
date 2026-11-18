@@ -1,10 +1,11 @@
 from datetime import timedelta
 import hashlib
 from django.conf import settings
+from django.core.paginator import Paginator
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -19,17 +20,39 @@ from .file_security import safe_attachment_bytes, private_path
 def form_page(request,form,title): return render(request,"pms/form.html",{"form":form,"title":title})
 
 @login_required
-def task_list(request):
+def task_list(request,api=False):
+    from django import forms
+    class Filters(forms.Form):
+        product=forms.IntegerField(label='제품 ID',required=False,min_value=1)
+        assignee=forms.IntegerField(label='담당자 ID',required=False,min_value=1)
+        status=forms.ChoiceField(label='상태',required=False,choices=[('', '전체'),*WorkTask.Status.choices])
+        start=forms.DateField(label='마감 시작일',required=False,widget=forms.DateInput(attrs={'type':'date'}))
+        end=forms.DateField(label='마감 종료일',required=False,widget=forms.DateInput(attrs={'type':'date'}))
+    form=Filters(request.GET)
     qs=tasks_for(request.user)
-    if request.GET.get("all")!="1": qs=qs.filter(assignee=request.user)
-    now=timezone.now(); kind=request.GET.get("filter")
-    if kind=="soon": qs=qs.filter(due_at__gte=now,due_at__lte=now+timedelta(days=settings.TASK_DUE_SOON_DAYS)).exclude(status="DONE")
-    if kind=="overdue": qs=qs.filter(due_at__lt=now).exclude(status="DONE")
-    return render(request,"pms/task_list.html",{"items":qs,"days":settings.TASK_DUE_SOON_DAYS})
+    if request.GET.get('all')!='1':qs=qs.filter(assignee=request.user)
+    now=timezone.now();kind=request.GET.get('filter')
+    if kind=='soon':qs=qs.filter(due_at__gte=now,due_at__lte=now+timedelta(days=settings.TASK_DUE_SOON_DAYS)).exclude(status='DONE')
+    if kind=='overdue':qs=qs.filter(due_at__lt=now).exclude(status='DONE')
+    if kind=='progress':qs=qs.filter(status='IN_PROGRESS')
+    if kind=='review':qs=qs.filter(status__in=['WAITING','REVIEW'])
+    if form.is_valid():
+        values=form.cleaned_data
+        if values['product']:qs=qs.filter(Q(complaint__device_id=values['product'])|Q(ra_profile__device_id=values['product']))
+        if values['assignee']:qs=qs.filter(assignee_id=values['assignee'])
+        if values['status']:qs=qs.filter(status=values['status'])
+        if values['start']:qs=qs.filter(due_at__date__gte=values['start'])
+        if values['end']:qs=qs.filter(due_at__date__lte=values['end'])
+    else:qs=qs.none()
+    page=Paginator(qs,50).get_page(request.GET.get('page'))
+    query=request.GET.copy();query.pop('page',None)
+    if api:return JsonResponse({'count':page.paginator.count,'page':page.number,'pages':page.paginator.num_pages,'items':[{'id':t.pk,'title':t.title,'assignee_id':t.assignee_id,'status':t.status,'due_at':t.due_at.isoformat(),'priority':t.priority,'deadline_mode':t.review_context.deadline_snapshot['mode'] if hasattr(t,'review_context') else 'LEGACY'} for t in page.object_list],'errors':form.errors.get_json_data()},status=200 if form.is_valid() else 400)
+    return render(request,'pms/task_list.html',{'items':page.object_list,'page':page,'filter_query':query.urlencode(),'days':settings.TASK_DUE_SOON_DAYS,'form':form})
 
 @login_required
 def task_edit(request,pk=None):
     obj=get_object_or_404(tasks_for(request.user),pk=pk) if pk else WorkTask()
+    if obj.pk and hasattr(obj,'review_context'):return redirect('market-review-task-detail',pk=obj.pk)
     if obj.market_comparison_id: return redirect("market-comparison-task",obj.market_comparison_id)
     if not pk: privileged(request.user)
     form=TaskForm(request.POST or None,instance=obj,initial={k:request.GET[k] for k in ("complaint","capa","recall") if k in request.GET})
@@ -44,6 +67,7 @@ def task_edit(request,pk=None):
 @login_required
 def task_detail(request,pk):
     obj=get_object_or_404(tasks_for(request.user),pk=pk)
+    if obj.pk and hasattr(obj,'review_context'):return redirect('market-review-task-detail',pk=obj.pk)
     if obj.market_comparison_id: return redirect("market-comparison-task",obj.market_comparison_id)
     incident=getattr(obj,'udi_label_incident',None)
     if incident:return redirect('market-udi-incident',incident.serial.device_id,incident.pk)

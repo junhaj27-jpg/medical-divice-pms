@@ -1,0 +1,1 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>업무 대상 시장 선택</h1>{% for code in countries %}<p><a href="?country={{ code }}&amp;section={{ section|urlencode }}&amp;source_fingerprint={{ source_fingerprint }}">{{ code }} 시장 업무 등록</a></p>{% empty %}<p>현재 접근 가능한 제품·사건의 시장 연결이 없습니다. 기존 해외 인허가 화면에서 시장 연결과 권한을 확인하세요.</p>{% endfor %}{% endblock %}

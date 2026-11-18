@@ -1,4 +1,4 @@
-{% extends 'pms/base.html' %}{% load market_ui %}{% block content %}
+{% extends 'pms/base.html' %}{% load market_ui %}{% block content %}<p><a href="{% url 'market-ra-documents' %}">근거 기반 RA 문서 작성</a> · <a href="{% url 'market-ra-impacts' %}">원문 개정 영향 검토</a></p>
 <p><a href="{% url 'market-dashboard' %}">{% ui 'markets' %} / {% ui writing_market %}</a></p>
 <h1>{% if writing_market == 'EU' %}{% ui 'eu_writing' %}{% else %}{% ui 'writing_ai' %}{% endif %}</h1>
 {% if writing_market == 'US' %}<p><a class="btn" href="{% url 'market-device-create' %}?type=MRI">MRI 촬영 장비 등록</a></p>{% endif %}
