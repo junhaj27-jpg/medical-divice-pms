@@ -662,3 +662,5 @@ from . import search_models
 from . import dossier_models
 
 from . import review_task_models
+
+from . import product_change_models

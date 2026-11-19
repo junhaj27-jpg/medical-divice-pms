@@ -3,7 +3,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError,ObjectDoesNotExist
 from django.db.models import Q
 from django.http import Http404,JsonResponse,HttpResponse,FileResponse
 from django.shortcuts import render,redirect,get_object_or_404
@@ -71,7 +71,7 @@ def create(request,kind,pk,api=False):
     except (ValueError,ValidationError) as exc:
         if api:return JsonResponse({'error':str(exc)},status=400)
         raise Http404
-    except (svc.RADocumentReview.DoesNotExist,svc.RADocumentRevision.DoesNotExist,svc.SearchEvidenceAdoption.DoesNotExist,svc.CAPAEvaluation.DoesNotExist):raise Http404
+    except ObjectDoesNotExist:raise Http404
     form=TaskForm(data if request.method=='POST' else None,user=request.user,creating=True,initial={'title':origin['title'][:200],'assignee':request.user.pk,'priority':'NORMAL','deadline_mode':'MANUAL','criteria':'연결된 문서·조항을 검토하고 판단 사유와 증빙을 기록한다.'})
     if request.method=='POST' and form.is_valid():
         try:

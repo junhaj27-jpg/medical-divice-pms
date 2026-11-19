@@ -28,6 +28,9 @@ def lock(model,pk):
 
 def accessible(user,context):
     if not user.is_active or role(user) not in ('RA_QA','ADMIN') or context.country not in allowed_markets(user):return False
+    if context.change_action_id:
+        from .product_changes import can_review,candidate_access
+        return can_review(user,context.change_action.review) and candidate_access(user,context.change_action.review,context.change_action.target_snapshot)
     if context.evaluation_id:return case_markets(user).filter(complaint_id=context.evaluation.capa.complaint_id,market=context.country).exists()
     if not product_markets(user).filter(device_id=context.product_id,market=context.country).exists():return False
     if context.revision_id:return dossier.revision_access(user,context.revision)
@@ -35,10 +38,15 @@ def accessible(user,context):
     return False
 
 def authorized_context_ids(user):
-    return [c.task_id for c in ReviewTaskContext.objects.select_related('revision__document__project__device','revision__draft','adoption__draft__project__device','adoption__review__result__run','evaluation__capa') if accessible(user,c)]
+    return [c.task_id for c in ReviewTaskContext.objects.select_related('revision__document__project__device','revision__draft','adoption__draft__project__device','adoption__review__result__run','evaluation__capa','change_action__review__change__device') if accessible(user,c)]
 
 def source(user,kind,pk,country='',section='',source_fingerprint=''):
     require_workspace(user)
+    if kind=='PRODUCT_CHANGE':
+        from .product_change_models import MRIChangeAction
+        from .product_changes import task_source
+        action=MRIChangeAction.objects.select_related('review__change__device').get(pk=pk)
+        return task_source(user,action)
     if kind=='DOCUMENT':
         event=RADocumentReview.objects.select_related('revision__document__project__device','revision__draft').get(pk=pk)
         revision=event.revision
@@ -130,7 +138,7 @@ def create(user,kind,pk,*,assignee,title,criteria,priority='NORMAL',deadline_mod
     else:
         task=WorkTask(complaint=origin['complaint'],ra_profile=None if origin['complaint'] else ensure_profile(user,origin['product'],origin['country']),assignee=assignee,title=title,priority=priority,due_at=at,capa=origin['evaluation'].capa if kind=='CAPA' else None)
         task._review_task_history=True;save_task(task,user)
-    context=ReviewTaskContext(task=task,origin_key=key,origin_kind=kind,product=origin['product'],country=origin['country'],revision=origin['revision'],adoption=origin['adoption'],evaluation=origin['evaluation'],source_snapshot=origin['snapshot'],criteria=criteria,deadline_snapshot=calculation)
+    context=ReviewTaskContext(change_action=origin.get('change_action'),task=task,origin_key=key,origin_kind=kind,product=origin['product'],country=origin['country'],revision=origin['revision'],adoption=origin['adoption'],evaluation=origin['evaluation'],source_snapshot=origin['snapshot'],criteria=criteria,deadline_snapshot=calculation)
     if not accessible(assignee,context):raise ValidationError('담당자에게 제품·시장·원문 접근 권한이 없습니다.')
     if context.revision_id:
         previous=ReviewTaskContext.objects.filter(revision__document_id=context.revision.document_id).order_by('-pk').first()
@@ -145,6 +153,14 @@ def create(user,kind,pk,*,assignee,title,criteria,priority='NORMAL',deadline_mod
     return task,True
 
 def files_for(task):
+    context=getattr(task,'review_context',None)
+    if context and context.change_action_id:
+        from django.db.models import Q
+        review=context.change_action.review
+        from .market_models import EU_COUNTRIES
+        scopes=[review.country,'EU' if review.country in EU_COUNTRIES else 'US']
+        # Completion proof may be a newly revised document; the request snapshot stays frozen.
+        return Attachment.objects.filter(ra_profile__device_id=context.product_id,ra_profile__jurisdiction__in=scopes,scan_status='PASSED')
     if task.complaint_id:return Attachment.objects.filter(complaint_id=task.complaint_id,scan_status='PASSED')
     return Attachment.objects.filter(ra_profile_id=task.ra_profile_id,scan_status='PASSED')
 
@@ -167,6 +183,7 @@ def update(user,task,*,expected,action,reason,comment='',evidence_ids=(),assigne
         if priority is not None:task.priority=priority
         if deadline_mode:task.due_at,context.deadline_snapshot=due(user,deadline_mode,due_at,basis_at,rule_id,context.country,context.product)
     elif action=='reopen':
+        if context.change_action_id and context.change_action.review.status=='COMPLETED':raise ValidationError('먼저 제품 변경 시장 검토를 재개하세요.')
         if task.status!='DONE':raise ValidationError('완료 업무만 재개할 수 있습니다.')
         task.status='IN_PROGRESS';context.cycle+=1;context.completed_by=None;context.completed_at=None
     elif action in ('start','request_review','request_changes','complete','evidence'):

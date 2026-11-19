@@ -1,5 +1,5 @@
 {% extends "pms/base.html" %}{% load market_ui %}
-{% block content %}
+{% block content %}{% if device.product_type == 'MRI' %}<p><a class="btn" href="{% url 'market-product-changes' device.pk %}">제품 변경 영향평가 (소프트웨어·라벨)</a></p>{% endif %}
 {% if eu_access %}<p><a class="btn" href="{% url 'market-eu-writing' device.pk %}">{% ui 'eu_writing' %}</a> · <a href="{% url 'market-eu-documents' %}">{% ui 'eu_legal_menu' %}</a></p>{% endif %}
 {% if us_access %}<p><a class="btn" href="{% url 'market-writing' device.pk %}">{% ui 'writing_ai' %}</a></p>{% endif %}
 {% if us_access %}<p><a class="btn" href="{% url 'market-dental' device.pk %}">{% ui 'dental_workspace' %}</a></p>{% endif %}

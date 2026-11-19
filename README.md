@@ -1404,3 +1404,64 @@ git diff --check
 실제 로컬 시연: `DEMO-MRI-REGISTERED-A` → 문서 개정 #4의 검토 요청 → 본사 `example-hq`가 업무 #4 생성 → `example-overseas`에게 배정 → 해당 계정의 앱 내 알림·읽음 확인 → 수정 요청 → 기존 검사 통과 예시 제품 증빙 #8 연결 → 완료 → 재개 → 2회차 증빙 재확인 후 재완료. `/review-tasks/4/`에서 원인·기한·의견·회차·완료 이력을 확인한다. 실행 기록/화면 HTML은 작업공간 `outputs/review-task-demo/`에 보존한다. 실제 HTTP 시연에서는 기존 검사 통과 예시 파일을 연결했으며 새 업로드의 악성코드 검사 성공을 주장하지 않는다. 규정 변경·달력 계산·CAPA 재조치는 가상 원문/규칙/평가의 DB 회귀 테스트로 별도 검증한다. 실제 규정을 가짜 개정으로 덮어쓰지 않는다.
 
 검증 결과: 새 파일 DB에 마이그레이션부터 적용한 확대 회귀 **156건 모두 통과(50.598초, 실패·건너뜀 0)**. 마지막 CAPA 후속 연결·파일 격리/변조·페이지 처리 보완 후 검토 업무 테스트 **20건 재실행 통과(2.797초)**. 실제 두 스레드의 동일 버전 저장은 1건 저장·1건 충돌로 처리됐다. 초기 재사용 테스트 DB에서는 앞선 TransactionTestCase의 flush로 이관 템플릿이 없어 회귀가 실패했고, 새 DB에서 재실행해 구분했다. PDF 회귀의 폰트 미설정 건너뜀도 맑은 고딕 경로를 지정한 최종 실행에서 통과했다. 기존 업무 3개·업무 이력 6개·초안 19개와 제품·시장 등록·보고 규칙·사건의 기존 열 값 보존을 대조했다. `notify_tasks` 실제 반복 실행은 3건 생성 후 0건, PowerShell 점검 스크립트도 실행 성공했다. `check`, 마이그레이션 변경 검사, `git diff --check` 통과. 전체 Django 테스트 전체 집합·PostgreSQL 배포·운영 스케줄러 설치·새 업로드의 실제 악성코드 검사기 성공은 이번 검증 범위가 아니다.
+
+
+## MRI 제품 변경 영향평가 (2026-11-19)
+
+MRI 제품 상세 또는 **해외 인허가 → 제품 변경 영향평가**(`/markets/product-changes/`)에서 **소프트웨어 버전 / 라벨** 변경을 접수한다. 규정 원문 개정 영향 검토(`/markets/ra-documents/impacts/`)와 별도 진입점이다. 기존 `ProductChange`는 RA 프로필과 실제 전후 `ProductRevision`을 요구하므로, 적용 전 제안의 시장별 평가를 위해 별도의 추가 전용 `MRIProductChange`를 두고 기존 MRI 구성·제품 등록·문서·파일·`WorkTask`·`TaskHistory`·`Notification`을 참조한다. 가상의 제품 개정본을 만들어 제품 마스터에 적용하지 않는다.
+
+접수 화면: `/devices/<product_id>/markets/product-changes/`. 변경 전후 값, 사유, 적용 예정일(업무상 날짜), 검토 시장, 관련 검사 통과 증빙을 선택한다. **변경 접수·검토 요청**은 하나의 동작이며 당시 제품/MRI 구성, 시장 등록 정보, 문서·템플릿·초안·라벨·시험 증빙 버전과 파일 SHA를 고정한다. 소프트웨어의 변경 전 값은 등록된 구성과 대조한다. 라벨 전후 값은 담당자가 확인한 식별자/문구로 입력하며 연결된 라벨 버전을 함께 확인한다. 신청 자체의 정정은 새 신청으로 접수하고, 시장 판단의 정정은 이전 이력을 유지하며 새 기록으로 저장한다. 같은 접수 키와 내용의 재전송은 기존 신청을 반환한다.
+
+기존 판매 시장 코드는 국가 단위다. 미국 `US`, EU 판매 국가 `DE/FR/ES/IT` 중 **등록됐고 사용자에게 허용된 시장만** 선택한다. EU는 국가별 등록·권한을 합쳐서 승인하지 않고 `EU · DE`와 같이 각각 독립적으로 평가한다. 현재 요청에서 선택하지 않은 시장까지 검토했다고 표시하지 않는다.
+
+시장별 화면 `/markets/product-change-reviews/<review_id>/`:
+
+1. 연결 관계를 근거로 당시 RA 초안·관리 문서·라벨과 제품/시험 증빙을 후보로 제시한다. 모든 연결 자료가 실제 영향 대상이라는 자동 판단은 하지 않는다. 자료가 없으면 **증빙 확인 필요** 후보를 표시한다.
+2. **추가 검토 필요 / 문서 개정 필요 / 시험 증빙 보완 필요 / 영향 없음**을 기록한다. 문서 개정과 증빙 보완은 동시 선택할 수 있다. 개정/보완 대상을 명시하고 판단 사유를 입력한다. 영향 없음은 다른 판단과 함께 선택할 수 없다. 제출 필요 여부와 규제 적합성은 RA가 사유로 판단한다.
+3. 당시 자료 열기에서 보존된 초안 스냅샷·문서 메타데이터·버전·페이지/시험 모델/소프트웨어 정보를 확인한다. 파일 다운로드는 현재 시장 권한·검사 상태와 당시 SHA를 재확인한다. 새 문서가 등록돼도 기존 후보 버전은 바뀌지 않는다.
+4. 선택한 대상의 **문서 개정/시험 보완 업무 생성·열기**에서 담당자·기한·완료 기준을 정한다. 변경 건+시장+조치 유형+대상에 DB 고유 제약과 트랜잭션 잠금을 적용하며 동일 요청은 기존 업무를 반환한다.
+5. 기존 **내 할 일**(`/markets/tasks/`)에서 업무 의견과 검사 통과 증빙을 연결하고 완료한다. 접수 이후 작성된 개정 문서의 새 파일도 같은 제품·시장 범위에서 완료 증빙으로 사용할 수 있다. 접수 스냅샷과 업무 완료 증빙은 별도로 보존한다.
+6. 시장 화면에서 필수 업무와 증빙을 다시 확인하고 **시장 검토 완료**를 기록한다. 선택한 조치에 업무가 없거나, 만들어진 필수 업무가 미완료이거나, 완료 증빙이 격리/변조되면 완료할 수 없다. 업무 완료가 시장 검토를 자동 완료하지 않는다. 완료한 시장에서 업무를 다시 열려면 먼저 판단 사유를 남겨 시장 검토를 재개한다. 정정·재개·재완료 이력은 누적된다.
+
+**접수·평가·업무 완료는 제품 마스터, MRI 소프트웨어 버전, 라벨, 시장 인허가 상태, 사건 보고 기한을 자동 변경하지 않는다.** 실제 제품 적용과 제출은 기존 제품·RA 관리 절차에서 별도로 처리한다. 법규·시험 결과·적합성 결론을 생성하는 AI 기능은 이 평가에서 사용하지 않는다.
+
+API는 세션/CSRF와 시장 권한을 사용한다.
+
+- `POST /markets/api/devices/<id>/product-changes/`: `kind=SOFTWARE|LABEL`, `before_value`, `after_value`, `reason`, `planned_on=YYYY-MM-DD`, `countries=[US,DE...]`, `evidence_ids=[ID...]`, UUID `request_key`.
+- `GET /markets/api/product-changes/<id>/`: 현재 권한에 해당하는 시장 검토만 반환한다.
+- `GET/POST /markets/api/product-change-reviews/<id>/`: `expected=<최신 검토 버전>`, `decisions=[REVIEW|DOCUMENT|EVIDENCE|NONE]`, `document_targets=[고정 후보 key]`, `evidence_targets=[고정 후보 key]`, `rationale`, `action=save|complete`.
+- `POST .../product-change-reviews/<id>/tasks/`: `action_type=DOCUMENT|EVIDENCE`, `target_key`, 기존 업무의 `assignee`, `title`, `criteria`, `priority`, `deadline_mode`, `due_at` 또는 `basis_at`+`rule_id`.
+- `GET .../product-change-reviews/<id>/candidates/<key>/`: 당시 자료 버전. HTML 경로의 `/original/`은 권한·검사·해시 검증 후 파일 다운로드.
+
+`0054`는 새 평가/판단/조치 모델과 기존 `ReviewTaskContext`의 nullable 제품 변경 조치 FK를 추가한다. 기존 업무 원인 제약을 기존 3종+제품 변경 조치 1종의 상호 배타 제약으로 확장하며 기존 데이터 값을 수정하지 않는다. 먼저 복사한 검증 DB에 적용한다.
+
+현재 Windows PowerShell 실행:
+
+```powershell
+Set-Location 'C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms'
+$py = (Resolve-Path .\.venv\Scripts\python.exe).Path
+$env:PYTHONPATH = (Resolve-Path ..\deps).Path + ';' + (Resolve-Path ..\rule-direct).Path
+$env:PYTHONIOENCODING = 'utf-8'
+$env:SQLITE_PATH = (Join-Path (Resolve-Path ..) 'product-change-validation.sqlite3')
+$env:PRIVATE_MEDIA_ROOT = (Join-Path (Resolve-Path ..) 'writing-demo-media')
+$env:DEBUG = 'True'
+& $py manage.py migrate --noinput
+# 기존 DEMO MRI와 기존 검사 통과 예시 파일을 대상으로만 시연용 DE 시장·EU 문서 연결 준비
+& $py manage.py seed_mri_product_change_demo --user example-hq --confirm-example-data
+& $py manage.py check
+& $py manage.py makemigrations --check --dry-run
+& $py manage.py runserver 127.0.0.1:8001 --noreload
+# 별도 PowerShell에서 같은 환경 설정 후 실행. 독립 파일 DB는 실제 동시 요청 검증에 필요하다.
+$env:SQLITE_TEST_PATH = (Join-Path (Resolve-Path ..) 'product-change-tests.sqlite3')
+$env:PDF_KOREAN_FONT = 'C:/Windows/Fonts/malgun.ttf'
+& $py manage.py test pms.test_product_changes pms.test_mri_registration pms.test_mri pms.test_dossier pms.test_review_tasks pms.test_market_workspace pms.test_market_review pms.test_writing pms.test_dental pms.test_eu_legal pms.test_workflow pms.test_ra_platform pms.test_source_search pms.test_search_acquisition --noinput
+git diff --check
+```
+
+현재 검증 DB 시연: 제품 #11 `DEMO-MRI-REGISTERED-A` → 변경 #1 `DEMO-v1` → `DEMO-v2` → 미국 검토 #1/독일(EU) 검토 #2 → 문서 개정 업무 #5/#6 → 해외 담당자의 검사 통과 예시 증빙 #8/#12 연결·업무 완료 → 각 시장 검토 완료. 관련 화면·API를 실제 로컬 HTTP/CSRF 요청으로 실행했다. 작업공간 `outputs/product-change-demo/execution.json`에 요청별 상태와 완료 이력을 기록한다. 완료 시도 차단, 중복 업무 재사용, 미국 완료 후 EU 검토가 독립적으로 남아 있는지 확인했고, 접수 전후 MRI 구성·등록 정보·기존 초안이 같음을 대조했다.
+
+시연 준비 명령은 DEMO 조건을 확인한 기존 파일의 **같은 바이트와 검사 SHA**를 EU 예시 프로필에서 참조한다. 새 업로드를 검사 없이 통과시키는 기능이 아니며 실제 악성코드 검사기를 실행했다고 주장하지 않는다. 새 업로드에는 기존 검사 설정이 계속 필요하다. EU 시장 연결은 `UNKNOWN`으로 두고 실제 허가·적합성을 선언하지 않는다. 실제 MRI 변경의 시험 영향·제출 필요 여부와 적합성은 제품 자료를 갖춘 RA 검토가 필요하다.
+
+검증 결과: 새 파일 DB의 MRI·RA 문서·시장 권한·검토 업무·검색/증빙 관련 회귀 **183건 모두 통과(168.761초, 실패·건너뜀 0)**. 마지막 파일 범위·비공개 초안·JSON 입력 보완 후 신규 기능/기존 검토 업무 **37건 재실행 통과(6.552초)**. 실제 두 스레드에서 같은 변경·시장·대상 업무를 동시에 요청해 한 건만 생성되고 나머지는 기존 업무를 받았다. 초기 SQLite 읽기 후 쓰기 잠금 승격 충돌을 재현해 첫 문장에서 쓰기 잠금을 예약하도록 수정했다. 기존 제품 12개·MRI 구성 2개·시장 등록 15개·초안 20개·업무 4개·업무 이력 13개·보고 규칙/사건/판단의 기존 열 값 보존을 대조했다. 시연 준비로만 DE 시장 1개·EU 예시 프로젝트/초안을 추가했으며 접수·완료 중 제품이나 등록 상태를 변경하지 않았다. `check`, `makemigrations --check --dry-run`, `git diff --check` 통과. PostgreSQL 실제 실행, 실제 제품의 규제 적합성/시험 영향 판정, 새 업로드의 실제 악성코드 검사기 성공, 브라우저의 시각적 레이아웃 검증은 이번 실행 범위에 포함하지 않는다. 화면 검증은 실제 HTTP HTML/API/파일 응답으로 수행했다.
+
+후속 재확인: 완료된 시장에서 같은 조치 대상을 다시 요청해도 완료 업무를 그대로 반환하도록 보완했다. 문서 개정·증빙 보완을 함께 선택하면 두 업무 모두 완료해야 하며, 영향 없음으로 판단을 정정해도 남아 있는 기존 필수 업무를 무시할 수 없다. 현재 코드로 MRI 등록·RA 문서·시장 권한·제품 변경·검토 업무 회귀 **87건 통과(50.725초)**, 제품 변경/검토 업무 집중 테스트 **40건 통과(6.523초)**. 실제 HTTP/CSRF 재확인에서도 미국/EU의 완료 업무 #5/#6을 재사용했고 업무·이력·판단·제품 마스터가 바뀌지 않았다. 기존 8001 서버 프로세스를 현재 권한으로 종료할 수 없어 최신 검증 서버는 **127.0.0.1:8002**로 실행했다. 위 서버 실행 명령의 포트를 `8002`로 지정하면 되며, 재확인 기록은 `outputs/product-change-demo/recheck.json`이다.

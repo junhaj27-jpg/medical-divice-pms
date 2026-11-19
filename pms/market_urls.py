@@ -21,7 +21,21 @@ from . import dossier_views as dossier
 from . import review_task_views as task_reviews
 from .workflow_views import task_list as my_tasks, task_detail as scoped_task_detail
 
+from . import product_change_views as product_changes
+
 urlpatterns = [
+    path("markets/product-changes/",product_changes.listing,name="market-product-changes-all"),
+    path("devices/<int:pk>/markets/product-changes/",product_changes.listing,name="market-product-changes"),
+    path("markets/api/devices/<int:pk>/product-changes/",product_changes.listing,{"api":True},name="market-product-changes-api"),
+    path("markets/product-changes/<int:pk>/",product_changes.change_detail,name="market-product-change"),
+    path("markets/api/product-changes/<int:pk>/",product_changes.change_detail,{"api":True},name="market-product-change-api"),
+    path("markets/product-change-reviews/<int:pk>/",product_changes.market_review,name="market-product-change-review"),
+    path("markets/api/product-change-reviews/<int:pk>/",product_changes.market_review,{"api":True},name="market-product-change-review-api"),
+    path("markets/product-change-reviews/<int:pk>/tasks/",product_changes.task_create,name="market-product-change-task"),
+    path("markets/api/product-change-reviews/<int:pk>/tasks/",product_changes.task_create,{"api":True},name="market-product-change-task-api"),
+    path("markets/product-change-reviews/<int:pk>/candidates/<str:key>/",product_changes.candidate,name="market-product-change-candidate"),
+    path("markets/product-change-reviews/<int:pk>/candidates/<str:key>/original/",product_changes.candidate,{"download":True},name="market-product-change-file"),
+    path("markets/api/product-change-reviews/<int:pk>/candidates/<str:key>/",product_changes.candidate,{"api":True},name="market-product-change-candidate-api"),
     path("markets/tasks/",my_tasks,name="market-task-list"),
     path("markets/tasks/<int:pk>/",scoped_task_detail,name="market-task-detail"),
     path("markets/notifications/",task_reviews.notifications,name="market-notifications"),
