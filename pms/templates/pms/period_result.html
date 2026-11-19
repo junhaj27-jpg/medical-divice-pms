@@ -1,0 +1,8 @@
+<section class="card"><h2>집계 결과 {% if criteria.example == 'sample' %}· 예시{% endif %}</h2>
+<p>{{ criteria.product.name }} / {{ criteria.product.model }} · {{ criteria.market }} · {{ criteria.example }} · 날짜 기준 {{ criteria.basis }} · 양끝 포함 {{ criteria.boundary }}</p>
+<p>A {{ criteria.a_start }} ~ {{ criteria.a_end }} ({{ result.days.a }}일) / B {{ criteria.b_start }} ~ {{ criteria.b_end }} ({{ result.days.b }}일)</p>
+<p>표시 시간대 {{ criteria.display_timezone }} · 업무상 날짜 (시간대 변환 없음) · 단위: 사건 ID별 건수 · 유형 필터: {{ criteria.complaint_type|default:'전체' }}</p>
+<p>기준 {{ criteria.policy }} / {{ criteria.source }} / 계산 시각 {{ generated_display }}</p>
+<table><thead><tr><th>항목</th><th>기준 A</th><th>비교 B</th><th>증감 건수 (B−A)</th><th>증감률 (%)</th></tr></thead><tbody>{% for row in result.rows %}<tr><td>{% if row.metric == 'complaints' %}불만 (complaints){% elif row.metric == 'adverse_events' %}이상사례 (adverse_events){% elif row.metric == 'serious_adverse_events' %}중대 이상사례 (serious_adverse_events){% else %}{{ row.metric }}{% endif %}</td><td>{{ row.a }}</td><td>{{ row.b }}</td><td>{{ row.delta }}</td><td>{% if row.percent == None %}계산 불가{% else %}{{ row.percent }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+<h3>집계 제외 및 데이터 품질</h3><p>시장 미지정 제외: {% if result.quality.unassigned_excluded == None %}권한 범위 밖 (건수 비공개){% else %}A {{ result.quality.unassigned_excluded.a }} / B {{ result.quality.unassigned_excluded.b }}{% endif %} · 기준일 누락 {{ result.quality.missing_basis_date }} · 중복 시장 연결 제외 {{ result.quality.duplicate_links_excluded }} (DB 고유 제약, EXISTS로 사건당 1건)</p>
+<ul>{% for warning in result.warnings %}<li>{{ warning }}</li>{% endfor %}</ul><p>다른 시장 사건은 조회 대상이 아닙니다. 입력 오류로 기존 CSV 수집에서 거부된 행은 이 내부 사건 코호트에 포함되지 않습니다. 발생률·인과관계·보고 판단을 자동 확정하지 않습니다.</p></section>

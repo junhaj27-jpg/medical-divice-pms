@@ -6,6 +6,49 @@
 
 > **한 줄 소개**: 흩어진 시판 후 안전관리 업무를 역할 기반 상태 머신과 감사 가능한 승인 흐름으로 연결한 의료기기 RA·QA 포트폴리오 프로젝트
 
+## PMS 기간 비교 및 분석 스냅샷 (2026-11-19)
+
+**해외 인허가 → PMS 기간 비교** (`/markets/pms-analysis/`) 또는 기존 **PMS 분석 → 등록 제품·시장 PMS 기간 비교**에서 사용한다. 제품·등록 시장·접수일/발생일·독립된 기간 A/B·예시/운영 자료·불만 유형을 선택한다. `CustomerComplaint`와 해당 사건의 `AdverseEvent`, `CaseMarket`만 집계하며, 기기명이 텍스트인 기존 외부 CSV 코호트와 합산하지 않는다. 시장을 추정하거나 기존 CSV/사건/인허가 데이터를 이관하지 않는다. `origin/feature/pms-analysis-snapshots-20261101`의 CSV/PDF 보관 구조를 확인했으나 오래된 인증·마이그레이션을 합치지 않고 현행 시장 권한과 검토 업무를 확장했다.
+
+양끝 포함 **업무상 날짜(DateField)**를 사용한다. IANA 시간대는 표시·기록용이며 사건 날짜를 이동시키지 않는다. 사건 ID별 1건, 이상사례는 불만의 부분집합, 중대 이상사례는 입력된 `serious` 플래그다. A가 0건이면 증감률은 계산 불가(CSV 빈 칸), 건수 차이와 음수는 유지한다. 기간 일수·중복 기간·시장 미지정 제외·집계 기준을 표시한다. 시장 제한 계정은 미지정/다른 시장의 건수에 접근할 수 없다. 내용 기반 중복 판정이나 검증된 사용량 분모가 없어 발생률은 계산하지 않는다.
+
+**분석 결과 저장 → 저장된 분석 결과 → 상세 → CSV 다운로드 → 검토 의견 → 추가 조사/CAPA 검토 업무 → 내 할 일** 순서다. 미리보기의 서버 서명된 집계(30분 유효)를 그대로 고정하며 같은 저장 요청 재전송은 같은 스냅샷을 반환한다. **같은 조건으로 최신 데이터 재분석**은 새 집계와 새 스냅샷을 만든다. 목록은 제품·시장·저장일(Asia/Seoul)로 필터링한다. CSV는 UTF-8 BOM, 스냅샷/제품/시장·저장자/일시·날짜 기준/경계/시간대/단위·기간/일수·항목별 A/B/차이/증감률·품질 경고만 포함한다. 환자 정보·사건 제목/서술·검토 의견·첨부는 제외한다. 상세와 CSV 모두 저장 당시 제품명·집계값을 사용한다.
+
+검토 의견은 추가 전용 이력이다. 후속 업무는 스냅샷+유형별 DB 고유 제약과 트랜잭션으로 재사용하며 SQLite 잠금은 전체 롤백 후 제한적으로 재시도한다. 기존 WorkTask의 담당자·수동/승인 규칙 기한·완료 기준·검사 통과 증빙·이력·알림을 사용한다. 사건 보고 상태나 CAPA 상태를 자동 변경하지 않는다. 현재 접근 권한은 목록·상세·저장·CSV·의견·업무에서 재확인한다. API는 `/markets/api/pms-analysis/`, `/markets/api/pms-analysis/snapshots/`, `/markets/api/pms-analysis/snapshots/<id>/`, 후속 업무는 마지막 경로에 `tasks/INVESTIGATION/` 또는 `tasks/CAPA/`다.
+
+현재 Windows 환경의 실행 명령 (저장소 루트 PowerShell, 기존 DB 원본은 보존하고 검증용 사본 사용):
+
+```powershell
+Set-Location "C:\Users\정준하\Documents\Codex\2026-11-08\medwatch-pms-https-github-com-junhaj27\work\medical-divice-pms"
+$env:PYTHONPATH = (Resolve-Path ../deps).Path + ';' + (Resolve-Path ../rule-direct).Path
+$env:PYTHONIOENCODING = 'utf-8'
+$env:SQLITE_PATH = Join-Path (Resolve-Path ..) 'pms-period-validation.sqlite3'
+if (!(Test-Path $env:SQLITE_PATH)) { Copy-Item -LiteralPath ../product-change-validation.sqlite3 -Destination $env:SQLITE_PATH }
+$env:PRIVATE_MEDIA_ROOT = Join-Path (Resolve-Path ..) 'writing-demo-media'
+$env:DEBUG = 'True'
+.\.venv\Scripts\python.exe manage.py migrate --noinput
+.\.venv\Scripts\python.exe manage.py seed_pms_period_demo --username example-hq
+.\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8003 --noreload
+```
+
+기존 `example-hq` RA 계정으로 로그인한다 (계정 비밀번호는 기존 데모 설정 유지). 예시 제품 **DEMO-PMS-PERIOD-MRI**, 독일(DE), 접수일, 예시 자료를 선택하고 A `2026-09-01~09-30`, B `2026-10-01~10-31`을 비교한다. 불만 A=2/B=3/차이=+1/50%, 이상사례 A=1/B=2를 확인한다. 저장·CSV·의견·업무 생성 후 **내 할 일**에서 담당자/기한/출처 스냅샷을 확인한다. `seed_pms_period_demo`는 DEMO 식별자만 추가하고 동일 예시를 재실행해도 중복 생성하지 않는다. 일반 설치에서는 `requirements.txt` 설치 후 같은 `manage.py` 명령을 사용한다 (위 `../deps` 경로는 이 Codex 작업 환경 전용).
+
+검증 (별도 PowerShell, 파일 기반 테스트 DB 이름은 데모 DB와 반드시 다르게 지정):
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path ../deps).Path + ';' + (Resolve-Path ../rule-direct).Path
+$env:PDF_KOREAN_FONT = 'C:/Windows/Fonts/malgun.ttf'
+$env:SQLITE_TEST_PATH = Join-Path (Resolve-Path ..) 'pms-period-regression-test.sqlite3'
+.\.venv\Scripts\python.exe manage.py test pms.test_period_analysis pms.test_analysis pms.test_market_workspace pms.test_review_tasks pms.test_product_changes pms.test_mri_registration pms.test_dossier --noinput
+.\.venv\Scripts\python.exe manage.py check
+.\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
+git diff --check
+```
+
+2026-11-19 로컬 검증: 관련 회귀 **105건 통과 / 스킵 0** (62.234초), 최종 신규 기능 집중 **14건 통과 / 스킵 0** (1.070초, 13건 중복 포함; 고유 테스트 106건). 한글 PDF 회귀도 `PDF_KOREAN_FONT` 지정 후 통과했다. `check`, 마이그레이션 차이 검사, `git diff --check` 통과. 별도 DB에 0055 적용 후 기존 주요 8개 테이블의 42개 기존 행이 동일함을 대조했다. 실제 8003 서버에서 기존 RA 로그인/CSRF로 비교 → 스냅샷 #1 → CSV → 의견 → 업무 #7 → 내 할 일까지 확인했다. 실행 기록·CSV는 작업 폴더의 `outputs/pms-period-demo/`, 테스트 로그는 `outputs/pms-period-tests-final.log`, `outputs/pms-period-focused-final.log`에 저장했다 (로컬 검증 산출물, 저장소 외부).
+
+테스트 DB는 실행 후 삭제된다. TransactionTestCase가 데이터를 flush하므로 템플릿 시드에 의존하는 회귀 테스트는 `--keepdb`로 재사용하지 않고 새 테스트 DB에서 실행한다. PostgreSQL 동시성·실제 운영 자료·브라우저 시각 검수는 로컬 SQLite/HTTP 검증과 별도다.
+
 ## 해외 인허가와 시장별 PMS
 
 ### MRI 장비 등록 → 미국 문서 작성 (2026-11-16)

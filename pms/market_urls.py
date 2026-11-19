@@ -23,7 +23,18 @@ from .workflow_views import task_list as my_tasks, task_detail as scoped_task_de
 
 from . import product_change_views as product_changes
 
+from . import period_views as periods
+
 urlpatterns = [
+    path('markets/pms-analysis/',periods.compare,name='market-pms-compare'),
+    path('markets/api/pms-analysis/',periods.compare,{'api':True},name='market-pms-compare-api'),
+    path('markets/pms-analysis/snapshots/',periods.listing,name='market-pms-snapshots'),
+    path('markets/api/pms-analysis/snapshots/',periods.listing,{'api':True},name='market-pms-snapshots-api'),
+    path('markets/pms-analysis/snapshots/<int:pk>/',periods.detail,name='market-pms-snapshot'),
+    path('markets/api/pms-analysis/snapshots/<int:pk>/',periods.detail,{'api':True},name='market-pms-snapshot-api'),
+    path('markets/pms-analysis/snapshots/<int:pk>/csv/',periods.detail,{'output':'csv'},name='market-pms-csv'),
+    path('markets/pms-analysis/snapshots/<int:pk>/tasks/<str:kind>/',periods.task_create,name='market-pms-task'),
+    path('markets/api/pms-analysis/snapshots/<int:pk>/tasks/<str:kind>/',periods.task_create,{'api':True},name='market-pms-task-api'),
     path("markets/product-changes/",product_changes.listing,name="market-product-changes-all"),
     path("devices/<int:pk>/markets/product-changes/",product_changes.listing,name="market-product-changes"),
     path("markets/api/devices/<int:pk>/product-changes/",product_changes.listing,{"api":True},name="market-product-changes-api"),

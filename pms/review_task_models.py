@@ -12,6 +12,7 @@ class ReviewTaskContext(models.Model):
     adoption=models.ForeignKey('SearchEvidenceAdoption',null=True,on_delete=models.PROTECT)
     evaluation=models.ForeignKey('CAPAEvaluation',null=True,on_delete=models.PROTECT)
     change_action=models.OneToOneField('MRIChangeAction',null=True,on_delete=models.PROTECT,related_name='task_context')
+    analysis_action=models.OneToOneField('PMSPeriodAction',null=True,on_delete=models.PROTECT,related_name='task_context')
     parent_task=models.ForeignKey('WorkTask',null=True,on_delete=models.PROTECT,related_name='review_followups')
     source_snapshot=models.JSONField()
     criteria=models.TextField(max_length=4000)
@@ -22,7 +23,7 @@ class ReviewTaskContext(models.Model):
     completed_by=models.ForeignKey(settings.AUTH_USER_MODEL,null=True,on_delete=models.PROTECT,related_name='+')
     completed_at=models.DateTimeField(null=True)
     class Meta:
-        constraints=[models.CheckConstraint(condition=(models.Q(revision__isnull=False,adoption__isnull=True,evaluation__isnull=True,change_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=False,evaluation__isnull=True,change_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=True,evaluation__isnull=False,change_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=True,evaluation__isnull=True,change_action__isnull=False)),name='review_task_one_origin')]
+        constraints=[models.CheckConstraint(condition=(models.Q(revision__isnull=False,adoption__isnull=True,evaluation__isnull=True,change_action__isnull=True,analysis_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=False,evaluation__isnull=True,change_action__isnull=True,analysis_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=True,evaluation__isnull=False,change_action__isnull=True,analysis_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=True,evaluation__isnull=True,change_action__isnull=False,analysis_action__isnull=True)|models.Q(revision__isnull=True,adoption__isnull=True,evaluation__isnull=True,change_action__isnull=True,analysis_action__isnull=False)),name='review_task_one_origin')]
 
 class ReviewTaskEvidence(AppendOnlyRecord):
     task=models.ForeignKey('WorkTask',on_delete=models.PROTECT,related_name='review_evidence')

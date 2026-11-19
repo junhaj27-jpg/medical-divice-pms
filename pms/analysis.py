@@ -120,6 +120,10 @@ def default_filters():
     return dict(basis='reported_on', start=(today - timedelta(days=29)).isoformat(), end=today.isoformat(), example='real', minimum=3, threshold=100)
 
 
+def percentage_change(before, after):
+    return round((after-before)/before*100, 1) if before else None
+
+
 def analyze(data):
     qs = AnalysisRecord.objects.filter(batch__is_example=data['example'] == 'sample')
     for field in ('device', 'manufacturer', 'model', 'event_type', 'source'):
@@ -137,7 +141,7 @@ def analyze(data):
     serial_filters = {k: v.isoformat() if isinstance(v, date) else v for k, v in data.items()}
     for device in sorted(now_counts.keys() | old_counts.keys()):
         count, old = now_counts[device], old_counts[device]
-        increase = round((count - old) / old * 100, 1) if old else None
+        increase = percentage_change(old, count)
         group = dict(device=device, count=count, previous=old, increase=increase)
         groups.append(group)
         if count >= data['minimum'] and (not old or (count - old) * 100 >= old * data['threshold']):

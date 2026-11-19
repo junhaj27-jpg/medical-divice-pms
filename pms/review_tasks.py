@@ -28,6 +28,9 @@ def lock(model,pk):
 
 def accessible(user,context):
     if not user.is_active or role(user) not in ('RA_QA','ADMIN') or context.country not in allowed_markets(user):return False
+    if context.analysis_action_id:
+        from .period_analysis import can_access
+        return can_access(user,context.analysis_action.snapshot)
     if context.change_action_id:
         from .product_changes import can_review,candidate_access
         return can_review(user,context.change_action.review) and candidate_access(user,context.change_action.review,context.change_action.target_snapshot)
@@ -42,6 +45,10 @@ def authorized_context_ids(user):
 
 def source(user,kind,pk,country='',section='',source_fingerprint=''):
     require_workspace(user)
+    if kind=='PMS_ANALYSIS':
+        from .period_models import PMSPeriodAction
+        from .period_analysis import task_source
+        return task_source(user,PMSPeriodAction.objects.select_related('snapshot__device').get(pk=pk))
     if kind=='PRODUCT_CHANGE':
         from .product_change_models import MRIChangeAction
         from .product_changes import task_source
@@ -138,7 +145,7 @@ def create(user,kind,pk,*,assignee,title,criteria,priority='NORMAL',deadline_mod
     else:
         task=WorkTask(complaint=origin['complaint'],ra_profile=None if origin['complaint'] else ensure_profile(user,origin['product'],origin['country']),assignee=assignee,title=title,priority=priority,due_at=at,capa=origin['evaluation'].capa if kind=='CAPA' else None)
         task._review_task_history=True;save_task(task,user)
-    context=ReviewTaskContext(change_action=origin.get('change_action'),task=task,origin_key=key,origin_kind=kind,product=origin['product'],country=origin['country'],revision=origin['revision'],adoption=origin['adoption'],evaluation=origin['evaluation'],source_snapshot=origin['snapshot'],criteria=criteria,deadline_snapshot=calculation)
+    context=ReviewTaskContext(analysis_action=origin.get('analysis_action'),change_action=origin.get('change_action'),task=task,origin_key=key,origin_kind=kind,product=origin['product'],country=origin['country'],revision=origin['revision'],adoption=origin['adoption'],evaluation=origin['evaluation'],source_snapshot=origin['snapshot'],criteria=criteria,deadline_snapshot=calculation)
     if not accessible(assignee,context):raise ValidationError('담당자에게 제품·시장·원문 접근 권한이 없습니다.')
     if context.revision_id:
         previous=ReviewTaskContext.objects.filter(revision__document_id=context.revision.document_id).order_by('-pk').first()

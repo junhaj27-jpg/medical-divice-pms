@@ -1,6 +1,6 @@
 {% extends 'pms/base.html' %}
 {% block content %}
-<h1>PMS 보고 건수 분석</h1>
+<h1>PMS 보고 건수 분석</h1><p><a href="{% url 'market-pms-compare' %}">등록 제품·시장 PMS 기간 비교 및 분석 스냅샷</a> (내부 사건 전용)</p>
 <p>검토가 필요한 신호를 찾는 분석 도구입니다. 발생률·인과관계·규제기관 제출 적합성을 자동 보증하지 않습니다. 기존 사건 관리와 별도 수집한 분석 코호트입니다.</p>
 {% if not report %}
 <section class="card"><h2>데이터 수집·품질 검증</h2><p>UTF-8 CSV, 최대 5MB / 10000행. 샘플 열과 순서는 README를 참조하세요. 개인정보를 입력하지 마세요.</p>

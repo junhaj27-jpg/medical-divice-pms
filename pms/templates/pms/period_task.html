@@ -1,0 +1,1 @@
+{% extends 'pms/base.html' %}{% block content %}<h1>분석 스냅샷 #{{ snapshot.pk }} 후속 검토 업무</h1><p><a href="{% url 'market-pms-snapshot' snapshot.pk %}">저장된 분석</a> · {{ snapshot.market }} · {{ kind }}</p>{% if error %}<div role="alert">{{ error }}</div>{% endif %}<form method="post">{% csrf_token %}{{ form.as_p }}<button>담당 업무 생성</button></form>{% endblock %}

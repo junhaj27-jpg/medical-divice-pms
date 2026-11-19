@@ -664,3 +664,5 @@ from . import dossier_models
 from . import review_task_models
 
 from . import product_change_models
+
+from . import period_models
